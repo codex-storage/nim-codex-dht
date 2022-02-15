@@ -40,6 +40,10 @@ func getField*(pb: ProtoBuffer, field: int,
     nid = readUintBE[256](buffer)
     ok(true)
 
+func write*(pb: var ProtoBuffer, field: int, nid: NodeId) =
+  ## Write NodeId value ``nodeid`` to object ``pb`` using ProtoBuf's encoding.
+  write(pb, field, nid.toBytesBE())
+
 func getField*(pb: ProtoBuffer, field: int,
                pr: var PeerRecord): ProtoResult[bool] {.inline.} =
   ## Read ``NodeId`` from ProtoBuf's message and validate it
@@ -55,6 +59,10 @@ func getField*(pb: ProtoBuffer, field: int,
     else:
       err(ProtoError.IncorrectBlob)
 
+func write*(pb: var ProtoBuffer, field: int, pr: PeerRecord) =
+  ## Write PeerRecord value ``pr`` to object ``pb`` using ProtoBuf's encoding.
+  write(pb, field, pr.encode())
+
 proc decode*(
   T: typedesc[AddProviderMessage],
   buffer: openArray[byte]): Result[AddProviderMessage, ProtoError] =
@@ -66,6 +74,15 @@ proc decode*(
   ? pb.getRequiredField(2, msg.prov)
 
   ok(msg)
+
+proc encode*(msg: AddProviderMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.cId)
+  pb.write(2, msg.prov)
+
+  pb.finish()
+  pb.buffer
 
 proc addProviderLocal(p: ProvidersProtocol, cId: NodeId, prov: PeerRecord) = 
   p.providers.mgetOrPut(cId, @[]).add(prov)
