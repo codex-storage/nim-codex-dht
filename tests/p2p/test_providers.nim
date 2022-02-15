@@ -13,43 +13,42 @@ import
   std/sequtils,
   chronos, stew/byteutils, nimcrypto, testutils/unittests,
   eth/keys,
-  eth/p2p/enode,
-  ../../dht/[discovery, kademlia, node],
-  chronicles
+  ../../eth/p2p/providers,
+  chronicles,
+  ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
+  ./discv5_test_helper,
+  libp2p/routing_record
 
-proc localAddress(port: int): Address =
-  let port = Port(port)
-  result = Address(udpPort: port, tcpPort: port,
-                   ip: parseIpAddress("127.0.0.1"))
+proc initProvidersNode*(
+    rng: ref BrHmacDrbgContext,
+    privKey: keys.PrivateKey,
+    address: Address,
+    bootstrapRecords: openArray[Record] = []):
+    ProvidersProtocol =
 
-proc initDiscoveryNode(privKey: PrivateKey, address: Address,
-                        bootnodes: seq[ENode]): DiscoveryProtocol =
-  let node = newDiscoveryProtocol(privKey, address, bootnodes)
-  node.open()
+  let d = initDiscoveryNode(rng, privKey, address, bootstrapRecords)
+  ProvidersProtocol(discovery: d)
 
-  return node
-
-proc bootstrapNodes(nodecount: int, bootnodes: seq[ENode], rng = keys.newRng()) : Future[seq[DiscoveryProtocol]] {.async.} =
+proc bootstrapNodes(nodecount: int, bootnodes: openArray[Record], rng = keys.newRng()) : seq[ProvidersProtocol] =
 
     for i in 0..<nodecount:
-      let node = initDiscoveryNode(PrivateKey.random(rng[]), localAddress(20302 + i), bootnodes)
+      let node = initProvidersNode(rng, keys.PrivateKey.random(rng[]), localAddress(20302 + i), bootnodes)
       result.add(node)
     
     debug "---- STARTING BOOSTRAPS ---"
 
-    await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
+    #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
 
-proc bootstrapNetwork(nodecount: int, rng = keys.newRng()) : Future[seq[DiscoveryProtocol]] {.async.} =
+proc bootstrapNetwork(nodecount: int, rng = keys.newRng()) : seq[ProvidersProtocol] =
   let
-    bootNodeKey = PrivateKey.fromHex(
+    bootNodeKey = keys.PrivateKey.fromHex(
       "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617")[]
     bootNodeAddr = localAddress(20301)
-    bootENode = ENode(pubkey: bootNodeKey.toPublicKey(), address: bootNodeAddr)
-    bootNode = initDiscoveryNode(bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
+    bootNode = initProvidersNode(rng, bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
 
-  waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
+  #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
   
-  result = await bootstrapNodes(nodecount - 1, @[bootENode], rng = rng)
+  result = bootstrapNodes(nodecount - 1, @[bootnode.discovery.localNode.record], rng = rng)
   result.insert(bootNode, 0)
 
 
@@ -58,13 +57,13 @@ suite "Providers Tests: node alone":
   asyncTest "node alone":
     let
       rng = keys.newRng()
-      nodes = await bootstrapNetwork(nodecount=1)
-      targetId = toNodeId(PrivateKey.random(rng[]).toPublicKey)
+      nodes = bootstrapNetwork(nodecount=1)
+      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
 
     asyncTest "Node in isolation should store":
 
       debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId)
+      let addedTo = await nodes[0].addProvider(targetId, PeerRecord())
       debug "Provider added to: ", addedTo
 
       debug "---- STARTING CHECKS ---"
@@ -93,19 +92,19 @@ suite "Providers Tests: node alone":
       check (providers.len == 0)
 
     for n in nodes:
-      n.close()
+      n.discovery.close()
     await sleepAsync(chronos.seconds(3))
 
   asyncTest "Providers Tests: two nodes":
     let
       rng = keys.newRng()
-      nodes = await bootstrapNetwork(nodecount=2)
-      targetId = toNodeId(PrivateKey.random(rng[]).toPublicKey) 
+      nodes = bootstrapNetwork(nodecount=2)
+      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey) 
 
     asyncTest "2 nodes, store and retieve from same":
 
       debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId)
+      let addedTo = await nodes[0].addProvider(targetId, PeerRecord())
       debug "Provider added to: ", addedTo
 
       debug "---- STARTING PROVIDERS LOOKUP ---"
@@ -124,7 +123,7 @@ suite "Providers Tests: node alone":
       check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
 
     for n in nodes:
-      n.close()
+      n.discovery.close()
     await sleepAsync(chronos.seconds(3))
 
   asyncTest "Providers Tests: 20 nodes":
