@@ -14,9 +14,9 @@ import
   libp2p/protobuf/minprotobuf
 
 type
-  ProvidersProtocol = ref object
+  ProvidersProtocol* = ref object
     providers: Table[NodeId, seq[PeerRecord]]
-    discovery: protocol.Protocol
+    discovery*: protocol.Protocol
 
   AddProviderMessage* = object
     cId: NodeId
