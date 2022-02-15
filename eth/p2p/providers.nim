@@ -27,7 +27,7 @@ type
 
   ProvidersMessage* = object
     total*: uint32
-    enrs*: seq[Record]
+    enrs*: seq[PeerRecord]
 
 func getField*(pb: ProtoBuffer, field: int,
                nid: var NodeId): ProtoResult[bool] {.inline.} =
@@ -92,7 +92,7 @@ proc registerAddProvider(p: ProvidersProtocol) =
 proc sendAddProvider*(p: ProvidersProtocol, dst: Node, cId: NodeId, pr: PeerRecord) =
   #type NodeDesc = tuple[ip: IpAddress, udpPort, tcpPort: Port, pk: PublicKey]
   let msg = AddProviderMessage(cId: cId, prov: pr)
-  discard p.discovery.talkReq(dst, protoIdAddProvider, pr.encode())
+  discard p.discovery.talkReq(dst, protoIdAddProvider, msg.encode())
 
 proc addProvider*(p: ProvidersProtocol, cId: NodeId, pr: PeerRecord): Future[seq[Node]] {.async.} =
   result = await p.discovery.lookup(cId)
