@@ -17,7 +17,9 @@ import
   chronicles,
   ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
   ./discv5_test_helper,
-  libp2p/routing_record
+  libp2p/routing_record,
+  libp2p/multihash,
+  libp2p/multicodec
 
 proc initProvidersNode(
     rng: ref BrHmacDrbgContext,
@@ -28,6 +30,21 @@ proc initProvidersNode(
 
   let d = initDiscoveryNode(rng, privKey, address, bootstrapRecords)
   newProvidersProtocol(d)
+
+proc toPeerRecord(p: ProvidersProtocol) : PeerRecord =
+  ## hadle conversion between the two worlds
+
+  #NodeId is a keccak-256 hash created by keccak256.digest and stored as UInt256
+  let discNodeId = p.discovery.localNode.id 
+  ## get it back to MDigest form
+  var digest: MDigest[256]
+  digest.data = discNodeId.toBytesBE
+  ## get into a MultiHash
+  var mh = MultiHash.init(multiCodec("keccak-256"), digest).orError(HashError).get()
+  result = PeerRecord.init(
+    peerId = PeerId.init(mh.data.buffer).get,
+    seqNo = 0,
+    addresses = @[])
 
 proc bootstrapNodes(nodecount: int, bootnodes: openArray[Record], rng = keys.newRng()) : seq[ProvidersProtocol] =
 
