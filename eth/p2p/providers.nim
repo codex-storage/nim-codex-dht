@@ -113,6 +113,9 @@ proc sendAddProvider*(p: ProvidersProtocol, dst: Node, cId: NodeId, pr: PeerReco
 
 proc addProvider*(p: ProvidersProtocol, cId: NodeId, pr: PeerRecord): Future[seq[Node]] {.async.} =
   result = await p.discovery.lookup(cId)
+  # TODO: lookup is sepcified as not returning local, even if that is the closest. Is this OK?
+  if result.len == 0:
+      result.add(p.discovery.localNode)
   for n in result:
     if n != p.discovery.localNode:
       p.sendAddProvider(n, cId, pr)
