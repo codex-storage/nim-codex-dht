@@ -80,13 +80,13 @@ suite "Providers Tests: node alone":
     asyncTest "Node in isolation should store":
 
       debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId, PeerRecord())
+      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
       debug "Provider added to: ", addedTo
 
       debug "---- STARTING CHECKS ---"
       check (addedTo.len == 1)
-      check (addedTo[0].id == nodes[0].thisNode.id)
-      check (nodes[0].getProvidersLocal(targetId)[0].id == nodes[0].thisNode.id)
+      check (addedTo[0].id == nodes[0].discovery.localNode.id)
+      check (nodes[0].getProvidersLocal(targetId)[0].peerId == nodes[0].toPeerRecord.peerId)
 
     asyncTest "Node in isolation should retrieve":
 
@@ -95,11 +95,11 @@ suite "Providers Tests: node alone":
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len > 0 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len > 0 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
     asyncTest "Should not retrieve bogus":
 
-      let bogusId = toNodeId(PrivateKey.random(rng[]).toPublicKey)
+      let bogusId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
  
       debug "---- STARTING PROVIDERS LOOKUP ---"
       let providers = await nodes[0].getProviders(bogusId)
@@ -109,7 +109,7 @@ suite "Providers Tests: node alone":
       check (providers.len == 0)
 
     for n in nodes:
-      n.discovery.close()
+      await n.discovery.closeWait()
     await sleepAsync(chronos.seconds(3))
 
   asyncTest "Providers Tests: two nodes":
@@ -121,7 +121,7 @@ suite "Providers Tests: node alone":
     asyncTest "2 nodes, store and retieve from same":
 
       debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId, PeerRecord())
+      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
       debug "Provider added to: ", addedTo
 
       debug "---- STARTING PROVIDERS LOOKUP ---"
@@ -129,7 +129,7 @@ suite "Providers Tests: node alone":
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
     asyncTest "2 nodes, retieve from other":
       debug "---- STARTING PROVIDERS LOOKUP ---"
@@ -137,23 +137,23 @@ suite "Providers Tests: node alone":
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
     for n in nodes:
-      n.discovery.close()
+      await n.discovery.closeWait()
     await sleepAsync(chronos.seconds(3))
 
   asyncTest "Providers Tests: 20 nodes":
     let
       rng = keys.newRng()
-      nodes = await bootstrapNetwork(nodecount=20)
-      targetId = toNodeId(PrivateKey.random(rng[]).toPublicKey) 
-    await sleepAsync(chronos.seconds(30))
+      nodes = bootstrapNetwork(nodecount=20)
+      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey) 
+    await sleepAsync(chronos.seconds(5))
 
     asyncTest "20 nodes, store and retieve from same":
 
       debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId)
+      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
       debug "Provider added to: ", addedTo
 
       debug "---- STARTING PROVIDERS LOOKUP ---"
@@ -161,7 +161,7 @@ suite "Providers Tests: node alone":
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
     asyncTest "20 nodes, retieve from other":
       debug "---- STARTING PROVIDERS LOOKUP ---"
@@ -169,18 +169,18 @@ suite "Providers Tests: node alone":
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
     asyncTest "20 nodes, retieve after bootnode dies":
       debug "---- KILLING BOOTSTRAP NODE ---"
-      nodes[0].close
+      await nodes[0].discovery.closeWait()
 
       debug "---- STARTING PROVIDERS LOOKUP ---"
       let providers = await nodes[^2].getProviders(targetId)
       debug "Providers:", providers
 
       debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].id == nodes[0].thisNode.id)
+      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
-    for n in nodes:
-      n.close()
+    for n in nodes[1..^1]:
+      await n.discovery.closeWait()
