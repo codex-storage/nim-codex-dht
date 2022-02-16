@@ -19,7 +19,7 @@ import
   ./discv5_test_helper,
   libp2p/routing_record
 
-proc initProvidersNode*(
+proc initProvidersNode(
     rng: ref BrHmacDrbgContext,
     privKey: keys.PrivateKey,
     address: Address,
@@ -27,14 +27,14 @@ proc initProvidersNode*(
     ProvidersProtocol =
 
   let d = initDiscoveryNode(rng, privKey, address, bootstrapRecords)
-  ProvidersProtocol(discovery: d)
+  newProvidersProtocol(d)
 
 proc bootstrapNodes(nodecount: int, bootnodes: openArray[Record], rng = keys.newRng()) : seq[ProvidersProtocol] =
 
     for i in 0..<nodecount:
       let node = initProvidersNode(rng, keys.PrivateKey.random(rng[]), localAddress(20302 + i), bootnodes)
+      node.discovery.start()
       result.add(node)
-    
     debug "---- STARTING BOOSTRAPS ---"
 
     #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
