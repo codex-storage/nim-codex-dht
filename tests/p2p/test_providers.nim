@@ -45,6 +45,7 @@ proc toPeerRecord(p: ProvidersProtocol) : PeerRecord =
     peerId = PeerId.init(mh.data.buffer).get,
     seqNo = 0,
     addresses = @[])
+  # trace "IDs", discNodeId, digest, mh, peerId=result.peerId.hex
 
 proc bootstrapNodes(nodecount: int, bootnodes: openArray[Record], rng = keys.newRng()) : seq[ProvidersProtocol] =
 
