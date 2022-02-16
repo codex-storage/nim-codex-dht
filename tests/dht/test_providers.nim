@@ -13,10 +13,10 @@ import
   std/sequtils,
   chronos, stew/byteutils, nimcrypto, testutils/unittests,
   eth/keys,
-  ../../eth/p2p/providers,
+  ../../dht/providers,
   chronicles,
   ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
-  ./discv5_test_helper,
+  test_helper,
   libp2p/routing_record,
   libp2p/multihash,
   libp2p/multicodec
