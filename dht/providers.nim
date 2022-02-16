@@ -20,6 +20,11 @@ type
     providers: Table[NodeId, seq[PeerRecord]]
     discovery*: protocol.Protocol
 
+## ---- AddProvider ----
+
+const
+  protoIdAddProvider = "AP".toBytes()
+
 proc addProviderLocal(p: ProvidersProtocol, cId: NodeId, prov: PeerRecord) = 
   trace "adding provider to local db", n=p.discovery.localNode, cId, prov
   p.providers.mgetOrPut(cId, @[]).add(prov)
@@ -28,9 +33,6 @@ proc recvAddProvider(p: ProvidersProtocol, nodeId: NodeId, msg: AddProviderMessa
     {.raises: [Defect].} =
   p.addProviderLocal(msg.cId, msg.prov)
   #TODO: check that CID is reasonably close to our NodeID
-
-const
-  protoIdAddProvider = "AP".toBytes()
 
 proc registerAddProvider(p: ProvidersProtocol) =
   proc handler(protocol: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
