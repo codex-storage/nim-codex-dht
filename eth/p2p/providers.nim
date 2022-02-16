@@ -85,12 +85,14 @@ proc encode*(msg: AddProviderMessage): seq[byte] =
   pb.buffer
 
 proc addProviderLocal(p: ProvidersProtocol, cId: NodeId, prov: PeerRecord) = 
+  trace "adding provider to local db", n=p.discovery.localNode, cId, prov
   p.providers.mgetOrPut(cId, @[]).add(prov)
 
 proc recvAddProvider(p: ProvidersProtocol, nodeId: NodeId, payload: openArray[byte])
     {.raises: [Defect].} =
   #TODO: add checks, add signed version
   let msg = AddProviderMessage.decode(payload).get()
+  trace "<<< add_provider ",  src = nodeId, dst = p.discovery.localNode.id, cid = msg.cId, prov=msg.prov
   p.addProviderLocal(msg.cId, msg.prov)
   #TODO: check that CID is reasonably close to our NodeID
 
@@ -113,6 +115,7 @@ proc sendAddProvider*(p: ProvidersProtocol, dst: Node, cId: NodeId, pr: PeerReco
 
 proc addProvider*(p: ProvidersProtocol, cId: NodeId, pr: PeerRecord): Future[seq[Node]] {.async.} =
   result = await p.discovery.lookup(cId)
+  trace "lookup returned:", result
   # TODO: lookup is sepcified as not returning local, even if that is the closest. Is this OK?
   if result.len == 0:
       result.add(p.discovery.localNode)
