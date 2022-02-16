@@ -149,7 +149,7 @@ suite "Providers Tests: node alone":
       rng = keys.newRng()
       nodes = bootstrapNetwork(nodecount=20)
       targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey) 
-    await sleepAsync(chronos.seconds(5))
+    await sleepAsync(chronos.seconds(15))
 
     asyncTest "20 nodes, store and retieve from same":
 
