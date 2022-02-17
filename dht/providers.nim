@@ -37,9 +37,9 @@ proc recvAddProvider(p: ProvidersProtocol, nodeId: NodeId, msg: AddProviderMessa
 proc registerAddProvider(p: ProvidersProtocol) =
   proc handler(protocol: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].} =
-    trace "<<< add_provider ",  src = nodeId, dst = p.discovery.localNode.id, cid = msg.cId, prov=msg.prov
     #TODO: add checks, add signed version
     let msg = AddProviderMessage.decode(request).get()
+    trace "<<< add_provider ",  src = fromId, dst = p.discovery.localNode.id, cid = msg.cId, prov=msg.prov
 
     recvAddProvider(p, fromId, msg)
 
@@ -138,8 +138,8 @@ proc recvGetProviders(p: ProvidersProtocol, nodeId: NodeId, msg: GetProvidersMes
 proc registerGetProviders(p: ProvidersProtocol) =
   proc handler(protocol: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].} =
-    trace "<<< get_providers ",  src = nodeId, dst = p.discovery.localNode.id, cid = msg.cId
     let msg = GetProvidersMessage.decode(request).get()
+    trace "<<< get_providers ",  src = fromId, dst = p.discovery.localNode.id, cid = msg.cId
 
     let returnMsg = recvGetProviders(p, fromId, msg)
     trace "returnMsg", returnMsg
