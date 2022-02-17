@@ -16,7 +16,7 @@ import
   std/[hashes, net],
   stew/arrayops,
   eth/[rlp, keys],
-  ./enr
+  "."/libp2p_record as enr
 
 type
   MessageKind* = enum

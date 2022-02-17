@@ -78,7 +78,8 @@ import
   stew/shims/net as stewNet, json_serialization/std/net,
   stew/[endians2, results], chronicles, chronos, stint, bearssl, metrics,
   eth/[rlp, keys, async_utils],
-  "."/[transport, messages, messages_encoding, node, routing_table, enr, random2, ip_vote, nodes_verification]
+  "."/[transport, messages, messages_encoding, node, routing_table, random2, ip_vote, nodes_verification],
+  "."/libp2p_record as enr
 
 import nimcrypto except toHex
 

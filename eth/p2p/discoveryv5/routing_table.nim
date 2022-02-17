@@ -11,7 +11,8 @@ import
   std/[algorithm, times, sequtils, bitops, sets, options],
   stint, chronicles, metrics, bearssl, chronos, stew/shims/net as stewNet,
   eth/net/utils,
-  "."/[node, random2, enr]
+  "."/[node, random2],
+  "."/libp2p_record as enr
 
 export options
 

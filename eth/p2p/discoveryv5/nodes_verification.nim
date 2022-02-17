@@ -3,7 +3,8 @@
 import
   std/[sets, options],
   stew/results, stew/shims/net, chronicles, chronos,
-  "."/[node, enr, routing_table]
+  "."/[node, routing_table],
+  "."/libp2p_record as enr
 
 logScope:
   topics = "nodes-verification"

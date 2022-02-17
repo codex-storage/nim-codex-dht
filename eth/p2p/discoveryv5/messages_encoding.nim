@@ -1,6 +1,7 @@
 import
   eth/[rlp],
-  "."/[messages, enr]
+  "."/[messages],
+  "."/libp2p_record as enr
 
 from stew/objects import checkedEnumAssign
 

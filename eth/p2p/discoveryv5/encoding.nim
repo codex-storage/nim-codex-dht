@@ -17,7 +17,8 @@ import
   std/[tables, options, hashes, net],
   nimcrypto, stint, chronicles, bearssl, stew/[results, byteutils], metrics,
   eth/[rlp, keys],
-  "."/[messages, messages_encoding, node, enr, hkdf, sessions]
+  "."/[messages, messages_encoding, node, hkdf, sessions],
+  "."/libp2p_record as enr
 
 from stew/objects import checkedEnumAssign
 

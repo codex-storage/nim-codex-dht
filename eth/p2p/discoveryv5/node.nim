@@ -11,7 +11,7 @@ import
   std/hashes,
   nimcrypto, stint, chronos, stew/shims/net, chronicles,
   eth/keys, eth/net/utils,
-  ./enr
+  "."/libp2p_record as enr
 
 export stint
 
@@ -58,7 +58,7 @@ func newNode*(r: Record): Result[Node, cstring] =
     ok(Node(id: pk.get().toNodeId(), pubkey: pk.get(), record: r,
        address: none(Address)))
 
-func update*(n: Node, pk: PrivateKey, ip: Option[ValidIpAddress],
+proc update*(n: Node, pk: PrivateKey, ip: Option[ValidIpAddress],
     tcpPort, udpPort: Option[Port] = none[Port](),
     extraFields: openArray[FieldPair] = []): Result[void, cstring] =
   ? n.record.update(pk, ip, tcpPort, udpPort, extraFields)
