@@ -10,7 +10,7 @@
 import
   std/hashes,
   nimcrypto, stint, chronos, stew/shims/net, chronicles,
-  ../../keys, ../../net/utils,
+  eth/keys, eth/net/utils,
   ./enr
 
 export stint

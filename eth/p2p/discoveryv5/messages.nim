@@ -15,7 +15,7 @@
 import
   std/[hashes, net],
   stew/arrayops,
-  ".."/../[rlp, keys],
+  eth/[rlp, keys],
   ./enr
 
 type

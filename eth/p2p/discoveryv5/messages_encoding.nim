@@ -1,5 +1,5 @@
 import
-  ".."/../[rlp],
+  eth/[rlp],
   "."/[messages, enr]
 
 from stew/objects import checkedEnumAssign

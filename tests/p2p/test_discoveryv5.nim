@@ -4,7 +4,7 @@ import
   std/tables,
   chronos, chronicles, stint, testutils/unittests, stew/shims/net,
   stew/byteutils, bearssl,
-  ../../eth/keys,
+  eth/keys,
   ../../eth/p2p/discoveryv5/[transport, enr, node, routing_table, encoding, sessions, messages, nodes_verification],
   ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
   ./discv5_test_helper
