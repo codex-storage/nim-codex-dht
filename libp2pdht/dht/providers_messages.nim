@@ -1,5 +1,5 @@
 import
-  ../eth/p2p/discoveryv5/[node],
+  ../discv5/[node],
   libp2p/routing_record
 
 type

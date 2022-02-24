@@ -2,18 +2,20 @@
 
 import
   std/tables,
-  chronos, chronicles, stint, testutils/unittests, stew/shims/net,
+  chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   eth/keys,
-  ../../eth/p2p/discoveryv5/[transport, enr, node, routing_table, encoding, sessions, messages, nodes_verification],
-  ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
+  libp2pdht/discv5/[transport, enr, node, routing_table, encoding, sessions, messages, nodes_verification],
+  libp2pdht/discv5/protocol as discv5_protocol,
   ./discv5_test_helper
 
 suite "Discovery v5 Tests":
-  setup:
-    let rng = newRng()
+  var rng: ref HmacDrbgContext
 
-  asyncTest "GetNode":
+  setup:
+    rng = newRng()
+
+  test "GetNode":
     # TODO: This could be tested in just a routing table only context
     let
       node = initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -30,7 +32,7 @@ suite "Discovery v5 Tests":
 
     await node.closeWait()
 
-  asyncTest "Node deletion":
+  test "Node deletion":
     let
       bootnode = initDiscoveryNode(
         rng, PrivateKey.random(rng[]), localAddress(20301))
@@ -173,7 +175,7 @@ suite "Discovery v5 Tests":
     for (id, d) in testValues:
       check idAtDistance(targetId, d) == parse(id, UInt256, 16)
 
-  asyncTest "FindNode Test":
+  test "FindNode Test":
     const dist = 253'u16
     let
       mainNodeKey = PrivateKey.fromHex(
@@ -241,7 +243,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await testNode.closeWait()
 
-  asyncTest "FindNode with test table":
+  test "FindNode with test table":
 
     let mainNode =
       initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20301))
@@ -270,7 +272,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await testNode.closeWait()
 
-  asyncTest "Lookup targets":
+  test "Lookup targets":
     const
       nodeCount = 17
 
@@ -306,7 +308,7 @@ suite "Discovery v5 Tests":
     for node in nodes:
       await node.closeWait()
 
-  asyncTest "Resolve target":
+  test "Resolve target":
     let
       mainNode =
         initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20301))
@@ -389,7 +391,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await lookupNode.closeWait()
 
-  asyncTest "Random nodes with enr field filter":
+  test "Random nodes with enr field filter":
     let
       lookupNode = initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20301))
       targetFieldPair = toFieldPair("test", @[byte 1,2,3,4])
@@ -438,7 +440,7 @@ suite "Discovery v5 Tests":
         ip, some(port), some(port), bindPort = port, rng = rng,
         previousRecord = some(updatesNode.getRecord()))
 
-  asyncTest "Update node record with revalidate":
+  test "Update node record with revalidate":
     let
       mainNode =
         initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20301))
@@ -472,7 +474,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await testNode.closeWait()
 
-  asyncTest "Update node record with handshake":
+  test "Update node record with handshake":
     let
       mainNode =
         initDiscoveryNode(rng, PrivateKey.random(rng[]), localAddress(20301))
@@ -588,7 +590,7 @@ suite "Discovery v5 Tests":
     let dist1 = lookupDistances(u256(0), u256(1))
     check dist1 == @[1'u16, 2, 3]
 
-  asyncTest "Handshake cleanup: different ids":
+  test "Handshake cleanup: different ids":
     # Node to test the handshakes on.
     let receiveNode = initDiscoveryNode(
       rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -619,7 +621,7 @@ suite "Discovery v5 Tests":
 
     await receiveNode.closeWait()
 
-  asyncTest "Handshake cleanup: different ips":
+  test "Handshake cleanup: different ips":
     # Node to test the handshakes on.
     let receiveNode = initDiscoveryNode(
       rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -649,7 +651,7 @@ suite "Discovery v5 Tests":
 
     await receiveNode.closeWait()
 
-  asyncTest "Handshake duplicates":
+  test "Handshake duplicates":
     # Node to test the handshakes on.
     let receiveNode = initDiscoveryNode(
       rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -682,7 +684,7 @@ suite "Discovery v5 Tests":
 
     await receiveNode.closeWait()
 
-  asyncTest "Talkreq no protocol":
+  test "Talkreq no protocol":
     let
       node1 = initDiscoveryNode(
         rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -698,7 +700,7 @@ suite "Discovery v5 Tests":
     await node1.closeWait()
     await node2.closeWait()
 
-  asyncTest "Talkreq echo protocol":
+  test "Talkreq echo protocol":
     let
       node1 = initDiscoveryNode(
         rng, PrivateKey.random(rng[]), localAddress(20302))
@@ -723,7 +725,7 @@ suite "Discovery v5 Tests":
     await node1.closeWait()
     await node2.closeWait()
 
-  asyncTest "Talkreq register protocols":
+  test "Talkreq register protocols":
     let
       node1 = initDiscoveryNode(
         rng, PrivateKey.random(rng[]), localAddress(20302))

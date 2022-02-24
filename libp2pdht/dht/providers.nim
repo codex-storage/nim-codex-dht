@@ -10,7 +10,7 @@ import
   chronicles,
   std/tables, sequtils,
   stew/byteutils, # toBytes
-  ../eth/p2p/discoveryv5/[protocol, node],
+  ../discv5/[protocol, node],
   libp2p/routing_record,
   ./providers_messages,
   ./providers_encoding

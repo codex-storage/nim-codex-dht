@@ -11,15 +11,19 @@
 
 import
   std/sequtils,
-  chronos, stew/byteutils, nimcrypto, testutils/unittests,
+  chronos, stew/byteutils, nimcrypto, asynctest,
   eth/keys,
-  ../../dht/providers,
+  libp2pdht/dht,
   chronicles,
-  ../../eth/p2p/discoveryv5/protocol as discv5_protocol,
+  libp2pdht/discv5/protocol as discv5_protocol,
   test_helper,
   libp2p/routing_record,
   libp2p/multihash,
   libp2p/multicodec
+
+
+
+# suite "Providers Tests: node alone":
 
 proc initProvidersNode(
     rng: ref BrHmacDrbgContext,
@@ -35,7 +39,7 @@ proc toPeerRecord(p: ProvidersProtocol) : PeerRecord =
   ## hadle conversion between the two worlds
 
   #NodeId is a keccak-256 hash created by keccak256.digest and stored as UInt256
-  let discNodeId = p.discovery.localNode.id 
+  let discNodeId = p.discovery.localNode.id
   ## get it back to MDigest form
   var digest: MDigest[256]
   digest.data = discNodeId.toBytesBE
@@ -65,123 +69,151 @@ proc bootstrapNetwork(nodecount: int, rng = keys.newRng()) : seq[ProvidersProtoc
     bootNode = initProvidersNode(rng, bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
 
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
-  
+
   result = bootstrapNodes(nodecount - 1, @[bootnode.discovery.localNode.record], rng = rng)
   result.insert(bootNode, 0)
 
 
+
+# suite "Providers Tests":
 suite "Providers Tests: node alone":
+  var
+    rng: ref HmacDrbgContext
+    nodes: seq[ProvidersProtocol]
+    targetId: NodeId
 
-  asyncTest "node alone":
-    let
-      rng = keys.newRng()
-      nodes = bootstrapNetwork(nodecount=1)
-      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
+  before:
+    debug "RUNNING BEFORE TESTS"
+    rng = keys.newRng()
+    nodes = bootstrapNetwork(nodecount=1)
+    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
 
-    asyncTest "Node in isolation should store":
-
-      debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
-      debug "Provider added to: ", addedTo
-
-      debug "---- STARTING CHECKS ---"
-      check (addedTo.len == 1)
-      check (addedTo[0].id == nodes[0].discovery.localNode.id)
-      check (nodes[0].getProvidersLocal(targetId)[0].peerId == nodes[0].toPeerRecord.peerId)
-
-    asyncTest "Node in isolation should retrieve":
-
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[0].getProviders(targetId)
-      debug "Providers:", providers
-
-      debug "---- STARTING CHECKS ---"
-      check (providers.len > 0 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
-
-    asyncTest "Should not retrieve bogus":
-
-      let bogusId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
- 
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[0].getProviders(bogusId)
-      debug "Providers:", providers
-
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 0)
-
+  after:
+    debug "RUNNING AFTER TESTS"
     for n in nodes:
       await n.discovery.closeWait()
     await sleepAsync(chronos.seconds(3))
 
-  asyncTest "Providers Tests: two nodes":
-    let
-      rng = keys.newRng()
-      nodes = bootstrapNetwork(nodecount=2)
-      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey) 
 
-    asyncTest "2 nodes, store and retieve from same":
+  test "Node in isolation should store":
+    debug "---- ADDING PROVIDERS ---", nodes = nodes.len
+    let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
+    debug "Provider added to: ", addedTo
 
-      debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
-      debug "Provider added to: ", addedTo
+    debug "---- STARTING CHECKS ---"
+    check (addedTo.len == 1)
+    check (addedTo[0].id == nodes[0].discovery.localNode.id)
+    check (nodes[0].getProvidersLocal(targetId)[0].peerId == nodes[0].toPeerRecord.peerId)
 
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[0].getProviders(targetId)
-      debug "Providers:", providers
+  test "Node in isolation should retrieve":
 
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[0].getProviders(targetId)
+    debug "Providers:", providers
 
-    asyncTest "2 nodes, retieve from other":
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[1].getProviders(targetId)
-      debug "Providers:", providers
+    debug "---- STARTING CHECKS ---"
+    check (providers.len > 0 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+  test "Should not retrieve bogus":
 
+    let bogusId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
+
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[0].getProviders(bogusId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 0)
+
+
+suite "Providers Tests: two nodes":
+
+  var
+    rng: ref HmacDrbgContext
+    nodes: seq[ProvidersProtocol]
+    targetId: NodeId
+
+  before:
+    rng = keys.newRng()
+    nodes = bootstrapNetwork(nodecount=2)
+    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
+
+  after:
     for n in nodes:
       await n.discovery.closeWait()
     await sleepAsync(chronos.seconds(3))
 
-  asyncTest "Providers Tests: 20 nodes":
-    let
-      rng = keys.newRng()
-      nodes = bootstrapNetwork(nodecount=20)
-      targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey) 
+  test "2 nodes, store and retieve from same":
+
+    debug "---- ADDING PROVIDERS ---"
+    let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
+    debug "Provider added to: ", addedTo
+
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[0].getProviders(targetId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+
+  test "2 nodes, retieve from other":
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[1].getProviders(targetId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+
+
+
+suite "Providers Tests: 20 nodes":
+
+  var
+    rng: ref HmacDrbgContext
+    nodes: seq[ProvidersProtocol]
+    targetId: NodeId
+
+  before:
+    rng = keys.newRng()
+    nodes = bootstrapNetwork(nodecount=20)
+    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
+
     await sleepAsync(chronos.seconds(15))
 
-    asyncTest "20 nodes, store and retieve from same":
-
-      debug "---- ADDING PROVIDERS ---"
-      let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
-      debug "Provider added to: ", addedTo
-
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[0].getProviders(targetId)
-      debug "Providers:", providers
-
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
-
-    asyncTest "20 nodes, retieve from other":
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[^1].getProviders(targetId)
-      debug "Providers:", providers
-
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
-
-    asyncTest "20 nodes, retieve after bootnode dies":
-      debug "---- KILLING BOOTSTRAP NODE ---"
-      await nodes[0].discovery.closeWait()
-
-      debug "---- STARTING PROVIDERS LOOKUP ---"
-      let providers = await nodes[^2].getProviders(targetId)
-      debug "Providers:", providers
-
-      debug "---- STARTING CHECKS ---"
-      check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
-
+  after:
     for n in nodes[1..^1]:
       await n.discovery.closeWait()
+
+  test "20 nodes, store and retieve from same":
+
+    debug "---- ADDING PROVIDERS ---"
+    let addedTo = await nodes[0].addProvider(targetId, nodes[0].toPeerRecord)
+    debug "Provider added to: ", addedTo
+
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[0].getProviders(targetId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+
+  test "20 nodes, retieve from other":
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[^1].getProviders(targetId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+
+  test "20 nodes, retieve after bootnode dies":
+    debug "---- KILLING BOOTSTRAP NODE ---"
+    await nodes[0].discovery.closeWait()
+
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providers = await nodes[^2].getProviders(targetId)
+    debug "Providers:", providers
+
+    debug "---- STARTING CHECKS ---"
+    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+
+
