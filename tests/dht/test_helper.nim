@@ -1,8 +1,8 @@
 import
   stew/shims/net, bearssl, chronos,
   eth/keys,
-  ../../eth/p2p/discoveryv5/[enr, node, routing_table],
-  ../../eth/p2p/discoveryv5/protocol as discv5_protocol
+  libp2pdht/discv5/[enr, node, routing_table],
+  libp2pdht/discv5/protocol as discv5_protocol
 
 export net
 

@@ -2,12 +2,11 @@
 
 import
   std/[options, sequtils, tables],
-  unittest2,
+  chronos,
+  asynctest/unittest2,
   stint, stew/byteutils, stew/shims/net,
   eth/[keys,rlp],
-  ../../eth/p2p/discoveryv5/[messages, messages_encoding, encoding, enr, node, sessions]
-
-let rng = newRng()
+  libp2pdht/discv5/[messages, messages_encoding, encoding, enr, node, sessions]
 
 suite "Discovery v5.1 Protocol Message Encodings":
   test "Ping Request":
@@ -31,7 +30,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
   test "Pong Response":
     let
       enrSeq = 1'u64
-      ip = IpAddress(family: IPv4, address_v4: [127.byte, 0, 0, 1])
+      ip = IpAddress(family: IpAddressFamily.IPv4, address_v4: [127.byte, 0, 0, 1])
       port = 5000'u16
       p = PongMessage(enrSeq: enrSeq, ip: ip, port: port)
       reqId = RequestId(id: @[1.byte])
@@ -251,26 +250,31 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
   const
     nodeAKey = "0xeef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f"
     nodeBKey = "0x66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628"
-  setup:
-    let
-      privKeyA = PrivateKey.fromHex(nodeAKey)[] # sender -> encode
-      privKeyB = PrivateKey.fromHex(nodeBKey)[] # receive -> decode
 
+  var
+    codecA, codecB: Codec
+    nodeA, nodeB: Node
+    privKeyA, privKeyB: PrivateKey
+
+  setup:
+    privKeyA = PrivateKey.fromHex(nodeAKey)[] # sender -> encode
+    privKeyB = PrivateKey.fromHex(nodeBKey)[] # receive -> decode
+
+    let
       enrRecA = enr.Record.init(1, privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
-      nodeA = newNode(enrRecA).expect("Properly initialized record")
 
       enrRecB = enr.Record.init(1, privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
-      nodeB = newNode(enrRecB).expect("Properly initialized record")
 
-    var
-      codecA {.used.} = Codec(localNode: nodeA, privKey: privKeyA,
-        sessions: Sessions.init(5))
-      codecB = Codec(localNode: nodeB, privKey: privKeyB,
-        sessions: Sessions.init(5))
+    nodeA = newNode(enrRecA).expect("Properly initialized record")
+    nodeB = newNode(enrRecB).expect("Properly initialized record")
+    codecA = Codec(localNode: nodeA, privKey: privKeyA,
+      sessions: Sessions.init(5))
+    codecB = Codec(localNode: nodeB, privKey: privKeyB,
+      sessions: Sessions.init(5))
 
   test "Ping Ordinary Message Packet":
     const
@@ -420,6 +424,8 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         hexToSeqByte(encodedPacket & "00")).isErr()
 
 suite "Discovery v5.1 Additional Encode/Decode":
+  var rng = newRng()
+
   test "Encryption/Decryption":
     let
       encryptionKey = hexToByteArray[aesKeySize]("0x9f2d77db7004bf8a1a85107ac686990b")
@@ -475,24 +481,28 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
     check decoded.isOk()
 
-  setup:
-    let
-      privKeyA = PrivateKey.random(rng[]) # sender -> encode
-      privKeyB = PrivateKey.random(rng[]) # receiver -> decode
+  var
+    codecA, codecB: Codec
+    nodeA, nodeB: Node
+    privKeyA, privKeyB: PrivateKey
 
+  setup:
+    privKeyA = PrivateKey.random(rng[]) # sender -> encode
+    privKeyB = PrivateKey.random(rng[]) # receiver -> decode
+
+    let
       enrRecA = enr.Record.init(1, privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
-      nodeA = newNode(enrRecA).expect("Properly initialized record")
 
       enrRecB = enr.Record.init(1, privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
-      nodeB = newNode(enrRecB).expect("Properly initialized record")
 
-    var
-      codecA = Codec(localNode: nodeA, privKey: privKeyA, sessions: Sessions.init(5))
-      codecB = Codec(localNode: nodeB, privKey: privKeyB, sessions: Sessions.init(5))
+    nodeA = newNode(enrRecA).expect("Properly initialized record")
+    nodeB = newNode(enrRecB).expect("Properly initialized record")
+    codecA = Codec(localNode: nodeA, privKey: privKeyA, sessions: Sessions.init(5))
+    codecB = Codec(localNode: nodeB, privKey: privKeyB, sessions: Sessions.init(5))
 
   test "Encode / Decode Ordinary Random Message Packet":
     let
