@@ -17,8 +17,8 @@ jobs:
           ""
         ]
         test-program: [
-          "tests/dht",
-          "tests/discv5"
+          "tests/testdht",
+          "tests/testdiscv5"
         ]
     steps:
       - uses: actions/checkout@v2
@@ -36,8 +36,8 @@ jobs:
           cd nimcache; rm *.c; cd ..
           lcov --capture --directory nimcache --output-file coverage/coverage.info
           shopt -s globstar
-          ls `pwd`/libp2p-dht/{*,**/*}.nim
-          lcov --extract coverage/coverage.info  `pwd`/libp2p-dht/{*,**/*}.nim --output-file coverage/coverage.f.info
+          ls `pwd`/libp2pdht/{*,**/*}.nim
+          lcov --extract coverage/coverage.info  `pwd`/libp2pdht/{*,**/*}.nim --output-file coverage/coverage.f.info
           export COV_UUID=`cksum <<< "${{ matrix.test-program }} $NIM_OPTIONS" | cut -f 1 -d ' '`
           genhtml coverage/coverage.f.info --output-directory coverage/$COV_UUID-output
           echo ${{ matrix.test-program }} > coverage/$COV_UUID-nim_options.txt
