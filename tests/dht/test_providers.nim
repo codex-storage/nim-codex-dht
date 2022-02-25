@@ -82,13 +82,13 @@ suite "Providers Tests: node alone":
     nodes: seq[ProvidersProtocol]
     targetId: NodeId
 
-  before:
+  setupAll:
     debug "RUNNING BEFORE TESTS"
     rng = keys.newRng()
     nodes = bootstrapNetwork(nodecount=1)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
 
-  after:
+  teardownAll:
     debug "RUNNING AFTER TESTS"
     for n in nodes:
       await n.discovery.closeWait()
@@ -133,12 +133,12 @@ suite "Providers Tests: two nodes":
     nodes: seq[ProvidersProtocol]
     targetId: NodeId
 
-  before:
+  setupAll:
     rng = keys.newRng()
     nodes = bootstrapNetwork(nodecount=2)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
 
-  after:
+  teardownAll:
     for n in nodes:
       await n.discovery.closeWait()
     await sleepAsync(chronos.seconds(3))
@@ -173,14 +173,14 @@ suite "Providers Tests: 20 nodes":
     nodes: seq[ProvidersProtocol]
     targetId: NodeId
 
-  before:
+  setupAll:
     rng = keys.newRng()
     nodes = bootstrapNetwork(nodecount=20)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
 
     await sleepAsync(chronos.seconds(15))
 
-  after:
+  teardownAll:
     for n in nodes[1..^1]:
       await n.discovery.closeWait()
 
