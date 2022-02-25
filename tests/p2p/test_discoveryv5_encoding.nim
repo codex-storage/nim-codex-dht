@@ -256,7 +256,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
     nodeA, nodeB: Node
     privKeyA, privKeyB: PrivateKey
 
-  setup:
+  setupEach:
     privKeyA = PrivateKey.fromHex(nodeAKey)[] # sender -> encode
     privKeyB = PrivateKey.fromHex(nodeBKey)[] # receive -> decode
 
@@ -486,7 +486,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     nodeA, nodeB: Node
     privKeyA, privKeyB: PrivateKey
 
-  setup:
+  setupEach:
     privKeyA = PrivateKey.random(rng[]) # sender -> encode
     privKeyB = PrivateKey.random(rng[]) # receiver -> decode
 

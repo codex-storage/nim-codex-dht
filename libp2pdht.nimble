@@ -20,5 +20,5 @@ requires "nim >= 1.2.0",
          "secp256k1 >= 0.5.2 & < 0.6.0",
          "stew#head",
          "stint",
-         "asynctest#88ae00ea288c93b23d0111da4868127a1426f39d" # >= 0.3.0 & < 0.4.0"
+         "asynctest#ae29b86f62923f53e7ccae760126f79bc721c6c6" # >= 0.3.0 & < 0.4.0"
         #  "testutils >= 0.4.2 & < 0.5.0"
