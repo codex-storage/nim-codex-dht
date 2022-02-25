@@ -1,5 +1,7 @@
 # A DHT implementation for Dagger
 
+![GitHub CI](https://github.com/status-im/nim-libp2p-dht/actions/workflows/ci.yml/badge.svg) ![codecov](https://codecov.io/gh/status-im/nim-libp2p-dht/branch/main/graph/badge.svg?token=tlmMJgU4l7)](https://codecov.io/gh/status-im/nim-libp2p-dht)
+
 This DHT implementation is aiming to provide a DHT for Dagger with the following properties
 * flexible transport usage with
   * fast UDP based operation
