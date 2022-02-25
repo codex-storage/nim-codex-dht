@@ -165,3 +165,4 @@ jobs:
             echo -e "\nTesting with '--gc:orc':\n"
             export NIMFLAGS="${NIMFLAGS} --gc:orc"
             nimble test
+          fi;
