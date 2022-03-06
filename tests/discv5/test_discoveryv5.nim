@@ -12,7 +12,7 @@ import
 suite "Discovery v5 Tests":
   var rng: ref HmacDrbgContext
 
-  setupEach:
+  setup:
     rng = newRng()
 
   test "GetNode":
