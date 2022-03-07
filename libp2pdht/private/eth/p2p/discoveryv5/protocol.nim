@@ -76,13 +76,13 @@
 import
   std/[tables, sets, options, math, sequtils, algorithm],
   stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
+  stew/[base64, endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
   metrics, eth/[rlp, keys, async_utils], libp2p/routing_record,
-  "."/[transport, messages, messages_encoding, node, routing_table, enr, random2, ip_vote, nodes_verification]
+  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
 
 import nimcrypto except toHex
 
-export options, results, node, enr
+export options, results, node, spr
 
 declareCounter discovery_message_requests_outgoing,
   "Discovery protocol outgoing message requests", labels = ["response"]
@@ -91,7 +91,7 @@ declareCounter discovery_message_requests_incoming,
 declareCounter discovery_unsolicited_messages,
   "Discovery protocol unsolicited or timed-out messages"
 declareCounter discovery_enr_auto_update,
-  "Amount of discovery IP:port address ENR auto updates"
+  "Amount of discovery IP:port address SPR auto updates"
 
 logScope:
   topics = "discv5"
@@ -100,15 +100,15 @@ const
   alpha = 3 ## Kademlia concurrency factor
   lookupRequestLimit = 3 ## Amount of distances requested in a single Findnode
   ## message for a lookup or query
-  findNodeResultLimit = 16 ## Maximum amount of ENRs in the total Nodes messages
+  findNodeResultLimit = 16 ## Maximum amount of SPRs in the total Nodes messages
   ## that will be processed
-  maxNodesPerMessage = 3 ## Maximum amount of ENRs per individual Nodes message
+  maxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
   refreshInterval = 5.minutes ## Interval of launching a random query to
   ## refresh the routing table.
   revalidateMax = 10000 ## Revalidation of a peer is done between 0 and this
   ## value in milliseconds
   ipMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
-  ## majority and updating this when ENR auto update is set.
+  ## majority and updating this when SPR auto update is set.
   initialLookups = 1 ## Amount of lookups done when populating the routing table
   responseTimeout* = 4.seconds ## timeout for the response of a request-response
   ## call
@@ -128,7 +128,7 @@ type
     revalidateLoop: Future[void]
     ipMajorityLoop: Future[void]
     lastLookup: chronos.Moment
-    bootstrapRecords*: seq[Record]
+    bootstrapRecords*: seq[SignedPeerRecord]
     ipVote: IpVote
     enrAutoUpdate: bool
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
@@ -159,24 +159,28 @@ proc addNode*(d: Protocol, node: Node): bool =
   else:
     return false
 
-proc addNode*(d: Protocol, r: Record): bool =
-  ## Add `Node` from a `Record` to discovery routing table.
+proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
+  ## Add `Node` from a `SignedPeerRecord` to discovery routing table.
   ##
-  ## Returns false only if no valid `Node` can be created from the `Record` or
+  ## Returns false only if no valid `Node` can be created from the `SignedPeerRecord` or
   ## on the conditions of `addNode` from a `Node`.
   let node = newNode(r)
   if node.isOk():
     return d.addNode(node[])
 
-proc addNode*(d: Protocol, enr: EnrUri): bool =
-  ## Add `Node` from a ENR URI to discovery routing table.
+proc addNode*(d: Protocol, spr: SprUri): bool =
+  ## Add `Node` from a SPR URI to discovery routing table.
   ##
-  ## Returns false if no valid ENR URI, or on the conditions of `addNode` from
-  ## an `Record`.
-  var r: Record
-  let res = r.fromURI(enr)
-  if res:
-    return d.addNode(r)
+  ## Returns false if no valid SPR URI, or on the conditions of `addNode` from
+  ## an `SignedPeerRecord`.
+  try:
+    var r: SignedPeerRecord
+    let res = r.fromURI(spr)
+    if res:
+      return d.addNode(r)
+  except Base64Error as e:
+    error "Base64 error decoding SPR URI", error = e.msg
+    return false
 
 proc getNode*(d: Protocol, id: NodeId): Option[Node] =
   ## Get the node with id from the routing table.
@@ -213,15 +217,17 @@ proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 func privKey*(d: Protocol): lent keys.PrivateKey =
   d.privateKey
 
-func getRecord*(d: Protocol): Record =
-  ## Get the ENR of the local node.
+func getRecord*(d: Protocol): SignedPeerRecord =
+  ## Get the SPR of the local node.
   d.localNode.record
 
-proc updateRecord*(
-    d: Protocol, enrFields: openArray[(string, seq[byte])]): DiscResult[void] =
+proc updateRecord*(d: Protocol): DiscResult[void] =
   ## Update the ENR of the local node with provided `enrFields` k:v pairs.
-  let fields = mapIt(enrFields, toFieldPair(it[0], it[1]))
-  d.localNode.record.update(d.privateKey, fields)
+
+  # TODO: Do we need this proc? This simply serves so that seqNo will be
+  # incremented to satisfy the tests...
+  d.localNode.record.incSeqNo(d.privateKey)
+
   # TODO: Would it make sense to actively ping ("broadcast") to all the peers
   # we stored a handshake with in order to get that ENR updated?
 
@@ -240,27 +246,27 @@ proc sendNodes(d: Protocol, toId: NodeId, toAddr: Address, reqId: RequestId,
 
   if nodes.len == 0:
     # In case of 0 nodes, a reply is still needed
-    d.sendNodes(toId, toAddr, NodesMessage(total: 1, enrs: @[]), reqId)
+    d.sendNodes(toId, toAddr, NodesMessage(total: 1, sprs: @[]), reqId)
     return
 
   var message: NodesMessage
   # TODO: Do the total calculation based on the max UDP packet size we want to
-  # send and the ENR size of all (max 16) nodes.
+  # send and the SPR size of all (max 16) nodes.
   # Which UDP packet size to take? 1280? 576?
   message.total = ceil(nodes.len / maxNodesPerMessage).uint32
 
   for i in 0 ..< nodes.len:
-    message.enrs.add(nodes[i].record)
-    if message.enrs.len == maxNodesPerMessage:
+    message.sprs.add(nodes[i].record)
+    if message.sprs.len == maxNodesPerMessage:
       d.sendNodes(toId, toAddr, message, reqId)
-      message.enrs.setLen(0)
+      message.sprs.setLen(0)
 
-  if message.enrs.len != 0:
+  if message.sprs.len != 0:
     d.sendNodes(toId, toAddr, message, reqId)
 
 proc handlePing(d: Protocol, fromId: NodeId, fromAddr: Address,
     ping: PingMessage, reqId: RequestId) =
-  let pong = PongMessage(enrSeq: d.localNode.record.seqNum, ip: fromAddr.ip,
+  let pong = PongMessage(sprSeq: d.localNode.record.seqNum, ip: fromAddr.ip,
     port: fromAddr.port.uint16)
   trace "Respond message packet", dstId = fromId, address = fromAddr,
     kind = MessageKind.pong
@@ -369,7 +375,7 @@ proc replaceNode(d: Protocol, n: Node) =
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
     # peers in the routing table.
-    debug "Message request to bootstrap node failed", enr = toURI(n.record)
+    debug "Message request to bootstrap node failed", spr = toURI(n.record)
 
 
 proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
@@ -384,7 +390,7 @@ proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
   d.awaitedMessages[key] = result
 
 proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
-    Future[DiscResult[seq[Record]]] {.async.} =
+    Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
   ## Wait for one or more nodes replies.
   ##
   ## The first reply will hold the total number of replies expected, and based
@@ -394,12 +400,12 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
   var op = await d.waitMessage(fromNode, reqId)
   if op.isSome:
     if op.get.kind == nodes:
-      var res = op.get.nodes.enrs
+      var res = op.get.nodes.sprs
       let total = op.get.nodes.total
       for i in 1 ..< total:
         op = await d.waitMessage(fromNode, reqId)
         if op.isSome and op.get.kind == nodes:
-          res.add(op.get.nodes.enrs)
+          res.add(op.get.nodes.sprs)
         else:
           # No error on this as we received some nodes.
           break
@@ -443,7 +449,7 @@ proc ping*(d: Protocol, toNode: Node):
   ##
   ## Returns the received pong message or an error.
   let reqId = d.sendRequest(toNode,
-    PingMessage(enrSeq: d.localNode.record.seqNum))
+    PingMessage(sprSeq: d.localNode.record.seqNum))
   let resp = await d.waitMessage(toNode, reqId)
 
   if resp.isSome():
@@ -464,7 +470,7 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   ## Send a discovery findNode message.
   ##
   ## Returns the received nodes or an error.
-  ## Received ENRs are already validated and converted to `Node`.
+  ## Received SPRs are already validated and converted to `Node`.
   let reqId = d.sendRequest(toNode, FindNodeMessage(distances: distances))
   let nodes = await d.waitNodes(toNode, reqId)
 
@@ -799,8 +805,8 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
 
   if pong.isOk():
     let res = pong.get()
-    if res.enrSeq > n.record.seqNum:
-      # Request new ENR
+    if res.sprSeq > n.record.seqNum:
+      # Request new SPR
       let nodes = await d.findNode(n, @[0'u16])
       if nodes.isOk() and nodes[].len > 0:
         discard d.addNode(nodes[][0])
@@ -841,7 +847,7 @@ proc refreshLoop(d: Protocol) {.async.} =
 
 proc ipMajorityLoop(d: Protocol) {.async.} =
   ## When `enrAutoUpdate` is enabled, the IP:port combination returned
-  ## by the majority will be used to update the local ENR.
+  ## by the majority will be used to update the local SPR.
   ## This should be safe as long as the routing table is not overwhelmed by
   ## malicious nodes trying to provide invalid addresses.
   ## Why is that?
@@ -869,14 +875,14 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
             let res = d.localNode.update(d.privateKey,
               ip = some(address.ip), udpPort = some(address.port))
             if res.isErr:
-              warn "Failed updating ENR with newly discovered external address",
+              warn "Failed updating SPR with newly discovered external address",
                 majority, previous, error = res.error
             else:
               discovery_enr_auto_update.inc()
-              info "Updated ENR with newly discovered external address",
+              info "Updated SPR with newly discovered external address",
                 majority, previous, uri = toURI(d.localNode.record)
           else:
-            warn "Discovered new external address but ENR auto update is off",
+            warn "Discovered new external address but SPR auto update is off",
               majority, previous
         else:
           debug "Discovered external address matches current address", majority,
@@ -904,8 +910,8 @@ proc newProtocol*(
     enrIp: Option[ValidIpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
-    bootstrapRecords: openArray[Record] = [],
-    previousRecord = none[enr.Record](),
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
+    previousRecord = none[SignedPeerRecord](),
     bindPort: Port,
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
@@ -917,27 +923,30 @@ proc newProtocol*(
   # Anyhow, nim-beacon-chain would also require some changes to support port
   # remapping through NAT and this API is also subject to change once we
   # introduce support for ipv4 + ipv6 binding/listening.
-  let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
+
+  # TODO: Implement SignedPeerRecord custom fields?
+  # let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
+
   # TODO:
-  # - Defect as is now or return a result for enr errors?
-  # - In case incorrect key, allow for new enr based on new key (new node id)?
-  var record: Record
+  # - Defect as is now or return a result for spr errors?
+  # - In case incorrect key, allow for new spr based on new key (new node id)?
+  var record: SignedPeerRecord
   if previousRecord.isSome():
     record = previousRecord.get()
-    record.update(privKey, enrIp, enrTcpPort, enrUdpPort,
-      extraFields).expect("Record within size limits and correct key")
+    record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
+            .expect("SignedPeerRecord within size limits and correct key")
   else:
-    record = enr.Record.init(1, privKey, enrIp, enrTcpPort, enrUdpPort,
-      extraFields).expect("Record within size limits")
+    record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
+               .expect("SignedPeerRecord within size limits")
 
-  info "ENR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
+  info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
     seqNum = record.seqNum, uri = toURI(record)
   if enrIp.isNone():
     if enrAutoUpdate:
-      notice "No external IP provided for the ENR, this node will not be " &
-        "discoverable until the ENR is updated with the discovered external IP address"
+      notice "No external IP provided for the SPR, this node will not be " &
+        "discoverable until the SPR is updated with the discovered external IP address"
     else:
-      warn "No external IP provided for the ENR, this node will not be discoverable"
+      warn "No external IP provided for the SPR, this node will not be discoverable"
 
   let node = newNode(record).expect("Properly initialized record")
 
