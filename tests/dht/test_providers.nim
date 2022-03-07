@@ -181,7 +181,7 @@ suite "Providers Tests: 20 nodes":
     await sleepAsync(chronos.seconds(15))
 
   teardownAll:
-    for n in nodes[1..^1]:
+    for n in nodes: # if last test is enabled, we need nodes[1..^1] here
       await n.discovery.closeWait()
 
   test "20 nodes, store and retieve from same":
@@ -205,17 +205,16 @@ suite "Providers Tests: 20 nodes":
     debug "---- STARTING CHECKS ---"
     check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
-  test "20 nodes, retieve after bootnode dies":
-    # TODO: currently this is not working even with a 2 minute timeout
-    skip()
-    debug "---- KILLING BOOTSTRAP NODE ---"
-    await nodes[0].discovery.closeWait()
+  # test "20 nodes, retieve after bootnode dies":
+  #   # TODO: currently this is not working even with a 2 minute timeout
+  #   debug "---- KILLING BOOTSTRAP NODE ---"
+  #   await nodes[0].discovery.closeWait()
 
-    debug "---- STARTING PROVIDERS LOOKUP ---"
-    let providers = await nodes[^2].getProviders(targetId)
-    debug "Providers:", providers
+  #   debug "---- STARTING PROVIDERS LOOKUP ---"
+  #   let providers = await nodes[^2].getProviders(targetId)
+  #   debug "Providers:", providers
 
-    debug "---- STARTING CHECKS ---"
-    check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+  #   debug "---- STARTING CHECKS ---"
+  #   check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
 
 
