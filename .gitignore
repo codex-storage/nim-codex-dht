@@ -1,2 +1,3 @@
 coverage
 nimcache
+tests/testAll

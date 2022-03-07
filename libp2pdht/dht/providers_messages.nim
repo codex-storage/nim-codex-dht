@@ -5,11 +5,11 @@ import
 type
   AddProviderMessage* = object
     cId*: NodeId
-    prov*: PeerRecord
+    prov*: SignedPeerRecord
 
   GetProvidersMessage* = object
     cId*: NodeId
 
   ProvidersMessage* = object
     total*: uint32
-    provs*: seq[PeerRecord]
+    provs*: seq[SignedPeerRecord]

@@ -1,6 +1,6 @@
 import
   ../discv5/[node],
-  libp2p/routing_record,
+  libp2p/[routing_record, signed_envelope],
   libp2p/protobuf/minprotobuf,
   ./providers_messages
 
@@ -34,12 +34,22 @@ func getField*(pb: ProtoBuffer, field: int,
     else:
       err(ProtoError.IncorrectBlob)
 
-func write*(pb: var ProtoBuffer, field: int, pr: PeerRecord) =
-  ## Write PeerRecord value ``pr`` to object ``pb`` using ProtoBuf's encoding.
-  write(pb, field, pr.encode())
+func write*[T: SignedPeerRecord | PeerRecord | Envelope](
+    pb: var ProtoBuffer,
+    field: int,
+    env: T) {.raises: [Defect, ResultError[CryptoError]].} =
+
+  ## Write Envelope value ``env`` to object ``pb`` using ProtoBuf's encoding.
+  let encoded = env.encode().tryGet()
+  write(pb, field, encoded)
+
+# TODO: This should be included upstream in libp2p/signed_envelope. Once it's
+# added in libp2p, we can remove it from here.
+proc encode*[T](msg: SignedPayload[T]): Result[seq[byte], CryptoError] =
+  msg.envelope.encode()
 
 proc getRepeatedField*(pb: ProtoBuffer, field: int,
-                       value: var seq[PeerRecord]): ProtoResult[bool] {.
+                       value: var seq[SignedPeerRecord]): ProtoResult[bool] {.
      inline.} =
   var items: seq[seq[byte]]
   value.setLen(0)
@@ -48,7 +58,7 @@ proc getRepeatedField*(pb: ProtoBuffer, field: int,
     ok(false)
   else:
     for item in items:
-      let ma = PeerRecord.decode(item)
+      let ma = SignedPeerRecord.decode(item)
       if ma.isOk():
         value.add(ma.get())
       else:
@@ -102,7 +112,6 @@ proc decode*(
 
   let pb = initProtoBuffer(buffer)
   var msg = ProvidersMessage()
-
   ? pb.getRequiredField(1, msg.total)
   discard ? pb.getRepeatedField(2, msg.provs)
 
@@ -117,3 +126,4 @@ proc encode*(msg: ProvidersMessage): seq[byte] =
 
   pb.finish()
   pb.buffer
+
