@@ -11,7 +11,7 @@ import
   std/hashes,
   nimcrypto, stint, chronos, stew/shims/net, chronicles,
   eth/keys, eth/net/utils,
-  ./enr
+  ./spr
 
 export stint
 
@@ -24,27 +24,27 @@ type
 
   Node* = ref object
     id*: NodeId
-    pubkey*: PublicKey
+    pubkey*: keys.PublicKey
     address*: Option[Address]
-    record*: Record
+    record*: SignedPeerRecord
     seen*: bool ## Indicates if there was at least one successful
     ## request-response with this node.
 
-func toNodeId*(pk: PublicKey): NodeId =
+func toNodeId*(pk: keys.PublicKey): NodeId =
   ## Convert public key to a node identifier.
-  # Keccak256 hash is used as defined in ENR spec for scheme v4:
+  # Keccak256 hash is used as defined in SPR spec for scheme v4:
   # https://github.com/ethereum/devp2p/blob/master/enr.md#v4-identity-scheme
   readUintBE[256](keccak256.digest(pk.toRaw()).data)
 
-func newNode*(r: Record): Result[Node, cstring] =
-  ## Create a new `Node` from a `Record`.
+func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
+  ## Create a new `Node` from a `SignedPeerRecord`.
   # TODO: Handle IPv6
 
-  let pk = r.get(PublicKey)
+  let pk = r.get(keys.PublicKey)
   # This check is redundant for a properly created record as the deserialization
   # of a record will fail at `verifySignature` if there is no public key.
   if pk.isNone():
-    return err("Could not recover public key from ENR")
+    return err("Could not recover public key from SPR")
 
   # Also this can not fail for a properly created record as id is checked upon
   # deserialization.
@@ -58,10 +58,9 @@ func newNode*(r: Record): Result[Node, cstring] =
     ok(Node(id: pk.get().toNodeId(), pubkey: pk.get(), record: r,
        address: none(Address)))
 
-func update*(n: Node, pk: PrivateKey, ip: Option[ValidIpAddress],
-    tcpPort, udpPort: Option[Port] = none[Port](),
-    extraFields: openArray[FieldPair] = []): Result[void, cstring] =
-  ? n.record.update(pk, ip, tcpPort, udpPort, extraFields)
+proc update*(n: Node, pk: keys.PrivateKey, ip: Option[ValidIpAddress],
+    tcpPort, udpPort: Option[Port] = none[Port]()): Result[void, cstring] =
+  ? n.record.update(pk, ip, tcpPort, udpPort)
 
   if ip.isSome():
     if udpPort.isSome():

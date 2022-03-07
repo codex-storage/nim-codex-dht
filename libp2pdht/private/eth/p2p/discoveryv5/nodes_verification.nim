@@ -3,7 +3,7 @@
 import
   std/[sets, options],
   stew/results, stew/shims/net, chronicles, chronos,
-  "."/[node, enr, routing_table]
+  "."/[node, spr, routing_table]
 
 logScope:
   topics = "nodes-verification"
@@ -25,24 +25,24 @@ proc validIp(sender, address: IpAddress): bool =
   # https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
   return true
 
-proc verifyNodesRecords(enrs: openArray[Record], fromNode: Node, nodesLimit: int,
+proc verifyNodesRecords(sprs: openArray[SignedPeerRecord], fromNode: Node, nodesLimit: int,
     distances: Option[seq[uint16]]): seq[Node] =
-  ## Verify and convert ENRs to a sequence of nodes. Only ENRs that pass
-  ## verification will be added. ENRs are verified for duplicates, invalid
+  ## Verify and convert SPRs to a sequence of nodes. Only SPRs that pass
+  ## verification will be added. SPRs are verified for duplicates, invalid
   ## addresses and invalid distances if those are specified.
   var seen: HashSet[Node]
   var count = 0
-  for r in enrs:
-    # Check and allow for processing of maximum `findNodeResultLimit` ENRs
-    # returned. This limitation is required so no huge lists of invalid ENRs
+  for r in sprs:
+    # Check and allow for processing of maximum `findNodeResultLimit` SPRs
+    # returned. This limitation is required so no huge lists of invalid SPRs
     # are processed for no reason, and for not overwhelming a routing table
     # with nodes from a malicious actor.
-    # The discovery v5 specification specifies no limit on the amount of ENRs
+    # The discovery v5 specification specifies no limit on the amount of SPRs
     # that can be returned, but clients usually stick with the bucket size limit
     # as in original Kademlia. Because of this it is chosen not to fail
     # immediatly, but still process maximum `findNodeResultLimit`.
     if count >= nodesLimit:
-      debug "Too many ENRs", enrs = enrs.len(),
+      debug "Too many SPRs", sprs = sprs.len(),
         limit = nodesLimit, sender = fromNode.record.toURI
       break
 
@@ -79,8 +79,8 @@ proc verifyNodesRecords(enrs: openArray[Record], fromNode: Node, nodesLimit: int
       seen.incl(n)
       result.add(n)
 
-proc verifyNodesRecords*(enrs: openArray[Record], fromNode: Node, nodesLimit: int): seq[Node] =
-  verifyNodesRecords(enrs, fromNode, nodesLimit, none[seq[uint16]]())
+proc verifyNodesRecords*(sprs: openArray[SignedPeerRecord], fromNode: Node, nodesLimit: int): seq[Node] =
+  verifyNodesRecords(sprs, fromNode, nodesLimit, none[seq[uint16]]())
 
-proc verifyNodesRecords*(enrs: openArray[Record], fromNode: Node, nodesLimit: int, distances: seq[uint16]): seq[Node] =
-  verifyNodesRecords(enrs, fromNode, nodesLimit, some[seq[uint16]](distances))
+proc verifyNodesRecords*(sprs: openArray[SignedPeerRecord], fromNode: Node, nodesLimit: int, distances: seq[uint16]): seq[Node] =
+  verifyNodesRecords(sprs, fromNode, nodesLimit, some[seq[uint16]](distances))
