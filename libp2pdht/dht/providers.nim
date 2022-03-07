@@ -17,7 +17,7 @@ import
 
 type
   ProvidersProtocol* = ref object
-    providers: Table[NodeId, seq[PeerRecord]]
+    providers: Table[NodeId, seq[SignedPeerRecord]]
     discovery*: protocol.Protocol
 
 ## ---- AddProvider ----
@@ -25,7 +25,7 @@ type
 const
   protoIdAddProvider = "AP".toBytes()
 
-proc addProviderLocal(p: ProvidersProtocol, cId: NodeId, prov: PeerRecord) = 
+proc addProviderLocal(p: ProvidersProtocol, cId: NodeId, prov: SignedPeerRecord) =
   trace "adding provider to local db", n=p.discovery.localNode, cId, prov
   p.providers.mgetOrPut(cId, @[]).add(prov)
 
@@ -48,12 +48,12 @@ proc registerAddProvider(p: ProvidersProtocol) =
   let protocol = TalkProtocol(protocolHandler: handler)
   discard p.discovery.registerTalkProtocol(protoIdAddProvider, protocol) #TODO: handle error
 
-proc sendAddProvider*(p: ProvidersProtocol, dst: Node, cId: NodeId, pr: PeerRecord) =
+proc sendAddProvider*(p: ProvidersProtocol, dst: Node, cId: NodeId, pr: SignedPeerRecord) =
   #type NodeDesc = tuple[ip: IpAddress, udpPort, tcpPort: Port, pk: PublicKey]
   let msg = AddProviderMessage(cId: cId, prov: pr)
   discard p.discovery.talkReq(dst, protoIdAddProvider, msg.encode())
 
-proc addProvider*(p: ProvidersProtocol, cId: NodeId, pr: PeerRecord): Future[seq[Node]] {.async.} =
+proc addProvider*(p: ProvidersProtocol, cId: NodeId, pr: SignedPeerRecord): Future[seq[Node]] {.async.} =
   result = await p.discovery.lookup(cId)
   trace "lookup returned:", result
   # TODO: lookup is sepcified as not returning local, even if that is the closest. Is this OK?
@@ -87,7 +87,7 @@ proc getProvidersLocal*(
     p: ProvidersProtocol,
     cId: NodeId,
     maxitems: int = 5,
-  ): seq[PeerRecord] {.raises: [KeyError,Defect].}=
+  ): seq[SignedPeerRecord] {.raises: [KeyError,Defect].}=
   result = if (cId in p.providers): p.providers[cId] else: @[]
 
 proc getProviders*(
@@ -95,7 +95,7 @@ proc getProviders*(
     cId: NodeId,
     maxitems: int = 5,
     timeout: timer.Duration = chronos.milliseconds(5000)
-  ): Future[seq[PeerRecord]] {.async.} =
+  ): Future[seq[SignedPeerRecord]] {.async.} =
   ## Search for providers of the given cId.
 
   # What providers do we know about?
@@ -144,7 +144,10 @@ proc registerGetProviders(p: ProvidersProtocol) =
     let returnMsg = recvGetProviders(p, fromId, msg)
     trace "returnMsg", returnMsg
 
-    returnMsg.encode()
+    try:
+      returnMsg.encode()
+    except ResultError[CryptoError]:
+      return @[]
 
   let protocol = TalkProtocol(protocolHandler: handler)
   discard p.discovery.registerTalkProtocol(protoIdGetProviders, protocol) #TODO: handle error
