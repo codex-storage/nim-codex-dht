@@ -1,4 +1,4 @@
-name: Code Coverage
+name: Generate and upload code coverage
 
 on:
   #On push to common branches, this computes the "bases stats" for PRs
