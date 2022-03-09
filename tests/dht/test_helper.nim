@@ -2,7 +2,8 @@ import
   stew/shims/net, bearssl, chronos,
   eth/keys,
   libp2pdht/discv5/[enr, node, routing_table],
-  libp2pdht/discv5/protocol as discv5_protocol
+  libp2pdht/discv5/protocol as discv5_protocol,
+  libp2p/multiaddress
 
 export net
 
@@ -53,3 +54,13 @@ proc generateNRandomNodes*(rng: ref BrHmacDrbgContext, n: int): seq[Node] =
     let node = generateNode(PrivateKey.random(rng[]))
     res.add(node)
   res
+
+func udpExample*(_: type MultiAddress): MultiAddress =
+  ## creates a new udp multiaddress on a random port
+  Multiaddress.init("/ip4/0.0.0.0/udp/0")
+
+func udpExamples*(_: type MultiAddress, count: int): seq[MultiAddress] =
+  var res: seq[MultiAddress] = @[]
+  for i in 1..count:
+    res.add Multiaddress.init("/ip4/0.0.0.0/udp/" & $i).get
+  return res

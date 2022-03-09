@@ -14,7 +14,7 @@ requires "nim >= 1.2.0",
          "chronicles >= 0.10.2 & < 0.11.0",
          "chronos >= 3.0.11 & < 3.1.0",
          "eth >= 1.0.0 & < 1.1.0", # to be removed in https://github.com/status-im/nim-libp2p-dht/issues/2
-         "libp2p#316f205381f9015402a53009c8f61bf17d2989b5",
+         "libp2p#22fe39819ae8b3118a59e3962ea42087f878c5b6",
          "metrics",
          "protobufserialization >= 0.2.0 & < 0.3.0",
          "secp256k1 >= 0.5.2 & < 0.6.0",

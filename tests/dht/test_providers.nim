@@ -21,6 +21,7 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/routing_record,
+  libp2p/multiaddress,
   libp2p/multihash,
   libp2p/multicodec,
   libp2p/signed_envelope
@@ -44,8 +45,7 @@ proc toSignedPeerRecord(privKey: crypto.PrivateKey) : SignedPeerRecord =
 
   let pr = PeerRecord.init(
     peerId = PeerId.init(privKey.getPublicKey.get).get,
-    seqNo = 0,
-    addresses = @[])
+    addresses = MultiAddress.udpExamples(3))
   return SignedPeerRecord.init(privKey, pr).expect("Should init SignedPeerRecord with private key")
   # trace "IDs", discNodeId, digest, mh, peerId=result.peerId.hex
 
@@ -62,8 +62,6 @@ proc bootstrapNodes(nodecount: int, bootnodes: openArray[Record], rng = keys.new
 
 proc bootstrapNetwork(nodecount: int, rng = keys.newRng()) : seq[(ProvidersProtocol, keys.PrivateKey)] =
   let
-    privKey = keys.PrivateKey.fromHex(
-      "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617")[]
     bootNodeKey = keys.PrivateKey.fromHex(
       "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617")[]
     bootNodeAddr = localAddress(20301)
@@ -72,7 +70,7 @@ proc bootstrapNetwork(nodecount: int, rng = keys.newRng()) : seq[(ProvidersProto
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
 
   result = bootstrapNodes(nodecount - 1, @[bootnode.discovery.localNode.record], rng = rng)
-  result.insert((bootNode, privKey), 0)
+  result.insert((bootNode, bootNodeKey), 0)
 
 # TODO: Remove this once we have removed all traces of nim-eth/keys
 func pkToPk(pk: keys.PrivateKey) : Option[crypto.PrivateKey] =

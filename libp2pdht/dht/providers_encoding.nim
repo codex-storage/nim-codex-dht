@@ -43,11 +43,6 @@ func write*[T: SignedPeerRecord | PeerRecord | Envelope](
   let encoded = env.encode().tryGet()
   write(pb, field, encoded)
 
-# TODO: This should be included upstream in libp2p/signed_envelope. Once it's
-# added in libp2p, we can remove it from here.
-proc encode*[T](msg: SignedPayload[T]): Result[seq[byte], CryptoError] =
-  msg.envelope.encode()
-
 proc getRepeatedField*(pb: ProtoBuffer, field: int,
                        value: var seq[SignedPeerRecord]): ProtoResult[bool] {.
      inline.} =
