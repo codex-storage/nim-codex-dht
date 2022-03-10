@@ -1,4 +1,4 @@
 import
-  ./dht/providers
+  ./dht/[providers_encoding, providers_messages]
 
-export providers
+export providers_encoding, providers_messages

@@ -15,7 +15,10 @@
 import
   std/[hashes, net],
   eth/[keys],
-  ./enr
+  ./enr,
+  ../../../../dht/providers_messages
+
+export providers_messages
 
 type
   MessageKind* = enum
@@ -34,6 +37,9 @@ type
     ticket = 0x08
     regConfirmation = 0x09
     topicQuery = 0x0A
+    addProvider = 0x0B
+    getProviders = 0x0C
+    providers = 0x0D
 
   RequestId* = object
     id*: seq[byte]
@@ -67,7 +73,8 @@ type
   TopicQueryMessage* = object
 
   SomeMessage* = PingMessage or PongMessage or FindNodeMessage or NodesMessage or
-    TalkReqMessage or TalkRespMessage
+    TalkReqMessage or TalkRespMessage or AddProviderMessage or GetProvidersMessage or
+    ProvidersMessage
 
   Message* = object
     reqId*: RequestId
@@ -92,6 +99,12 @@ type
       regConfirmation*: RegConfirmationMessage
     of topicQuery:
       topicQuery*: TopicQueryMessage
+    of addProvider:
+      addProvider*: AddProviderMessage
+    of getProviders:
+      getProviders*: GetProvidersMessage
+    of providers:
+      provs*: ProvidersMessage
     else:
       discard
 
@@ -102,6 +115,9 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
   elif T is NodesMessage: nodes
   elif T is TalkReqMessage: talkReq
   elif T is TalkRespMessage: talkResp
+  elif T is AddProviderMessage: addProvider
+  elif T is GetProvidersMessage: getProviders
+  elif T is ProvidersMessage: providers
 
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)

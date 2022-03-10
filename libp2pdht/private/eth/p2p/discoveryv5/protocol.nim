@@ -76,8 +76,8 @@
 import
   std/[tables, sets, options, math, sequtils, algorithm],
   stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[endians2, results], chronicles, chronos, stint, bearssl, metrics,
-  eth/[rlp, keys, async_utils],
+  stew/[endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
+  metrics, eth/[rlp, keys, async_utils], libp2p/routing_record,
   "."/[transport, messages, messages_encoding, node, routing_table, enr, random2, ip_vote, nodes_verification]
 
 import nimcrypto except toHex
@@ -120,7 +120,7 @@ type
 
   Protocol* = ref object
     localNode*: Node
-    privateKey: PrivateKey
+    privateKey: keys.PrivateKey
     transport*: Transport[Protocol] # exported for tests
     routingTable*: RoutingTable
     awaitedMessages: Table[(NodeId, RequestId), Future[Option[Message]]]
@@ -134,6 +134,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
+    providers: Table[NodeId, seq[SignedPeerRecord]]
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -209,7 +210,7 @@ proc neighboursAtDistances*(d: Protocol, distances: seq[uint16],
 
 proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 
-func privKey*(d: Protocol): lent PrivateKey =
+func privKey*(d: Protocol): lent keys.PrivateKey =
   d.privateKey
 
 func getRecord*(d: Protocol): Record =
@@ -301,6 +302,25 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
     kind = MessageKind.talkresp
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
+proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
+  trace "adding provider to local db", n=p.localNode, cId, prov
+  p.providers.mgetOrPut(cId, @[]).add(prov)
+
+proc handleAddProvider(d: Protocol, fromId: NodeId, fromAddr: Address,
+    addProvider: AddProviderMessage, reqId: RequestId) =
+  d.addProviderLocal(addProvider.cId, addProvider.prov)
+
+proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
+    getProviders: GetProvidersMessage, reqId: RequestId) =
+
+  #TODO: add checks, add signed version
+  let provs = d.providers.getOrDefault(getProviders.cId)
+  trace "providers:", provs
+
+  ##TODO: handle multiple messages
+  let response = ProvidersMessage(total: 1, provs: provs)
+  d.sendResponse(fromId, fromAddr, response, reqId)
+
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
   case message.kind
@@ -313,6 +333,13 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
   of talkReq:
     discovery_message_requests_incoming.inc()
     d.handleTalkReq(srcId, fromAddr, message.talkReq, message.reqId)
+  of addProvider:
+    discovery_message_requests_incoming.inc()
+    discovery_message_requests_incoming.inc(labelValues = ["no_response"])
+    d.handleAddProvider(srcId, fromAddr, message.addProvider, message.reqId)
+  of getProviders:
+    discovery_message_requests_incoming.inc()
+    d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
   of regTopic, topicQuery:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
@@ -553,6 +580,101 @@ proc lookup*(d: Protocol, target: NodeId): Future[seq[Node]] {.async.} =
   d.lastLookup = now(chronos.Moment)
   return closestNodes
 
+proc addProvider*(
+    d: Protocol,
+    cId: NodeId,
+    pr: SignedPeerRecord): Future[seq[Node]] {.async.} =
+
+  var res = await d.lookup(cId)
+  trace "lookup returned:", res
+  # TODO: lookup is sepcified as not returning local, even if that is the closest. Is this OK?
+  if res.len == 0:
+      res.add(d.localNode)
+  for toNode in res:
+    if toNode != d.localNode:
+      discard d.sendRequest(toNode, AddProviderMessage(cId: cId, prov: pr))
+    else:
+      d.addProviderLocal(cId, pr)
+
+  return res
+
+
+proc sendGetProviders(d: Protocol, toNode: Node,
+                       cId: NodeId): Future[DiscResult[ProvidersMessage]]
+                       {.async.} =
+  let msg = GetProvidersMessage(cId: cId)
+  trace "sendGetProviders", toNode, msg
+
+  let
+    reqId = d.sendRequest(toNode, msg)
+    resp = await d.waitMessage(toNode, reqId)
+
+  if resp.isSome():
+    if resp.get().kind == providers:
+      d.routingTable.setJustSeen(toNode)
+      return ok(resp.get().provs)
+    else:
+      # TODO: do we need to do something when there is an invalid response?
+      d.replaceNode(toNode)
+      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      return err("Invalid response to GetProviders message")
+  else:
+    # TODO: do we need to do something when there is no response?
+    d.replaceNode(toNode)
+    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    return err("GetProviders response message not received in time")
+
+proc getProvidersLocal*(
+    d: Protocol,
+    cId: NodeId,
+    maxitems: int = 5,
+  ): seq[SignedPeerRecord] {.raises: [KeyError,Defect].} =
+
+  return
+    if (cId in d.providers): d.providers[cId]
+    else: @[]
+
+proc getProviders*(
+    d: Protocol,
+    cId: NodeId,
+    maxitems: int = 5,
+    timeout: timer.Duration = chronos.milliseconds(5000)
+  ): Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
+
+  # What providers do we know about?
+  var res = d.getProvidersLocal(cId, maxitems)
+  trace "local providers:", res
+
+  let nodesNearby = await d.lookup(cId)
+  trace "nearby:", nodesNearby
+  var providersFut: seq[Future[DiscResult[ProvidersMessage]]]
+  for n in nodesNearby:
+    if n != d.localNode:
+      providersFut.add(d.sendGetProviders(n, cId))
+
+  while providersFut.len > 0:
+    let providersMsg = await one(providersFut)
+    # trace "Got providers response", providersMsg
+
+    let index = providersFut.find(providersMsg)
+    if index != -1:
+      providersFut.del(index)
+
+    let providersMsg2 = await providersMsg
+    trace "2", providersMsg2
+
+    let providersMsgRes = providersMsg.read
+    if providersMsgRes.isOk:
+      let providers = providersMsgRes.get.provs
+      res = res.concat(providers).deduplicate
+    else:
+      error "Sending of GetProviders message failed", error = providersMsgRes.error
+      # TODO: should we consider this as an error result if all GetProviders
+      # requests fail??
+  trace "getProviders collected: ", res
+
+  return ok res
+
 proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
     {.async.} =
   ## Query k nodes for the given target, returns all nodes found, including the
@@ -778,7 +900,7 @@ func init*(
   )
 
 proc newProtocol*(
-    privKey: PrivateKey,
+    privKey: keys.PrivateKey,
     enrIp: Option[ValidIpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
@@ -788,7 +910,7 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
-    rng = newRng()):
+    rng = keys.newRng()):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
