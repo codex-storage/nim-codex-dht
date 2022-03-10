@@ -12,7 +12,11 @@ import
   std/net,
   stew/arrayops,
   eth/[rlp],
-  "."/[messages, enr]
+  chronicles,
+  libp2p/routing_record,
+  libp2p/signed_envelope,
+  "."/[messages, enr],
+  ../../../../dht/providers_encoding
 
 from stew/objects import checkedEnumAssign
 
@@ -60,17 +64,32 @@ proc numFields(T: typedesc): int =
   for k, v in fieldPairs(default(T)): inc result
 
 proc encodeMessage*[T: SomeMessage](p: T, reqId: RequestId): seq[byte] =
+  # TODO: Remove all RLP encoding in favour of Protobufs
   result = newSeqOfCap[byte](64)
   result.add(messageKind(T).ord)
 
-  const sz = numFields(T)
+  const
+    usePbs = T is AddProviderMessage | GetProvidersMessage | ProvidersMessage
+    sz = if usePbs: 1 else: numFields(T)
+
   var writer = initRlpList(sz + 1)
   writer.append(reqId)
-  for k, v in fieldPairs(p):
-    writer.append(v)
+
+  when usePbs:
+    let encoded =
+      try: p.encode()
+      except ResultError[CryptoError] as e:
+        error "Failed to encode protobuf message", typ = $T, msg = e.msg
+        @[]
+    writer.append(encoded)
+    trace "Encoded protobuf message", typ = $T, encoded
+  else:
+    for k, v in fieldPairs(p):
+      writer.append(v)
   result.add(writer.finish())
 
 proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
+  # TODO: Remove all RLP decoding in favour of Protobufs
   ## Decodes to the specific `Message` type.
   if body.len < 1:
     return err("No message data")
@@ -101,6 +120,24 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
       of nodes: rlp.decode(message.nodes)
       of talkReq: rlp.decode(message.talkReq)
       of talkResp: rlp.decode(message.talkResp)
+      of addProvider:
+        let res = AddProviderMessage.decode(rlp.toBytes)
+        if res.isOk:
+          message.addProvider = res.get
+        else:
+          return err "Unable to decode AddProviderMessage"
+      of getProviders:
+        let res = GetProvidersMessage.decode(rlp.toBytes)
+        if res.isOk:
+          message.getProviders = res.get
+        else:
+          return err "Unable to decode GetProvidersMessage"
+      of providers:
+        let res = ProvidersMessage.decode(rlp.toBytes)
+        if res.isOk:
+          message.provs = res.get
+        else:
+          return err "Unable to decode ProvidersMessage"
       of regTopic, ticket, regConfirmation, topicQuery:
         # We just pass the empty type of this message without attempting to
         # decode, so that the protocol knows what was received.
