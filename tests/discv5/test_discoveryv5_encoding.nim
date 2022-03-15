@@ -16,7 +16,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(p, reqId)
-    check encoded.toHex == "01c20101"
+    check byteutils.toHex(encoded) == "01c20101"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -36,7 +36,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(p, reqId)
-    check encoded.toHex == "02ca0101847f000001821388"
+    check byteutils.toHex(encoded) == "02ca0101847f000001821388"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -56,7 +56,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(fn, reqId)
-    check encoded.toHex == "03c501c3820100"
+    check byteutils.toHex(encoded) == "03c501c3820100"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -74,7 +74,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(n, reqId)
-    check encoded.toHex == "04c30101c0"
+    check byteutils.toHex(encoded) == "04c30101c0"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -87,7 +87,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       message.nodes.enrs.len() == 0
 
   test "Nodes Response (multiple)":
-    var e1, e2: Record
+    var e1, e2: SignedPeerRecord
     check e1.fromURI("enr:-HW4QBzimRxkmT18hMKaAL3IcZF1UcfTMPyi3Q1pxwZZbcZVRI8DC5infUAB_UauARLOJtYTxaagKoGmIjzQxO2qUygBgmlkgnY0iXNlY3AyNTZrMaEDymNMrg1JrLQB2KTGtv6MVbcNEVv0AHacwUAPMljNMTg")
     check e2.fromURI("enr:-HW4QNfxw543Ypf4HXKXdYxkyzfcxcO-6p9X986WldfVpnVTQX1xlTnWrktEWUbeTZnmgOuAY_KUhbVV1Ft98WoYUBMBgmlkgnY0iXNlY3AyNTZrMaEDDiy3QkHAxPyOgWbxp5oF1bDdlYE6dLCUUp8xfVw50jU")
     let
@@ -96,7 +96,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(n, reqId)
-    check encoded.toHex == "04f8f20101f8eef875b8401ce2991c64993d7c84c29a00bdc871917551c7d330fca2dd0d69c706596dc655448f030b98a77d4001fd46ae0112ce26d613c5a6a02a81a6223cd0c4edaa53280182696482763489736563703235366b31a103ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd3138f875b840d7f1c39e376297f81d7297758c64cb37dcc5c3beea9f57f7ce9695d7d5a67553417d719539d6ae4b445946de4d99e680eb8063f29485b555d45b7df16a1850130182696482763489736563703235366b31a1030e2cb74241c0c4fc8e8166f1a79a05d5b0dd95813a74b094529f317d5c39d235"
+    check byteutils.toHex(encoded) == "04f8f20101f8eef875b8401ce2991c64993d7c84c29a00bdc871917551c7d330fca2dd0d69c706596dc655448f030b98a77d4001fd46ae0112ce26d613c5a6a02a81a6223cd0c4edaa53280182696482763489736563703235366b31a103ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd3138f875b840d7f1c39e376297f81d7297758c64cb37dcc5c3beea9f57f7ce9695d7d5a67553417d719539d6ae4b445946de4d99e680eb8063f29485b555d45b7df16a1850130182696482763489736563703235366b31a1030e2cb74241c0c4fc8e8166f1a79a05d5b0dd95813a74b094529f317d5c39d235"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -116,7 +116,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(tr, reqId)
-    check encoded.toHex == "05c901846563686f826869"
+    check byteutils.toHex(encoded) == "05c901846563686f826869"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -134,7 +134,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(tr, reqId)
-    check encoded.toHex == "06c401826869"
+    check byteutils.toHex(encoded) == "06c401826869"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -152,7 +152,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       # 1 byte too large
       reqId = RequestId(id: @[0.byte, 1, 2, 3, 4, 5, 6, 7, 8])
     let encoded = encodeMessage(p, reqId)
-    check encoded.toHex == "01cb8900010203040506070801"
+    check byteutils.toHex(encoded) == "01cb8900010203040506070801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isErr()
@@ -176,8 +176,8 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
       sharedSecret = "0x033b11a2a1f214567e1537ce5e509ffd9b21373247f2a3ff6841f4976f53165e7e"
 
     let
-      pub = PublicKey.fromHex(publicKey)[]
-      priv = PrivateKey.fromHex(secretKey)[]
+      pub = keys.PublicKey.fromHex(publicKey)[]
+      priv = keys.PrivateKey.fromHex(secretKey)[]
       eph = ecdhRawFull(priv, pub)
     check:
       eph.data == hexToSeqByte(sharedSecret)
@@ -197,8 +197,8 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
     let secrets = deriveKeys(
       NodeId.fromHex(nodeIdA),
       NodeId.fromHex(nodeIdB),
-      PrivateKey.fromHex(ephemeralKey)[],
-      PublicKey.fromHex(destPubkey)[],
+      keys.PrivateKey.fromHex(ephemeralKey)[],
+      keys.PublicKey.fromHex(destPubkey)[],
       hexToSeqByte(challengeData))
 
     check:
@@ -216,7 +216,7 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
       idSignature = "0x94852a1e2318c4e5e9d422c98eaf19d1d90d876b29cd06ca7cb7546d0fff7b484fe86c09a064fe72bdbef73ba8e9c34df0cd2b53e9d65528c2c7f336d5dfc6e6"
 
     let
-      privKey = PrivateKey.fromHex(staticKey)[]
+      privKey = keys.PrivateKey.fromHex(staticKey)[]
       signature = createIdSignature(
         privKey,
         hexToSeqByte(challengeData),
@@ -254,18 +254,18 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
   var
     codecA, codecB: Codec
     nodeA, nodeB: Node
-    privKeyA, privKeyB: PrivateKey
+    privKeyA, privKeyB: keys.PrivateKey
 
   setup:
-    privKeyA = PrivateKey.fromHex(nodeAKey)[] # sender -> encode
-    privKeyB = PrivateKey.fromHex(nodeBKey)[] # receive -> decode
+    privKeyA = keys.PrivateKey.fromHex(nodeAKey)[] # sender -> encode
+    privKeyB = keys.PrivateKey.fromHex(nodeBKey)[] # receive -> decode
 
     let
-      enrRecA = enr.Record.init(1, privKeyA,
+      enrRecA = SignedPeerRecord.init(1, privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
-      enrRecB = enr.Record.init(1, privKeyB,
+      enrRecB = SignedPeerRecord.init(1, privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
@@ -404,7 +404,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         idNonce: hexToByteArray[idNonceSize](whoareyouIdNonce),
         recordSeq: whoareyouEnrSeq,
         challengeData: hexToSeqByte(whoareyouChallengeData))
-      pubkey = none(PublicKey)
+      pubkey = none(keys.PublicKey)
       challenge = Challenge(whoareyouData: whoareyouData, pubkey: pubkey)
       key = HandshakeKey(nodeId: nodeA.id, address: nodeA.address.get())
 
@@ -424,7 +424,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         hexToSeqByte(encodedPacket & "00")).isErr()
 
 suite "Discovery v5.1 Additional Encode/Decode":
-  var rng = newRng()
+  var rng = keys.newRng()
 
   test "Encryption/Decryption":
     let
@@ -465,7 +465,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     var nonce: AESGCMNonce
     brHmacDrbgGenerate(rng[], nonce)
     let
-      privKey = PrivateKey.random(rng[])
+      privKey = keys.PrivateKey.random(rng[])
       nodeId = privKey.toPublicKey().toNodeId()
       authdata = newSeq[byte](32)
       staticHeader = encodeStaticHeader(Flag.OrdinaryMessage, nonce,
@@ -484,18 +484,18 @@ suite "Discovery v5.1 Additional Encode/Decode":
   var
     codecA, codecB: Codec
     nodeA, nodeB: Node
-    privKeyA, privKeyB: PrivateKey
+    privKeyA, privKeyB: keys.PrivateKey
 
   setup:
-    privKeyA = PrivateKey.random(rng[]) # sender -> encode
-    privKeyB = PrivateKey.random(rng[]) # receiver -> decode
+    privKeyA = keys.PrivateKey.random(rng[]) # sender -> encode
+    privKeyB = keys.PrivateKey.random(rng[]) # receiver -> decode
 
     let
-      enrRecA = enr.Record.init(1, privKeyA,
+      enrRecA = SignedPeerRecord.init(1, privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
-      enrRecB = enr.Record.init(1, privKeyB,
+      enrRecB = SignedPeerRecord.init(1, privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
@@ -526,7 +526,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     let recordSeq = 0'u64
 
     let data = encodeWhoareyouPacket(rng[], codecA, nodeB.id,
-      nodeB.address.get(), requestNonce, recordSeq, none(PublicKey))
+      nodeB.address.get(), requestNonce, recordSeq, none(keys.PublicKey))
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
 
@@ -580,7 +580,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       m = PingMessage(enrSeq: 0)
       reqId = RequestId.init(rng[])
       message = encodeMessage(m, reqId)
-      pubkey = none(PublicKey)
+      pubkey = none(keys.PublicKey)
 
     # Encode/decode whoareyou packet to get the handshake stored and the
     # whoareyou data returned. It's either that or construct the header for the

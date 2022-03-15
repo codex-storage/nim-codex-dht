@@ -17,15 +17,14 @@ import
   libp2p/crypto/secp,
   libp2p/routing_record,
   libp2p/multicodec
+
+export routing_record
+
 from chronos import TransportAddress, initTAddress
 
 export options, results
 
 type
-  Record* = object
-    peerRecord: PeerRecord
-    signedPeerRecord: Envelope
-
   EnrUri* = distinct string
 
   FieldPair* = (string, Field)
@@ -36,13 +35,17 @@ type
 
   RecordResult*[T] = Result[T, cstring]
 
-proc seqNum*(r: Record): uint64 = 
-    r.peerRecord.seqNo
+proc seqNum*(r: SignedPeerRecord): uint64 =
+    r.data.seqNo
 
 #proc encode
-proc append*(rlpWriter: var RlpWriter, value: Record) =
+proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
   # echo "encoding to:" & $value.signedPeerRecord.encode.get
-  rlpWriter.append(value.signedPeerRecord.encode.get)
+  var encoded = value.encode
+  trace "Encoding SignedPeerRecord for RLP", bytes = encoded.get(@[])
+  if encoded.isErr:
+    error "Error encoding SignedPeerRecord for RLP", error = encoded.error
+  rlpWriter.append encoded.get(@[])
 
 #proc decode
 # some(rlp.decode(authdata.toOpenArray(recordPos, authdata.high),enr.Record))
@@ -60,37 +63,29 @@ proc append*(rlpWriter: var RlpWriter, value: Record) =
 # proc fromBytes*(r: var Record, s: openArray[byte]): bool =
   ## Loads ENR from rlp-encoded bytes, and validates the signature.
 
-proc fromBytes(r: var Record, s: openArray[byte]): bool =
-    # echo "decoding from:" & $s & $s.len
-    let
-        #TODO: thos is double work, 
-        EnvelopeDomain = $multiCodec("libp2p-peer-record") # envelope domain as per RFC0002
-        envelope = Envelope.decode(@s[2..^1], EnvelopeDomain) #TODO: this is just to remove RLP header. Ugly!
-    if envelope.isErr:
-        #echo "invalid ENV " & $envelope.error
-        return false
+proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
+  trace "Decoding SignedPeerRecord for RLP", bytes = s
 
-    let 
-        spr = PeerRecord.decode(envelope.get.payload).mapErr(x => EnvelopeInvalidProtobuf)
-    if spr.isErr:
-        #echo "invalid SPR " & $spr.error
-        return false
+  let spr = SignedPeerRecord.decode(@s)
+  if spr.isErr:
+      error "Error decoding SignedPeerRecord", error = spr.error
+      return false
 
-    r.peerRecord = spr.get
-    r.signedPeerRecord = envelope.get
-    return true
+  r = spr.get
+  return true
 
-proc read*(rlp: var Rlp, T: typedesc[Record]):
+proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
     T {.raises: [RlpError, ValueError, Defect].} =
     # echo "read:" & $rlp.rawData
     ## code directly borrowed from enr.nim
-    if not rlp.hasData() or not result.fromBytes(rlp.rawData):
+    trace "Reading RLP SignedPeerRecord", rawData = rlp.rawData, toBytes = rlp.toBytes
+    if not rlp.hasData() or not result.fromBytes(rlp.toBytes):
         # TODO: This could also just be an invalid signature, would be cleaner to
         # split of RLP deserialisation errors from this.
         raise newException(ValueError, "Could not deserialize")
     rlp.skipElem()
 
-proc get*(r: Record, T: type crypto.PublicKey): Option[T] =
+proc get*(r: SignedPeerRecord, T: type crypto.PublicKey): Option[T] =
   ## Get the `PublicKey` from provided `Record`. Return `none` when there is
   ## no `PublicKey` in the record.
   some(r.signedPeerRecord.publicKey)
@@ -107,15 +102,15 @@ func pkToPk(pk: crypto.PrivateKey) : Option[keys.PrivateKey] =
 func pkToPk(pk: keys.PrivateKey) : Option[crypto.PrivateKey] =
   some(crypto.PrivateKey.init((secp.SkPrivateKey)(pk)))
 
-proc get*(r: Record, T: type keys.PublicKey): Option[T] =
+proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
   ## Get the `PublicKey` from provided `Record`. Return `none` when there is
   ## no `PublicKey` in the record.
   ## PublicKey* = distinct SkPublicKey
   let
-    pk = r.signedPeerRecord.publicKey
+    pk = r.envelope.publicKey
   pkToPk(pk)
 
-proc update*(r: var Record, pk: crypto.PrivateKey,
+proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
                             ip: Option[ValidIpAddress],
                             tcpPort, udpPort: Option[Port] = none[Port](),
                             extraFields: openArray[FieldPair] = []):
@@ -129,10 +124,17 @@ proc update*(r: var Record, pk: crypto.PrivateKey,
   ## Can fail in case of wrong `PrivateKey`, if the size of the resulting record
   ## exceeds `maxEnrSize` or if maximum sequence number is reached. The `Record`
   ## will not be altered in these cases.
-  r.signedPeerRecord = Envelope.init(pk, r.peerRecord).get
-  #TODO: handle fields
 
-proc update*(r: var Record, pk: keys.PrivateKey,
+  #TODO: handle fields
+  # TODO: We have a mapping issue here because PeerRecord has multiple
+  # addresses and the proc signature only allows updating of a single
+  # ip/tcpPort/udpPort/extraFields
+  r = ? SignedPeerRecord.init(pk, r.data)
+          .mapErr((e: CryptoError) => ("Failed to update SignedPeerRecord: " & $e).cstring)
+
+  return ok()
+
+proc update*(r: var SignedPeerRecord, pk: keys.PrivateKey,
                             ip: Option[ValidIpAddress],
                             tcpPort, udpPort: Option[Port] = none[Port](),
                             extraFields: openArray[FieldPair] = []):
@@ -140,10 +142,10 @@ proc update*(r: var Record, pk: keys.PrivateKey,
   let cPk = pkToPk(pk).get
   r.update(cPk, ip, tcpPort, udpPort, extraFields)
 
-proc toTypedRecord*(r: Record) : RecordResult[Record] = ok(r)
+proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
-proc ip*(r: Record): Option[array[4, byte]] =
-    let ma = r.peerRecord.addresses[0].address
+proc ip*(r: SignedPeerRecord): Option[array[4, byte]] =
+    let ma = r.data.addresses[0].address
 
     let code = ma[0].get.protoCode()
     if code.isOk and code.get == multiCodec("ip4"):
@@ -164,8 +166,8 @@ proc ip*(r: Record): Option[array[4, byte]] =
 #   else:
 #     err("MultiAddress must be wire address (tcp, udp or unix)")
 
-proc udp*(r: Record): Option[int] =
-    let ma = r.peerRecord.addresses[0].address
+proc udp*(r: SignedPeerRecord): Option[int] =
+    let ma = r.data.addresses[0].address
 
     let code = ma[1].get.protoCode()
     if code.isOk and code.get == multiCodec("udp"):
@@ -175,7 +177,7 @@ proc udp*(r: Record): Option[int] =
         let p = fromBytesBE(uint16, pbuf)  
         return some(p.int)
 
-proc fromURI*(r: var Record, s: string): bool =
+proc fromURI*(r: var SignedPeerRecord, s: string): bool =
   ## Loads Record from its text encoding. Validates the signature.
   ## TODO
   #error "fromURI not implemented"
@@ -184,21 +186,21 @@ proc fromURI*(r: var Record, s: string): bool =
 #   if s.startsWith(prefix):
 #     result = r.fromBase64(s[prefix.len .. ^1])
 
-template fromURI*(r: var Record, url: EnrUri): bool =
+template fromURI*(r: var SignedPeerRecord, url: EnrUri): bool =
   fromURI(r, string(url))
 
-proc toBase64*(r: Record): string =
-  result = Base64Url.encode(r.signedPeerRecord.encode.get)
+proc toBase64*(r: SignedPeerRecord): string =
+  result = Base64Url.encode(r.data.encode)
 
-proc toURI*(r: Record): string = "spr:" & r.toBase64
+proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 
-proc init*(T: type Record, seqNum: uint64,
+proc init*(T: type SignedPeerRecord, seqNum: uint64,
                            pk: crypto.PrivateKey,
                            ip: Option[ValidIpAddress],
                            tcpPort, udpPort: Option[Port],
                            extraFields: openArray[FieldPair] = []):
                            RecordResult[T] =
-  ## Initialize a `Record` with given sequence number, private key, optional
+  ## Initialize a `SignedPeerRecord` with given sequence number, private key, optional
   ## ip address, tcp port, udp port, and optional custom k:v pairs.
   ##
   ## Can fail in case the record exceeds the `maxEnrSize`.
@@ -217,21 +219,19 @@ proc init*(T: type Record, seqNum: uint64,
     ma = MultiAddress.init()
     # echo "not implemented"
 
-  var res: Record
-  res.peerRecord = PeerRecord.init(peerId, seqNum, @[ma])
-  res.signedPeerRecord = Envelope.init(pk, res.peerRecord).get
-  ok(res)
+  let pr = PeerRecord.init(peerId, @[ma], seqNum)
+  SignedPeerRecord.init(pk, pr).mapErr((e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
 
-proc init*(T: type Record, seqNum: uint64,
+proc init*(T: type SignedPeerRecord, seqNum: uint64,
                            pk: keys.PrivateKey,
                            ip: Option[ValidIpAddress],
                            tcpPort, udpPort: Option[Port],
                            extraFields: openArray[FieldPair] = []):
                            RecordResult[T] =
   let kPk = pkToPk(pk).get
-  Record.init(seqNum, kPk, ip, tcpPort, udpPort, extraFields)
+  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort, extraFields)
 
-proc contains*(r: Record, fp: (string, seq[byte])): bool =
+proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the
   # `get` call can be improved to make this easier.
   # TODO: implement
@@ -242,9 +242,9 @@ template toFieldPair*(key: string, value: auto): FieldPair =
   #error "not implemented"
   (key, Field())
 
-proc update*(record: var Record, pk: keys.PrivateKey,
+proc update*(record: var SignedPeerRecord, pk: keys.PrivateKey,
     fieldPairs: openArray[FieldPair]): RecordResult[void] =
   #error "not implemented"
   err("not implemented")
 
-proc `==`*(a, b: Record): bool = a.signedPeerRecord == b.signedPeerRecord
+proc `==`*(a, b: SignedPeerRecord): bool = a.data == b.data

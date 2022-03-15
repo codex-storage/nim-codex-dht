@@ -11,11 +11,11 @@ proc localAddress*(port: int): Address =
 
 proc initDiscoveryNode*(
     rng: ref BrHmacDrbgContext,
-    privKey: PrivateKey,
+    privKey: keys.PrivateKey,
     address: Address,
-    bootstrapRecords: openArray[Record] = [],
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
     localEnrFields: openArray[(string, seq[byte])] = [],
-    previousRecord = none[enr.Record]()):
+    previousRecord = none[SignedPeerRecord]()):
     discv5_protocol.Protocol =
   # set bucketIpLimit to allow bucket split
   let config = DiscoveryConfig.init(1000, 24, 5)
@@ -39,25 +39,25 @@ proc nodeIdInNodes*(id: NodeId, nodes: openArray[Node]): bool =
   for n in nodes:
     if id == n.id: return true
 
-proc generateNode*(privKey: PrivateKey, port: int = 20302,
+proc generateNode*(privKey: keys.PrivateKey, port: int = 20302,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1"),
     localEnrFields: openArray[FieldPair] = []): Node =
   let port = Port(port)
-  let enr = enr.Record.init(1, privKey, some(ip),
+  let enr = SignedPeerRecord.init(1, privKey, some(ip),
     some(port), some(port), localEnrFields).expect("Properly intialized private key")
   result = newNode(enr).expect("Properly initialized node")
 
 proc generateNRandomNodes*(rng: ref BrHmacDrbgContext, n: int): seq[Node] =
   var res = newSeq[Node]()
   for i in 1..n:
-    let node = generateNode(PrivateKey.random(rng[]))
+    let node = generateNode(keys.PrivateKey.random(rng[]))
     res.add(node)
   res
 
 proc nodeAndPrivKeyAtDistance*(n: Node, rng: var BrHmacDrbgContext, d: uint32,
-    ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): (Node, PrivateKey) =
+    ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): (Node, keys.PrivateKey) =
   while true:
-    let pk = PrivateKey.random(rng)
+    let pk = keys.PrivateKey.random(rng)
     let node = generateNode(pk, ip = ip)
     if logDistance(n.id, node.id) == d:
       return (node, pk)

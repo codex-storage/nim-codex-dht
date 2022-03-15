@@ -57,7 +57,7 @@ type
 
   NodesMessage* = object
     total*: uint32
-    enrs*: seq[Record]
+    enrs*: seq[SignedPeerRecord]
 
   TalkReqMessage* = object
     protocol*: seq[byte]

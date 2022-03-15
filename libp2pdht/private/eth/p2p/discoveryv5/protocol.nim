@@ -128,7 +128,7 @@ type
     revalidateLoop: Future[void]
     ipMajorityLoop: Future[void]
     lastLookup: chronos.Moment
-    bootstrapRecords*: seq[Record]
+    bootstrapRecords*: seq[SignedPeerRecord]
     ipVote: IpVote
     enrAutoUpdate: bool
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
@@ -159,10 +159,10 @@ proc addNode*(d: Protocol, node: Node): bool =
   else:
     return false
 
-proc addNode*(d: Protocol, r: Record): bool =
-  ## Add `Node` from a `Record` to discovery routing table.
+proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
+  ## Add `Node` from a `SignedPeerRecord` to discovery routing table.
   ##
-  ## Returns false only if no valid `Node` can be created from the `Record` or
+  ## Returns false only if no valid `Node` can be created from the `SignedPeerRecord` or
   ## on the conditions of `addNode` from a `Node`.
   let node = newNode(r)
   if node.isOk():
@@ -172,8 +172,8 @@ proc addNode*(d: Protocol, enr: EnrUri): bool =
   ## Add `Node` from a ENR URI to discovery routing table.
   ##
   ## Returns false if no valid ENR URI, or on the conditions of `addNode` from
-  ## an `Record`.
-  var r: Record
+  ## an `SignedPeerRecord`.
+  var r: SignedPeerRecord
   let res = r.fromURI(enr)
   if res:
     return d.addNode(r)
@@ -213,7 +213,7 @@ proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 func privKey*(d: Protocol): lent keys.PrivateKey =
   d.privateKey
 
-func getRecord*(d: Protocol): Record =
+func getRecord*(d: Protocol): SignedPeerRecord =
   ## Get the ENR of the local node.
   d.localNode.record
 
@@ -384,7 +384,7 @@ proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
   d.awaitedMessages[key] = result
 
 proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
-    Future[DiscResult[seq[Record]]] {.async.} =
+    Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
   ## Wait for one or more nodes replies.
   ##
   ## The first reply will hold the total number of replies expected, and based
@@ -904,8 +904,8 @@ proc newProtocol*(
     enrIp: Option[ValidIpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
-    bootstrapRecords: openArray[Record] = [],
-    previousRecord = none[enr.Record](),
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
+    previousRecord = none[SignedPeerRecord](),
     bindPort: Port,
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
@@ -921,14 +921,14 @@ proc newProtocol*(
   # TODO:
   # - Defect as is now or return a result for enr errors?
   # - In case incorrect key, allow for new enr based on new key (new node id)?
-  var record: Record
+  var record: SignedPeerRecord
   if previousRecord.isSome():
     record = previousRecord.get()
     record.update(privKey, enrIp, enrTcpPort, enrUdpPort,
-      extraFields).expect("Record within size limits and correct key")
+      extraFields).expect("SignedPeerRecord within size limits and correct key")
   else:
-    record = enr.Record.init(1, privKey, enrIp, enrTcpPort, enrUdpPort,
-      extraFields).expect("Record within size limits")
+    record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort,
+      extraFields).expect("SignedPeerRecord within size limits")
 
   info "ENR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
     seqNum = record.seqNum, uri = toURI(record)

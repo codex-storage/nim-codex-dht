@@ -41,7 +41,7 @@ proc toSignedPeerRecord(privKey: crypto.PrivateKey) : SignedPeerRecord =
 
 proc bootstrapNodes(
     nodecount: int,
-    bootnodes: openArray[Record],
+    bootnodes: openArray[SignedPeerRecord],
     rng = keys.newRng()
   ) : seq[(discv5_protocol.Protocol, keys.PrivateKey)] =
 
