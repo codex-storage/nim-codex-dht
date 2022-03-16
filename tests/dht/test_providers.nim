@@ -236,14 +236,17 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  # test "20 nodes, retieve after bootnode dies":
-  #   # TODO: currently this is not working even with a 2 minute timeout
-  #   debug "---- KILLING BOOTSTRAP NODE ---"
-  #   await nodes[0].closeWait()
+  test "20 nodes, retieve after bootnode dies":
+    debug "---- KILLING BOOTSTRAP NODE ---"
+    let (node0, _) = nodes[0]
+    let (node18, _) = nodes[^2]
+    await node0.closeWait()
+    nodes.del(0)
 
-  #   debug "---- STARTING PROVIDERS LOOKUP ---"
-  #   let providers = await nodes[^2].getProviders(targetId)
-  #   debug "Providers:", providers
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providersRes = await node18.getProviders(targetId)
 
-  #   debug "---- STARTING CHECKS ---"
-  #   check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+    debug "---- STARTING CHECKS ---"
+    let providers = providersRes.get
+    debug "Providers:", providers
+    check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
