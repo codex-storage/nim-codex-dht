@@ -29,15 +29,19 @@ import
 proc bootstrapNodes(
     nodecount: int,
     bootnodes: seq[SignedPeerRecord],
-    rng = keys.newRng()
+    rng = keys.newRng(),
+    delay: int = 0
   ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
+  debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
     let privKey = keys.PrivateKey.random(rng[])
     let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
     node.start()
     result.add((node, privKey))
-  debug "---- STARTING BOOSTRAPS ---"
+    if delay > 0:
+      await sleepAsync(chronos.milliseconds(delay))
+
 
   #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
 
