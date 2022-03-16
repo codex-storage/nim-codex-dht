@@ -28,7 +28,8 @@ type
     address*: Option[Address]
     record*: SignedPeerRecord
     seen*: bool ## Indicates if there was at least one successful
-    ## request-response with this node.
+    ## request-response with this node, or if the nde was verified
+    ## through the underlying transport mechanisms.
 
 func toNodeId*(pk: keys.PublicKey): NodeId =
   ## Convert public key to a node identifier.
