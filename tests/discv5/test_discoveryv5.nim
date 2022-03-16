@@ -349,7 +349,7 @@ suite "Discovery v5 Tests":
 
       targetSeqNum.inc()
       # need to add something to get the spr sequence number incremented
-      let update = targetNode.updateRecord({"addsomefield": @[byte 1]})
+      let update = targetNode.updateRecord()
       check update.isOk()
 
       var n = mainNode.getNode(targetId)
@@ -371,7 +371,7 @@ suite "Discovery v5 Tests":
     # close targetNode, resolve should lookup, check if we get updated SPR.
     block:
       targetSeqNum.inc()
-      let update = targetNode.updateRecord({"addsomefield": @[byte 2]})
+      let update = targetNode.updateRecord()
       check update.isOk()
 
       # ping node so that its SPR gets added
@@ -391,27 +391,26 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await lookupNode.closeWait()
 
-  test "Random nodes with spr field filter":
-    let
-      lookupNode = initDiscoveryNode(rng, keys.PrivateKey.random(rng[]), localAddress(20301))
-      targetFieldPair = toFieldPair("test", @[byte 1,2,3,4])
-      targetNode = generateNode(keys.PrivateKey.random(rng[]), localEnrFields = [targetFieldPair])
-      otherFieldPair = toFieldPair("test", @[byte 1,2,3,4,5])
-      otherNode = generateNode(keys.PrivateKey.random(rng[]), localEnrFields = [otherFieldPair])
-      anotherNode = generateNode(keys.PrivateKey.random(rng[]))
+  # We no longer support field filtering
+  # test "Random nodes with spr field filter":
+  #   let
+  #     lookupNode = initDiscoveryNode(rng, keys.PrivateKey.random(rng[]), localAddress(20301))
+  #     targetNode = generateNode(keys.PrivateKey.random(rng[]))
+  #     otherNode = generateNode(keys.PrivateKey.random(rng[]))
+  #     anotherNode = generateNode(keys.PrivateKey.random(rng[]))
 
-    check:
-      lookupNode.addNode(targetNode)
-      lookupNode.addNode(otherNode)
-      lookupNode.addNode(anotherNode)
+  #   check:
+  #     lookupNode.addNode(targetNode)
+  #     lookupNode.addNode(otherNode)
+  #     lookupNode.addNode(anotherNode)
 
-    let discovered = lookupNode.randomNodes(10)
-    check discovered.len == 3
-    let discoveredFiltered = lookupNode.randomNodes(10,
-      ("test", @[byte 1,2,3,4]))
-    check discoveredFiltered.len == 1 and discoveredFiltered.contains(targetNode)
+  #   let discovered = lookupNode.randomNodes(10)
+  #   check discovered.len == 3
+  #   let discoveredFiltered = lookupNode.randomNodes(10,
+  #     ("test", @[byte 1,2,3,4]))
+  #   check discoveredFiltered.len == 1 and discoveredFiltered.contains(targetNode)
 
-    await lookupNode.closeWait()
+  #   await lookupNode.closeWait()
 
   test "New protocol with spr":
     let
@@ -452,7 +451,7 @@ suite "Discovery v5 Tests":
       # Get node with current SPR in routing table.
       # Handshake will get done here.
       (await testNode.ping(mainNode.localNode)).isOk()
-      testNode.updateRecord({"test" : @[byte 1]}).isOk()
+      testNode.updateRecord().isOk()
       testNode.localNode.record.seqNum == 2
 
     # Get the node from routing table, seqNum should still be 1.
@@ -486,7 +485,7 @@ suite "Discovery v5 Tests":
     check: mainNode.addNode(testNode.localNode.record)
 
     check:
-      testNode.updateRecord({"test" : @[byte 1]}).isOk()
+      testNode.updateRecord().isOk()
       testNode.localNode.record.seqNum == 2
 
     # Get the node from routing table, seqNum should still be 1.

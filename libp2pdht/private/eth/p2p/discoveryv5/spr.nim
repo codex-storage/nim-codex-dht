@@ -66,7 +66,7 @@ proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
 proc get*(r: SignedPeerRecord, T: type crypto.PublicKey): Option[T] =
   ## Get the `PublicKey` from provided `Record`. Return `none` when there is
   ## no `PublicKey` in the record.
-  some(r.signedPeerRecord.publicKey)
+  some(r.envelope.publicKey)
 
 func pkToPk(pk: crypto.PublicKey) : Option[keys.PublicKey] =
   some((keys.PublicKey)(pk.skkey))
@@ -88,6 +88,21 @@ proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
     pk = r.envelope.publicKey
   pkToPk(pk)
 
+proc incSeqNo*(
+    r: var SignedPeerRecord,
+    pk: keys.PrivateKey): RecordResult[void] =
+
+  let cryptoPk = pk.pkToPk.get() # TODO: remove when eth/keys removed
+
+  r.data.seqNo.inc()
+  r = ? SignedPeerRecord.init(cryptoPk, r.data).mapErr(
+        (e: CryptoError) =>
+          ("Error initialising SignedPeerRecord with incremented seqNo: " &
+          $e).cstring
+      )
+  ok()
+
+
 proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
                             ip: Option[ValidIpAddress],
                             tcpPort, udpPort: Option[Port] = none[Port]()):
@@ -107,10 +122,19 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
   # addresses and the proc signature only allows updating of a single
   # ip/tcpPort/udpPort/extraFields
 
+  let
+    pubkey = r.get(crypto.PublicKey)
+    keysPubKey = pubkey.get.pkToPk.get # remove when move away from eth/keys
+    keysPrivKey = pk.pkToPk.get
+  if pubkey.isNone() or keysPubKey != keysPrivKey.toPublicKey:
+    return err("Public key does not correspond with given private key")
+
   let updated = if r.data.addresses.len == 0:
                   MultiAddress.init()
                 else: r.data.addresses[0].address
   # TODO: Update MultiAddress details here
+  if true: # only if we actually updated the SignedPeerRecord
+    ? r.incSeqNo(keysPrivKey)
   r = ? SignedPeerRecord.init(pk, r.data)
           .mapErr((e: CryptoError) => ("Failed to update SignedPeerRecord: " & $e).cstring)
 
