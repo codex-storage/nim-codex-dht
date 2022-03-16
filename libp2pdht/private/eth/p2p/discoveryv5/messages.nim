@@ -15,7 +15,7 @@
 import
   std/[hashes, net],
   eth/[keys],
-  ./enr,
+  ./spr,
   ../../../../dht/providers_messages
 
 export providers_messages
@@ -45,10 +45,10 @@ type
     id*: seq[byte]
 
   PingMessage* = object
-    enrSeq*: uint64
+    sprSeq*: uint64
 
   PongMessage* = object
-    enrSeq*: uint64
+    sprSeq*: uint64
     ip*: IpAddress
     port*: uint16
 
@@ -57,7 +57,7 @@ type
 
   NodesMessage* = object
     total*: uint32
-    enrs*: seq[SignedPeerRecord]
+    sprs*: seq[SignedPeerRecord]
 
   TalkReqMessage* = object
     protocol*: seq[byte]

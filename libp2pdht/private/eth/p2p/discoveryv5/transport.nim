@@ -24,7 +24,7 @@ type
     bindAddress: Address ## UDP binding address
     transp: DatagramTransport
     pendingRequests: Table[AESGCMNonce, PendingRequest]
-    codec*: Codec    
+    codec*: Codec
     rng: ref BrHmacDrbgContext
 
   PendingRequest = object
@@ -135,12 +135,12 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
       trace "Received handshake message packet", srcId = packet.srcIdHs,
         address = a, kind = packet.message.kind
       t.client.handleMessage(packet.srcIdHs, a, packet.message)
-      # For a handshake message it is possible that we received an newer ENR.
+      # For a handshake message it is possible that we received an newer SPR.
       # In that case we can add/update it to the routing table.
       if packet.node.isSome():
         let node = packet.node.get()
-        # Lets not add nodes without correct IP in the ENR to the routing table.
-        # The ENR could contain bogus IPs and although they would get removed
+        # Lets not add nodes without correct IP in the SPR to the routing table.
+        # The SPR could contain bogus IPs and although they would get removed
         # on the next revalidation, one could spam these as the handshake
         # message occurs on (first) incoming messages.
         if node.address.isSome() and a == node.address.get():

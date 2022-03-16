@@ -15,7 +15,7 @@ import
   chronicles,
   libp2p/routing_record,
   libp2p/signed_envelope,
-  "."/[messages, enr],
+  "."/[messages, spr],
   ../../../../dht/providers_encoding
 
 from stew/objects import checkedEnumAssign

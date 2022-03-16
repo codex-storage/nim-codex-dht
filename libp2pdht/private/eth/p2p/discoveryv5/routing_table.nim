@@ -11,7 +11,7 @@ import
   std/[algorithm, times, sequtils, bitops, sets, options],
   stint, chronicles, metrics, bearssl, chronos, stew/shims/net as stewNet,
   eth/net/utils,
-  "."/[node, random2, enr]
+  "."/[node, random2, spr]
 
 export options
 
@@ -67,9 +67,9 @@ type
   ##
   ## As entries are not verified (=contacted) immediately before or on entry, it
   ## is possible that a malicious node could fill (poison) the routing table or
-  ## a specific bucket with ENRs with IPs it does not control. The effect of
+  ## a specific bucket with SPRs with IPs it does not control. The effect of
   ## this would be that a node that actually owns the IP could have a difficult
-  ## time getting its ENR distrubuted in the DHT and as a consequence would
+  ## time getting its SPR distrubuted in the DHT and as a consequence would
   ## not be reached from the outside as much (or at all). However, that node can
   ## still search and find nodes to connect to. So it would practically be a
   ## similar situation as a node that is not reachable behind the NAT because
@@ -102,7 +102,7 @@ func logDistance*(a, b: NodeId): uint16 =
   ##
   ## According the specification, this is the log base 2 of the distance. But it
   ## is rather the log base 2 of the distance + 1, as else the 0 value can not
-  ## be used (e.g. by FindNode call to return peer its own ENR)
+  ## be used (e.g. by FindNode call to return peer its own SPR)
   ## For NodeId of 256 bits, range is 0-256.
   let a = a.toBytesBE
   let b = b.toBytesBE
@@ -330,7 +330,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   ## total routing table, the node will not be added to the bucket, nor its
   ## replacement cache.
 
-  # Don't allow nodes without an address field in the ENR to be added.
+  # Don't allow nodes without an address field in the SPR to be added.
   # This could also be reworked by having another Node type that always has an
   # address.
   if n.address.isNone():
@@ -351,7 +351,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
         if not ipLimitInc(r, bucket, n):
           return IpLimitReached
         ipLimitDec(r, bucket, bucket.nodes[nodeIdx])
-      # Copy over the seen status, we trust here that after the ENR update the
+      # Copy over the seen status, we trust here that after the SPR update the
       # node will still be reachable, but it might not be the case.
       n.seen = bucket.nodes[nodeIdx].seen
       bucket.nodes[nodeIdx] = n
@@ -368,7 +368,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # newly additions are added as least recently seen (in fact they have not been
   # seen yet from our node its perspective).
   # However, in discovery v5 a node can also be added after a incoming request
-  # if a handshake is done and an ENR is provided, and considering that this
+  # if a handshake is done and an SPR is provided, and considering that this
   # handshake needs to be done, it is more likely that this node is reachable.
   # However, it is not certain and depending on different NAT mechanisms and
   # timers it might still fail. For this reason we currently do not add a way to

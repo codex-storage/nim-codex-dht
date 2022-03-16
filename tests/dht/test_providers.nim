@@ -26,19 +26,6 @@ import
   libp2p/multicodec,
   libp2p/signed_envelope
 
-
-
-# suite "Providers Tests: node alone":
-
-proc toSignedPeerRecord(privKey: crypto.PrivateKey) : SignedPeerRecord =
-  ## handle conversion between the two worlds
-
-  let pr = PeerRecord.init(
-    peerId = PeerId.init(privKey.getPublicKey.get).get,
-    addresses = MultiAddress.udpExamples(3))
-  return SignedPeerRecord.init(privKey, pr).expect("Should init SignedPeerRecord with private key")
-  # trace "IDs", discNodeId, digest, mh, peerId=result.peerId.hex
-
 proc bootstrapNodes(
     nodecount: int,
     bootnodes: openArray[SignedPeerRecord],

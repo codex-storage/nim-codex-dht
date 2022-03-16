@@ -5,9 +5,9 @@ import
   chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   eth/keys,
-  libp2pdht/discv5/[transport, enr, node, routing_table, encoding, sessions, messages, nodes_verification],
+  libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, messages, nodes_verification],
   libp2pdht/discv5/protocol as discv5_protocol,
-  ./discv5_test_helper
+  ../dht/test_helper
 
 suite "Discovery v5 Tests":
   var rng: ref HmacDrbgContext
@@ -194,14 +194,14 @@ suite "Discovery v5 Tests":
     check (await testNode.ping(mainNode.localNode)).isOk()
     check (await mainNode.ping(testNode.localNode)).isOk()
 
-    # Get ENR of the node itself
+    # Get SPR of the node itself
     var discovered =
       await findNode(testNode, mainNode.localNode, @[0'u16])
     check:
       discovered.isOk
       discovered[].len == 1
       discovered[][0] == mainNode.localNode
-    # Get ENRs of nodes added at provided logarithmic distance
+    # Get SPRs of nodes added at provided logarithmic distance
     discovered =
       await findNode(testNode, mainNode.localNode, @[dist])
     check discovered.isOk
@@ -334,12 +334,12 @@ suite "Discovery v5 Tests":
         n.get().record.seqNum == targetSeqNum
     # Node will be removed because of failed findNode request.
 
-    # Bring target back online, update seqNum in ENR, check if we get the
-    # updated ENR.
+    # Bring target back online, update seqNum in SPR, check if we get the
+    # updated SPR.
     block:
       targetNode.open()
-      # Request the target ENR and manually add it to the routing table.
-      # Ping for handshake based ENR passing will not work as our previous
+      # Request the target SPR and manually add it to the routing table.
+      # Ping for handshake based SPR passing will not work as our previous
       # session will still be in the LRU cache.
       let nodes = await mainNode.findNode(targetNode.localNode, @[0'u16])
       check:
@@ -348,7 +348,7 @@ suite "Discovery v5 Tests":
         mainNode.addNode(nodes[][0])
 
       targetSeqNum.inc()
-      # need to add something to get the enr sequence number incremented
+      # need to add something to get the spr sequence number incremented
       let update = targetNode.updateRecord({"addsomefield": @[byte 1]})
       check update.isOk()
 
@@ -367,14 +367,14 @@ suite "Discovery v5 Tests":
       # Add the updated version
       discard mainNode.addNode(n.get())
 
-    # Update seqNum in ENR again, ping lookupNode to be added in routing table,
-    # close targetNode, resolve should lookup, check if we get updated ENR.
+    # Update seqNum in SPR again, ping lookupNode to be added in routing table,
+    # close targetNode, resolve should lookup, check if we get updated SPR.
     block:
       targetSeqNum.inc()
       let update = targetNode.updateRecord({"addsomefield": @[byte 2]})
       check update.isOk()
 
-      # ping node so that its ENR gets added
+      # ping node so that its SPR gets added
       check (await targetNode.ping(lookupNode.localNode)).isOk()
       # ping node so that it becomes "seen" and thus will be forwarded on a
       # findNode request
@@ -391,7 +391,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await lookupNode.closeWait()
 
-  test "Random nodes with enr field filter":
+  test "Random nodes with spr field filter":
     let
       lookupNode = initDiscoveryNode(rng, keys.PrivateKey.random(rng[]), localAddress(20301))
       targetFieldPair = toFieldPair("test", @[byte 1,2,3,4])
@@ -413,7 +413,7 @@ suite "Discovery v5 Tests":
 
     await lookupNode.closeWait()
 
-  test "New protocol with enr":
+  test "New protocol with spr":
     let
       privKey = keys.PrivateKey.random(rng[])
       ip = some(ValidIpAddress.init("127.0.0.1"))
@@ -449,7 +449,7 @@ suite "Discovery v5 Tests":
       testNodeId = testNode.localNode.id
 
     check:
-      # Get node with current ENR in routing table.
+      # Get node with current SPR in routing table.
       # Handshake will get done here.
       (await testNode.ping(mainNode.localNode)).isOk()
       testNode.updateRecord({"test" : @[byte 1]}).isOk()
@@ -461,7 +461,7 @@ suite "Discovery v5 Tests":
       n.isSome()
       n.get.record.seqNum == 1
 
-    # This should not do a handshake and thus the new ENR must come from the
+    # This should not do a handshake and thus the new SPR must come from the
     # findNode(0)
     await mainNode.revalidateNode(n.get)
 
@@ -495,7 +495,7 @@ suite "Discovery v5 Tests":
       n.isSome()
       n.get.record.seqNum == 1
 
-    # This should do a handshake and update the ENR through that.
+    # This should do a handshake and update the SPR through that.
     check (await testNode.ping(mainNode.localNode)).isOk()
 
     # Get the node from routing table, and check if record got updated.

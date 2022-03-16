@@ -6,7 +6,7 @@
 #
 import
   chronicles,
-  std/[options, sugar],
+  std/[options, strutils, sugar],
   pkg/stew/[results, byteutils],
   stew/endians2,
   stew/shims/net,
@@ -25,13 +25,7 @@ from chronos import TransportAddress, initTAddress
 export options, results
 
 type
-  EnrUri* = distinct string
-
-  FieldPair* = (string, Field)
-  ## dummy implementation
-
-  Field = object
-  ## dummy implementation
+  SprUri* = distinct string
 
   RecordResult*[T] = Result[T, cstring]
 
@@ -47,37 +41,21 @@ proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
     error "Error encoding SignedPeerRecord for RLP", error = encoded.error
   rlpWriter.append encoded.get(@[])
 
-#proc decode
-# some(rlp.decode(authdata.toOpenArray(recordPos, authdata.high),enr.Record))
-# template decode*(bytes: openArray[byte], T: type): untyped =
-#   mixin read
-#   var rlp = rlpFromBytes(bytes)
-#   rlp.read(T)
-# proc read*(rlp: var Rlp, T: typedesc[Record]):
-#     T {.raises: [RlpError, ValueError, Defect].} =
-#   if not rlp.hasData() or not result.fromBytes(rlp.rawData):
-#     # TODO: This could also just be an invalid signature, would be cleaner to
-#     # split of RLP deserialisation errors from this.
-#     raise newException(ValueError, "Could not deserialize")
-#   rlp.skipElem()
-# proc fromBytes*(r: var Record, s: openArray[byte]): bool =
-  ## Loads ENR from rlp-encoded bytes, and validates the signature.
-
 proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
   trace "Decoding SignedPeerRecord for RLP", bytes = s
 
-  let spr = SignedPeerRecord.decode(@s)
-  if spr.isErr:
-      error "Error decoding SignedPeerRecord", error = spr.error
-      return false
+  let decoded = SignedPeerRecord.decode(@s)
+  if decoded.isErr:
+    error "Error decoding SignedPeerRecord", error = decoded.error
+    return false
 
-  r = spr.get
+  r = decoded.get
   return true
 
 proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
     T {.raises: [RlpError, ValueError, Defect].} =
     # echo "read:" & $rlp.rawData
-    ## code directly borrowed from enr.nim
+    ## code directly borrowed from spr.nim
     trace "Reading RLP SignedPeerRecord", rawData = rlp.rawData, toBytes = rlp.toBytes
     if not rlp.hasData() or not result.fromBytes(rlp.toBytes):
         # TODO: This could also just be an invalid signature, would be cleaner to
@@ -112,23 +90,27 @@ proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
 
 proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
                             ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port](),
-                            extraFields: openArray[FieldPair] = []):
+                            tcpPort, udpPort: Option[Port] = none[Port]()):
                             RecordResult[void] =
-  ## Update a `Record` with given ip address, tcp port, udp port and optional
+  ## Update a `SignedPeerRecord` with given ip address, tcp port, udp port and optional
   ## custom k:v pairs.
   ##
   ## In case any of the k:v pairs is updated or added (new), the sequence number
   ## of the `Record` will be incremented and a new signature will be applied.
   ##
   ## Can fail in case of wrong `PrivateKey`, if the size of the resulting record
-  ## exceeds `maxEnrSize` or if maximum sequence number is reached. The `Record`
+  ## exceeds `maxSprSize` or if maximum sequence number is reached. The `Record`
   ## will not be altered in these cases.
 
-  #TODO: handle fields
+  # TODO: handle custom field pairs?
   # TODO: We have a mapping issue here because PeerRecord has multiple
   # addresses and the proc signature only allows updating of a single
   # ip/tcpPort/udpPort/extraFields
+
+  let updated = if r.data.addresses.len == 0:
+                  MultiAddress.init()
+                else: r.data.addresses[0].address
+  # TODO: Update MultiAddress details here
   r = ? SignedPeerRecord.init(pk, r.data)
           .mapErr((e: CryptoError) => ("Failed to update SignedPeerRecord: " & $e).cstring)
 
@@ -136,11 +118,10 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
 
 proc update*(r: var SignedPeerRecord, pk: keys.PrivateKey,
                             ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port](),
-                            extraFields: openArray[FieldPair] = []):
+                            tcpPort, udpPort: Option[Port] = none[Port]()):
                             RecordResult[void] =
   let cPk = pkToPk(pk).get
-  r.update(cPk, ip, tcpPort, udpPort, extraFields)
+  r.update(cPk, ip, tcpPort, udpPort)
 
 proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
@@ -174,37 +155,43 @@ proc udp*(r: SignedPeerRecord): Option[int] =
       var pbuf: array[2, byte]
       let res = ma[1].get.protoArgument(pbuf)
       if res.isOk:
-        let p = fromBytesBE(uint16, pbuf)  
+        let p = fromBytesBE(uint16, pbuf)
         return some(p.int)
 
-proc fromURI*(r: var SignedPeerRecord, s: string): bool =
-  ## Loads Record from its text encoding. Validates the signature.
-  ## TODO
-  #error "fromURI not implemented"
-  false
-#   const prefix = "enr:"
-#   if s.startsWith(prefix):
-#     result = r.fromBase64(s[prefix.len .. ^1])
+proc fromBase64*(r: var SignedPeerRecord, s: string): bool =
+  ## Loads SPR from base64-encoded rlp-encoded bytes, and validates the
+  ## signature.
+  let bytes = Base64Url.decode(s)
+  r.fromBytes(bytes)
 
-template fromURI*(r: var SignedPeerRecord, url: EnrUri): bool =
+proc fromURI*(r: var SignedPeerRecord, s: string): bool =
+  ## Loads SignedPeerRecord from its text encoding. Validates the signature.
+  ## TODO
+  const prefix = "spr:"
+  if s.startsWith(prefix):
+    result = r.fromBase64(s[prefix.len .. ^1])
+
+template fromURI*(r: var SignedPeerRecord, url: SprUri): bool =
   fromURI(r, string(url))
 
 proc toBase64*(r: SignedPeerRecord): string =
-  result = Base64Url.encode(r.data.encode)
+  let encoded = r.encode
+  if encoded.isErr:
+    error "Failed to encode SignedPeerRecord", error = encoded.error
+  result = Base64Url.encode(encoded.get(@[]))
 
 proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 
 proc init*(T: type SignedPeerRecord, seqNum: uint64,
                            pk: crypto.PrivateKey,
                            ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port],
-                           extraFields: openArray[FieldPair] = []):
+                           tcpPort, udpPort: Option[Port]):
                            RecordResult[T] =
   ## Initialize a `SignedPeerRecord` with given sequence number, private key, optional
   ## ip address, tcp port, udp port, and optional custom k:v pairs.
   ##
-  ## Can fail in case the record exceeds the `maxEnrSize`.
-  
+  ## Can fail in case the record exceeds the `maxSprSize`.
+
   let peerId = PeerId.init(pk).get
   var ma:MultiAddress
   if ip.isSome and udpPort.isSome:
@@ -225,26 +212,19 @@ proc init*(T: type SignedPeerRecord, seqNum: uint64,
 proc init*(T: type SignedPeerRecord, seqNum: uint64,
                            pk: keys.PrivateKey,
                            ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port],
-                           extraFields: openArray[FieldPair] = []):
+                           tcpPort, udpPort: Option[Port]):
                            RecordResult[T] =
   let kPk = pkToPk(pk).get
-  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort, extraFields)
+  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort)
 
 proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the
   # `get` call can be improved to make this easier.
-  # TODO: implement
-  #error "not implemented"
+  # let field = r.tryGet(fp[0], seq[byte])
+  # if field.isSome():
+  #   if field.get() == fp[1]:
+  #     return true
+  # TODO: Implement if SignedPeerRecord custom field pairs are implemented
   return false
-
-template toFieldPair*(key: string, value: auto): FieldPair =
-  #error "not implemented"
-  (key, Field())
-
-proc update*(record: var SignedPeerRecord, pk: keys.PrivateKey,
-    fieldPairs: openArray[FieldPair]): RecordResult[void] =
-  #error "not implemented"
-  err("not implemented")
 
 proc `==`*(a, b: SignedPeerRecord): bool = a.data == b.data

@@ -18,7 +18,7 @@ import
   nimcrypto, stint, chronicles, bearssl, stew/[results, byteutils], metrics,
   eth/[rlp, keys],
   libp2p/signed_envelope,
-  "."/[messages, messages_encoding, node, enr, hkdf, sessions]
+  "."/[messages, messages_encoding, node, spr, hkdf, sessions]
 
 from stew/objects import checkedEnumAssign
 
@@ -301,7 +301,7 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
   # compressed pub key format (33 bytes)
   authdata.add(ephKeys.pubkey.toRawCompressed())
 
-  # Add ENR of sequence number is newer
+  # Add SPR of sequence number is newer
   if whoareyouData.recordSeq < c.localNode.record.seqNum:
     let encoded = c.localNode.record.encode
     if encoded.isOk:
@@ -454,7 +454,7 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
     sigSize = uint8(authdata[32])
     ephKeySize = uint8(authdata[33])
 
-  # If smaller, as it can be equal and bigger (in case it holds an enr)
+  # If smaller, as it can be equal and bigger (in case it holds an spr)
   if header.len < staticHeaderSize + authdataHeadSize + int(sigSize) + int(ephKeySize):
     return err("Invalid header for handshake message packet")
 
@@ -474,7 +474,7 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
   var record: Option[SignedPeerRecord]
   let recordPos = ephKeyPos + int(ephKeySize)
   if authdata.len() > recordPos:
-    # There is possibly an ENR still
+    # There is possibly an SPR still
     try:
       trace "Decoding handshake packet's authdata", authdata, recordPos, decodeBytes = authdata.toOpenArray(recordPos, authdata.high)
       # Signature check of record happens in decode.
@@ -484,7 +484,7 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
                       .expect("Should be valid bytes for SignedPeerRecord")
       record = some(decoded)
     except RlpError, ValueError:
-      return err("Invalid encoded ENR")
+      return err("Invalid encoded SPR")
 
   var pubkey: keys.PublicKey
   var newNode: Option[Node]
@@ -494,19 +494,19 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
     # Node returned might not have an address or not a valid address.
     let node = ? newNode(record.get())
     if node.id != srcId:
-      return err("Invalid node id: does not match node id of ENR")
+      return err("Invalid node id: does not match node id of SPR")
 
     # Note: Not checking if the record seqNum is higher than the one we might
     # have stored as it comes from this node directly.
     pubkey = node.pubkey
     newNode = some(node)
   else:
-    # TODO: Hmm, should we still verify node id of the ENR of this node?
+    # TODO: Hmm, should we still verify node id of the SPR of this node?
     if challenge.pubkey.isSome():
       pubkey = challenge.pubkey.get()
     else:
       # We should have received a SignedPeerRecord in this case.
-      return err("Missing ENR in handshake packet")
+      return err("Missing SPR in handshake packet")
 
   # Verify the id-signature
   let sig = ? SignatureNR.fromRaw(
