@@ -28,9 +28,9 @@ import
 
 proc bootstrapNodes(
     nodecount: int,
-    bootnodes: openArray[SignedPeerRecord],
+    bootnodes: seq[SignedPeerRecord],
     rng = keys.newRng()
-  ) : seq[(discv5_protocol.Protocol, keys.PrivateKey)] =
+  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
   for i in 0..<nodecount:
     let privKey = keys.PrivateKey.random(rng[])
@@ -44,7 +44,7 @@ proc bootstrapNodes(
 proc bootstrapNetwork(
     nodecount: int,
     rng = keys.newRng()
-  ) : seq[(discv5_protocol.Protocol, keys.PrivateKey)] =
+  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
   let
     bootNodeKey = keys.PrivateKey.fromHex(
@@ -54,7 +54,7 @@ proc bootstrapNetwork(
 
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
 
-  var res = bootstrapNodes(nodecount - 1,
+  var res = await bootstrapNodes(nodecount - 1,
                            @[bootnode.localNode.record],
                            rng)
   res.insert((bootNode, bootNodeKey), 0)
@@ -80,7 +80,7 @@ suite "Providers Tests: node alone":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=1)
+    nodes = await bootstrapNetwork(nodecount=1)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
@@ -142,7 +142,7 @@ suite "Providers Tests: two nodes":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=2)
+    nodes = await bootstrapNetwork(nodecount=3)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
@@ -195,7 +195,7 @@ suite "Providers Tests: 20 nodes":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=20)
+    nodes = await bootstrapNetwork(nodecount=20)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
