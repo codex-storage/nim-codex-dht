@@ -144,6 +144,9 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         # on the next revalidation, one could spam these as the handshake
         # message occurs on (first) incoming messages.
         if node.address.isSome() and a == node.address.get():
+          # TODO: maybe here we could verify that the address matches what we were
+          # sending the 'whoareyou' message to. In that case, we can set 'seen'
+          node.seen = true
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node
   else:
