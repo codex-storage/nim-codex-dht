@@ -15,7 +15,7 @@ import
   chronicles,
   libp2p/routing_record,
   libp2p/signed_envelope,
-  "."/[messages, spr],
+  "."/[messages, spr, node],
   ../../../../dht/providers_encoding
 
 from stew/objects import checkedEnumAssign
@@ -59,6 +59,16 @@ proc append*(writer: var RlpWriter, ip: IpAddress) =
   of IpAddressFamily.IPv4:
     writer.append(ip.address_v4)
   of IpAddressFamily.IPv6: writer.append(ip.address_v6)
+
+proc read*(rlp: var Rlp, T: type NodeId): T
+    {.raises: [ValueError, RlpError, Defect].} =
+  mixin read
+  let nodeId = NodeId.fromBytesBE(rlp.toBytes())
+  rlp.skipElem()
+  nodeId
+
+proc append*(writer: var RlpWriter, value: NodeId) =
+  writer.append(value.toBytesBE)
 
 proc numFields(T: typedesc): int =
   for k, v in fieldPairs(default(T)): inc result
@@ -117,6 +127,7 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
       of ping: rlp.decode(message.ping)
       of pong: rlp.decode(message.pong)
       of findNode: rlp.decode(message.findNode)
+      of findNodeFast: rlp.decode(message.findNodeFast)
       of nodes: rlp.decode(message.nodes)
       of talkReq: rlp.decode(message.talkReq)
       of talkResp: rlp.decode(message.talkResp)
