@@ -288,6 +288,12 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
       # with empty nodes.
       d.sendNodes(fromId, fromAddr, reqId, [])
 
+proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
+    fnf: FindNodeFastMessage, reqId: RequestId) =
+  d.sendNodes(fromId, fromAddr, reqId,
+    d.routingTable.neighbours(fnf.target, seenOnly = true))
+  # TODO: if known, maybe we should add exact target even if not yet "seen" 
+
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
     talkreq: TalkReqMessage, reqId: RequestId) =
   let talkProtocol = d.talkProtocols.getOrDefault(talkreq.protocol)
@@ -333,6 +339,9 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
   of findNode:
     discovery_message_requests_incoming.inc()
     d.handleFindNode(srcId, fromAddr, message.findNode, message.reqId)
+  of findNodeFast:
+    discovery_message_requests_incoming.inc()
+    d.handleFindNodeFast(srcId, fromAddr, message.findNodeFast, message.reqId)
   of talkReq:
     discovery_message_requests_incoming.inc()
     d.handleTalkReq(srcId, fromAddr, message.talkReq, message.reqId)
@@ -464,7 +473,7 @@ proc ping*(d: Protocol, toNode: Node):
 
 proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
     Future[DiscResult[seq[Node]]] {.async.} =
-  ## Send a discovery findNode message.
+  ## Send a getNeighbours message.
   ##
   ## Returns the received nodes or an error.
   ## Received SPRs are already validated and converted to `Node`.
@@ -478,6 +487,24 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   else:
     d.replaceNode(toNode)
     return err(nodes.error)
+
+proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
+    Future[DiscResult[seq[Node]]] {.async.} =
+  ## Send a findNode message.
+  ##
+  ## Returns the received nodes or an error.
+  ## Received SPRs are already validated and converted to `Node`.
+  let reqId = d.sendRequest(toNode, FindNodeFastMessage(target: target))
+  let nodes = await d.waitNodes(toNode, reqId)
+
+  if nodes.isOk:
+    let res = verifyNodesRecords(nodes.get(), toNode, findNodeResultLimit)
+    d.routingTable.setJustSeen(toNode)
+    return ok(res)
+  else:
+    d.replaceNode(toNode)
+    return err(nodes.error)
+
 
 proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
     Future[DiscResult[seq[byte]]] {.async.} =
@@ -527,7 +554,19 @@ proc lookupWorker(d: Protocol, destNode: Node, target: NodeId):
     for n in result:
       discard d.addNode(n)
 
-proc lookup*(d: Protocol, target: NodeId): Future[seq[Node]] {.async.} =
+proc lookupWorkerFast(d: Protocol, destNode: Node, target: NodeId):
+    Future[seq[Node]] {.async.} =
+  ## use terget NodeId based find_node
+
+  let r = await d.findNodeFast(destNode, target)
+  if r.isOk:
+    result.add(r[])
+
+    # Attempt to add all nodes discovered
+    for n in result:
+      discard d.addNode(n)
+
+proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]] {.async.} =
   ## Perform a lookup for the given target, return the closest n nodes to the
   ## target. Maximum value for n is `BUCKET_SIZE`.
   # `closestNodes` holds the k closest nodes to target found, sorted by distance
@@ -550,7 +589,10 @@ proc lookup*(d: Protocol, target: NodeId): Future[seq[Node]] {.async.} =
     while i < closestNodes.len and pendingQueries.len < alpha:
       let n = closestNodes[i]
       if not asked.containsOrIncl(n.id):
-        pendingQueries.add(d.lookupWorker(n, target))
+        if fast: 
+          pendingQueries.add(d.lookupWorkerFast(n, target))
+        else:
+          pendingQueries.add(d.lookupWorker(n, target))
       inc i
 
     trace "discv5 pending queries", total = pendingQueries.len

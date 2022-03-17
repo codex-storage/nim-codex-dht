@@ -16,6 +16,7 @@ import
   std/[hashes, net],
   eth/[keys],
   ./spr,
+  ./node,
   ../../../../dht/providers_messages
 
 export providers_messages
@@ -40,6 +41,7 @@ type
     addProvider = 0x0B
     getProviders = 0x0C
     providers = 0x0D
+    findNodeFast = 0x83
 
   RequestId* = object
     id*: seq[byte]
@@ -54,6 +56,9 @@ type
 
   FindNodeMessage* = object
     distances*: seq[uint16]
+
+  FindNodeFastMessage* = object
+    target*: NodeId
 
   NodesMessage* = object
     total*: uint32
@@ -74,7 +79,7 @@ type
 
   SomeMessage* = PingMessage or PongMessage or FindNodeMessage or NodesMessage or
     TalkReqMessage or TalkRespMessage or AddProviderMessage or GetProvidersMessage or
-    ProvidersMessage
+    ProvidersMessage or FindNodeFastMessage
 
   Message* = object
     reqId*: RequestId
@@ -85,6 +90,8 @@ type
       pong*: PongMessage
     of findNode:
       findNode*: FindNodeMessage
+    of findNodeFast:
+      findNodeFast*: FindNodeFastMessage
     of nodes:
       nodes*: NodesMessage
     of talkReq:
@@ -112,6 +119,7 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
   when T is PingMessage: ping
   elif T is PongMessage: pong
   elif T is FindNodeMessage: findNode
+  elif T is FindNodeFastMessage: findNodeFast
   elif T is NodesMessage: nodes
   elif T is TalkReqMessage: talkReq
   elif T is TalkRespMessage: talkResp
