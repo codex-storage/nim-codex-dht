@@ -47,7 +47,8 @@ proc bootstrapNodes(
 
 proc bootstrapNetwork(
     nodecount: int,
-    rng = keys.newRng()
+    rng = keys.newRng(),
+    delay: int = 0
   ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
   let
@@ -60,7 +61,8 @@ proc bootstrapNetwork(
 
   var res = await bootstrapNodes(nodecount - 1,
                            @[bootnode.localNode.record],
-                           rng)
+                           rng,
+                           delay)
   res.insert((bootNode, bootNodeKey), 0)
   return res
 
