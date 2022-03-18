@@ -372,7 +372,7 @@ proc replaceNode(d: Protocol, n: Node) =
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
     # peers in the routing table.
-    debug "Message request to bootstrap node failed", spr = toURI(n.record)
+    debug "Message request to bootstrap node failed", src=d.localNode, dst=n
 
 
 proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
