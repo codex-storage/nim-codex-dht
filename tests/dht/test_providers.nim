@@ -28,23 +28,28 @@ import
 
 proc bootstrapNodes(
     nodecount: int,
-    bootnodes: openArray[SignedPeerRecord],
-    rng = keys.newRng()
-  ) : seq[(discv5_protocol.Protocol, keys.PrivateKey)] =
+    bootnodes: seq[SignedPeerRecord],
+    rng = keys.newRng(),
+    delay: int = 0
+  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
+  debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
     let privKey = keys.PrivateKey.random(rng[])
     let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
     node.start()
     result.add((node, privKey))
-  debug "---- STARTING BOOSTRAPS ---"
+    if delay > 0:
+      await sleepAsync(chronos.milliseconds(delay))
+
 
   #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
 
 proc bootstrapNetwork(
     nodecount: int,
-    rng = keys.newRng()
-  ) : seq[(discv5_protocol.Protocol, keys.PrivateKey)] =
+    rng = keys.newRng(),
+    delay: int = 0
+  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
 
   let
     bootNodeKey = keys.PrivateKey.fromHex(
@@ -54,9 +59,10 @@ proc bootstrapNetwork(
 
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
 
-  var res = bootstrapNodes(nodecount - 1,
+  var res = await bootstrapNodes(nodecount - 1,
                            @[bootnode.localNode.record],
-                           rng)
+                           rng,
+                           delay)
   res.insert((bootNode, bootNodeKey), 0)
   return res
 
@@ -80,7 +86,7 @@ suite "Providers Tests: node alone":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=1)
+    nodes = await bootstrapNetwork(nodecount=1)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
@@ -142,7 +148,7 @@ suite "Providers Tests: two nodes":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=2)
+    nodes = await bootstrapNetwork(nodecount=3)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
@@ -195,7 +201,7 @@ suite "Providers Tests: 20 nodes":
 
   setupAll:
     rng = keys.newRng()
-    nodes = bootstrapNetwork(nodecount=20)
+    nodes = await bootstrapNetwork(nodecount=20)
     targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
     (node0, privKey_keys0) = nodes[0]
     privKey0 = privKey_keys0.pkToPk.get
@@ -232,14 +238,17 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  # test "20 nodes, retieve after bootnode dies":
-  #   # TODO: currently this is not working even with a 2 minute timeout
-  #   debug "---- KILLING BOOTSTRAP NODE ---"
-  #   await nodes[0].closeWait()
+  test "20 nodes, retieve after bootnode dies":
+    debug "---- KILLING BOOTSTRAP NODE ---"
+    let (node0, _) = nodes[0]
+    let (node18, _) = nodes[^2]
+    await node0.closeWait()
+    nodes.del(0)
 
-  #   debug "---- STARTING PROVIDERS LOOKUP ---"
-  #   let providers = await nodes[^2].getProviders(targetId)
-  #   debug "Providers:", providers
+    debug "---- STARTING PROVIDERS LOOKUP ---"
+    let providersRes = await node18.getProviders(targetId)
 
-  #   debug "---- STARTING CHECKS ---"
-  #   check (providers.len == 1 and providers[0].peerId == nodes[0].toPeerRecord.peerId)
+    debug "---- STARTING CHECKS ---"
+    let providers = providersRes.get
+    debug "Providers:", providers
+    check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
