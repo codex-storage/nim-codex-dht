@@ -221,12 +221,12 @@ func getRecord*(d: Protocol): SignedPeerRecord =
   ## Get the SPR of the local node.
   d.localNode.record
 
-proc updateRecord*(d: Protocol): DiscResult[void] =
+proc updateRecord*(d: Protocol, ttl = TTL_DEFAULT): DiscResult[void] =
   ## Update the ENR of the local node with provided `enrFields` k:v pairs.
 
   # TODO: Do we need this proc? This simply serves so that seqNo will be
   # incremented to satisfy the tests...
-  d.localNode.record.incSeqNo(d.privateKey)
+  d.localNode.record.incTtl(d.privateKey)
 
   # TODO: Would it make sense to actively ping ("broadcast") to all the peers
   # we stored a handshake with in order to get that ENR updated?
@@ -907,16 +907,16 @@ func init*(
 
 proc newProtocol*(
     privKey: keys.PrivateKey,
-    enrIp: Option[ValidIpAddress],
-    enrTcpPort, enrUdpPort: Option[Port],
-    localEnrFields: openArray[(string, seq[byte])] = [],
+    sprIp: Option[ValidIpAddress],
+    sprTcpPort, sprUdpPort: Option[Port],
     bootstrapRecords: openArray[SignedPeerRecord] = [],
     previousRecord = none[SignedPeerRecord](),
     bindPort: Port,
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
-    rng = keys.newRng()):
+    rng = keys.newRng(),
+    sprTtl = TTL_DEFAULT):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
@@ -933,15 +933,18 @@ proc newProtocol*(
   var record: SignedPeerRecord
   if previousRecord.isSome():
     record = previousRecord.get()
-    record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
+    debugEcho ">>> [protocol.newProtocol] previousRecord seqNum BEFORE: ", record.seqNum
+    record.update(privKey, sprIp, sprTcpPort, sprUdpPort, sprTtl)
             .expect("SignedPeerRecord within size limits and correct key")
+    debugEcho ">>> [protocol.newProtocol] record seqNum AFTER: ", record.seqNum
+    debugEcho ">>> [protocol.newProtocol] previousRecord seqNum AFTER: ", previousRecord.get().seqNum
   else:
-    record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
+    record = SignedPeerRecord.init(privKey, sprIp, sprTcpPort, sprUdpPort)
                .expect("SignedPeerRecord within size limits")
 
-  info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
+  info "SPR initialized", ip = sprIp, tcp = sprTcpPort, udp = sprUdpPort,
     seqNum = record.seqNum, uri = toURI(record)
-  if enrIp.isNone():
+  if sprIp.isNone():
     if enrAutoUpdate:
       notice "No external IP provided for the SPR, this node will not be " &
         "discoverable until the SPR is updated with the discovered external IP address"

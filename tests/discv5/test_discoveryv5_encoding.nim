@@ -262,11 +262,11 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
     privKeyB = keys.PrivateKey.fromHex(nodeBKey)[] # receive -> decode
 
     let
-      enrRecA = SignedPeerRecord.init(1, privKeyA,
+      enrRecA = SignedPeerRecord.init(privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
-      enrRecB = SignedPeerRecord.init(1, privKeyB,
+      enrRecB = SignedPeerRecord.init(privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
@@ -493,11 +493,11 @@ suite "Discovery v5.1 Additional Encode/Decode":
     privKeyB = keys.PrivateKey.random(rng[]) # receiver -> decode
 
     let
-      enrRecA = SignedPeerRecord.init(1, privKeyA,
+      enrRecA = SignedPeerRecord.init(privKeyA,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 
-      enrRecB = SignedPeerRecord.init(1, privKeyB,
+      enrRecB = SignedPeerRecord.init(privKeyB,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
 

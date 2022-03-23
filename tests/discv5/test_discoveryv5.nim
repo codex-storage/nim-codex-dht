@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/tables,
+  std/[tables, times],
   chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   eth/keys,
@@ -318,6 +318,7 @@ suite "Discovery v5 Tests":
       targetAddress = localAddress(20303)
       targetNode = initDiscoveryNode(rng, targetKey, targetAddress)
       targetId = targetNode.localNode.id
+      ttl = initDuration(seconds = 1)
 
     var targetSeqNum = targetNode.localNode.record.seqNum
 
@@ -347,22 +348,22 @@ suite "Discovery v5 Tests":
         nodes[].len == 1
         mainNode.addNode(nodes[][0])
 
-      targetSeqNum.inc()
       # need to add something to get the spr sequence number incremented
-      let update = targetNode.updateRecord()
+      let update = targetNode.updateRecord(ttl)
       check update.isOk()
 
       var n = mainNode.getNode(targetId)
       check:
         n.isSome()
         n.get().id == targetId
-        n.get().record.seqNum == targetSeqNum - 1
+        n.get().record.seqNum == targetSeqNum
 
       n = await mainNode.resolve(targetId)
       check:
         n.isSome()
         n.get().id == targetId
-        n.get().record.seqNum == targetSeqNum
+        n.get().record.seqNum - ttl.inSeconds.uint64 > targetSeqNum
+        not n.get().record.isExpired
 
       # Add the updated version
       discard mainNode.addNode(n.get())
@@ -370,8 +371,8 @@ suite "Discovery v5 Tests":
     # Update seqNum in SPR again, ping lookupNode to be added in routing table,
     # close targetNode, resolve should lookup, check if we get updated SPR.
     block:
-      targetSeqNum.inc()
-      let update = targetNode.updateRecord()
+      targetSeqNum = nowUnix()
+      let update = targetNode.updateRecord(ttl)
       check update.isOk()
 
       # ping node so that its SPR gets added
@@ -386,7 +387,8 @@ suite "Discovery v5 Tests":
       check:
         n.isSome()
         n.get().id == targetId
-        n.get().record.seqNum == targetSeqNum
+        n.get().record.seqNum - ttl.inSeconds.uint64 > targetSeqNum
+        not n.get().record.isExpired
 
     await mainNode.closeWait()
     await lookupNode.closeWait()
@@ -417,21 +419,34 @@ suite "Discovery v5 Tests":
       privKey = keys.PrivateKey.random(rng[])
       ip = some(ValidIpAddress.init("127.0.0.1"))
       port = Port(20301)
+      now = nowUnix()
+      ttl1 = initDuration(minutes = 10)
+      ttl2 = initDuration(minutes = 20)
       node = newProtocol(privKey, ip, some(port), some(port), bindPort = port,
         rng = rng)
       noUpdatesNode = newProtocol(privKey, ip, some(port), some(port),
         bindPort = port, rng = rng, previousRecord = some(node.getRecord()))
       updatesNode = newProtocol(privKey, ip, some(port), some(Port(20302)),
         bindPort = port, rng = rng,
-        previousRecord = some(noUpdatesNode.getRecord()))
-      moreUpdatesNode = newProtocol(privKey, ip, some(port), some(port),
-        bindPort = port, rng = rng, localEnrFields = {"addfield": @[byte 0]},
-        previousRecord = some(updatesNode.getRecord()))
+        previousRecord = some(noUpdatesNode.getRecord()),
+        sprTtl = ttl1)
+      moreUpdatesNode = newProtocol(privKey,
+        some(ValidIpAddress.init("127.0.0.2")), some(port), some(Port(20302)),
+        bindPort = port, rng = rng,
+        previousRecord = some(updatesNode.getRecord()),
+        sprTtl = ttl2)
     check:
-      node.getRecord().seqNum == 1
-      noUpdatesNode.getRecord().seqNum == 1
-      updatesNode.getRecord().seqNum == 2
-      moreUpdatesNode.getRecord().seqNum == 3
+      node.getRecord().seqNum == now + TTL_DEFAULT.inSeconds.uint64
+      not node.getRecord().isExpired
+
+      noUpdatesNode.getRecord().seqNum == node.getRecord().seqNum
+      not noUpdatesNode.getRecord().isExpired
+
+      updatesNode.getRecord().seqNum == now + ttl1.inSeconds.uint64
+      not updatesNode.getRecord().isExpired
+
+      moreUpdatesNode.getRecord().seqNum == now + ttl2.inSeconds.uint64
+      not moreUpdatesNode.getRecord().isExpired
 
     # Defect (for now?) on incorrect key use
     expect ResultDefect:
@@ -509,7 +524,7 @@ suite "Discovery v5 Tests":
   test "Verify records of nodes message":
     let
       port = Port(9000)
-      fromNoderecord = SignedPeerRecord.init(1, keys.PrivateKey.random(rng[]),
+      fromNoderecord = SignedPeerRecord.init(keys.PrivateKey.random(rng[]),
         some(ValidIpAddress.init("11.12.13.14")),
         some(port), some(port))[]
       fromNode = newNode(fromNoderecord)[]
@@ -520,7 +535,7 @@ suite "Discovery v5 Tests":
     block: # Duplicates
       let
         record = SignedPeerRecord.init(
-          1, pk, some(ValidIpAddress.init("12.13.14.15")),
+          pk, some(ValidIpAddress.init("12.13.14.15")),
           some(port), some(port))[]
 
       # Exact duplicates
@@ -530,7 +545,7 @@ suite "Discovery v5 Tests":
 
       # Node id duplicates
       let recordSameId = SignedPeerRecord.init(
-        1, pk, some(ValidIpAddress.init("212.13.14.15")),
+        pk, some(ValidIpAddress.init("212.13.14.15")),
         some(port), some(port))[]
       records.add(recordSameId)
       nodes = verifyNodesRecords(records, fromNode, limit, targetDistance)
@@ -539,7 +554,7 @@ suite "Discovery v5 Tests":
     block: # No address
       let
         recordNoAddress = SignedPeerRecord.init(
-          1, pk, none(ValidIpAddress), some(port), some(port))[]
+          pk, none(ValidIpAddress), some(port), some(port))[]
         records = [recordNoAddress]
         test = verifyNodesRecords(records, fromNode, limit, targetDistance)
       check test.len == 0
@@ -547,7 +562,7 @@ suite "Discovery v5 Tests":
     block: # Invalid address - site local
       let
         recordInvalidAddress = SignedPeerRecord.init(
-          1, pk, some(ValidIpAddress.init("10.1.2.3")),
+          pk, some(ValidIpAddress.init("10.1.2.3")),
           some(port), some(port))[]
         records = [recordInvalidAddress]
         test = verifyNodesRecords(records, fromNode, limit, targetDistance)
@@ -556,7 +571,7 @@ suite "Discovery v5 Tests":
     block: # Invalid address - loopback
       let
         recordInvalidAddress = SignedPeerRecord.init(
-          1, pk, some(ValidIpAddress.init("127.0.0.1")),
+          pk, some(ValidIpAddress.init("127.0.0.1")),
           some(port), some(port))[]
         records = [recordInvalidAddress]
         test = verifyNodesRecords(records, fromNode, limit, targetDistance)
@@ -565,7 +580,7 @@ suite "Discovery v5 Tests":
     block: # Invalid distance
       let
         recordInvalidDistance = SignedPeerRecord.init(
-          1, pk, some(ValidIpAddress.init("12.13.14.15")),
+          pk, some(ValidIpAddress.init("12.13.14.15")),
           some(port), some(port))[]
         records = [recordInvalidDistance]
         test = verifyNodesRecords(records, fromNode, limit, @[0'u16])
@@ -574,7 +589,7 @@ suite "Discovery v5 Tests":
     block: # Invalid distance but distance validation is disabled
       let
         recordInvalidDistance = SignedPeerRecord.init(
-          1, pk, some(ValidIpAddress.init("12.13.14.15")),
+          pk, some(ValidIpAddress.init("12.13.14.15")),
           some(port), some(port))[]
         records = [recordInvalidDistance]
         test = verifyNodesRecords(records, fromNode, limit)
@@ -600,7 +615,7 @@ suite "Discovery v5 Tests":
     for i in 0 ..< 5:
       let
         privKey = keys.PrivateKey.random(rng[])
-        enrRec = SignedPeerRecord.init(1, privKey,
+        enrRec = SignedPeerRecord.init(privKey,
           some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
           some(Port(9000))).expect("Properly intialized private key")
         sendNode = newNode(enrRec).expect("Properly initialized record")
@@ -629,7 +644,7 @@ suite "Discovery v5 Tests":
     # and "receive" them on receiveNode
     let
       privKey = keys.PrivateKey.random(rng[])
-      enrRec = SignedPeerRecord.init(1, privKey,
+      enrRec = SignedPeerRecord.init(privKey,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
       sendNode = newNode(enrRec).expect("Properly initialized record")
@@ -660,7 +675,7 @@ suite "Discovery v5 Tests":
     let
       a = localAddress(20303)
       privKey = keys.PrivateKey.random(rng[])
-      enrRec = SignedPeerRecord.init(1, privKey,
+      enrRec = SignedPeerRecord.init(privKey,
         some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
         some(Port(9000))).expect("Properly intialized private key")
       sendNode = newNode(enrRec).expect("Properly initialized record")

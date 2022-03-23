@@ -16,7 +16,6 @@ proc initDiscoveryNode*(
     privKey: keys.PrivateKey,
     address: Address,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
-    localEnrFields: openArray[(string, seq[byte])] = [],
     previousRecord = none[SignedPeerRecord]()):
     discv5_protocol.Protocol =
   # set bucketIpLimit to allow bucket split
@@ -28,7 +27,6 @@ proc initDiscoveryNode*(
     some(address.port), some(address.port),
     bindPort = address.port,
     bootstrapRecords = bootstrapRecords,
-    localEnrFields = localEnrFields,
     previousRecord = previousRecord,
     config = config,
     rng = rng)
@@ -45,7 +43,7 @@ proc generateNode*(privKey: keys.PrivateKey, port: int = 20302,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
   let
     port = Port(port)
-    spr = SignedPeerRecord.init(1, privKey, some(ip), some(port), some(port))
+    spr = SignedPeerRecord.init(privKey, some(ip), some(port), some(port))
               .expect("Properly intialized private key")
   result = newNode(spr).expect("Properly initialized node")
 

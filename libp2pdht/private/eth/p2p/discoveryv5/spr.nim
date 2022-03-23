@@ -6,7 +6,7 @@
 #
 import
   chronicles,
-  std/[options, sequtils, strutils, sugar],
+  std/[options, sequtils, strutils, sugar, times],
   pkg/stew/[results, byteutils, arrayops],
   stew/endians2,
   stew/shims/net,
@@ -29,8 +29,24 @@ type
 
   RecordResult*[T] = Result[T, cstring]
 
+const
+  TTL_DEFAULT* = initDuration(minutes = 30)
+  TTL_MAX* = initDuration(minutes = 30)
+
 proc seqNum*(r: SignedPeerRecord): uint64 =
-    r.data.seqNo
+  r.data.seqNo
+
+proc nowUnix*(): uint64 = now().utc.toTime.toUnix.uint64
+
+proc afterNow*(ttl: Duration): uint64 =
+  debugEcho ">>> [spr.afterNow] nowUnix(): ", nowUnix()
+  debugEcho ">>> [spr.afterNow] ttl.inSeconds.uint64: ", ttl.inSeconds.uint64
+  let res = nowUnix() + ttl.inSeconds.uint64
+  debugEcho ">>> [spr.afterNow] res: ", res
+  return res
+
+proc isExpired*(r: SignedPeerRecord): bool =
+  r.seqNum < nowUnix()
 
 #proc encode
 proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
@@ -88,13 +104,14 @@ proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
     pk = r.envelope.publicKey
   pkToPk(pk)
 
-proc incSeqNo*(
+proc incTtl*(
     r: var SignedPeerRecord,
-    pk: keys.PrivateKey): RecordResult[void] =
+    pk: keys.PrivateKey,
+    ttl: Duration = TTL_DEFAULT): RecordResult[void] =
 
   let cryptoPk = pk.pkToPk.get() # TODO: remove when eth/keys removed
 
-  r.data.seqNo.inc()
+  r.data.seqNo = ttl.afterNow
   r = ? SignedPeerRecord.init(cryptoPk, r.data).mapErr(
         (e: CryptoError) =>
           ("Error initialising SignedPeerRecord with incremented seqNo: " &
@@ -104,9 +121,10 @@ proc incSeqNo*(
 
 
 proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
-                            ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port]()):
-                            RecordResult[void] =
+             ip: Option[ValidIpAddress],
+             tcpPort,
+             udpPort: Option[Port] = Port.none,
+             ttl: Duration = TTL_DEFAULT): RecordResult[void] =
   ## Update a `SignedPeerRecord` with given ip address, tcp port, udp port and optional
   ## custom k:v pairs.
   ##
@@ -194,12 +212,17 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
         transProtoPort = udpPort.get
 
     updated = MultiAddress.init(ipAddr, transProto, transProtoPort)
+    debugEcho ">>> [spr.update] existing ma: ", $existing
+    debugEcho ">>> [spr.update] updated ma: ", $updated
     changed = existing != updated
 
   r.data.addresses[0].address = updated
 
-  # increase the sequence number only if we've updated the multiaddress
-  if changed: r.data.seqNo.inc()
+  # increase the sequence number (ttl) only if we've updated the multiaddress
+  debugEcho ">>> [spr.update] changed: ", changed
+  debugEcho ">>> [spr.update] changed seqNo BEFORE: ", r.data.seqNo
+  if changed: r.data.seqNo = ttl.afterNow()
+  debugEcho ">>> [spr.update] changed seqNo AFTER: ", r.data.seqNo
 
   r = ? SignedPeerRecord.init(pk, r.data)
           .mapErr((e: CryptoError) =>
@@ -210,10 +233,11 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
 
 proc update*(r: var SignedPeerRecord, pk: keys.PrivateKey,
                             ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port]()):
+                            tcpPort, udpPort: Option[Port] = none[Port](),
+                            ttl = TTL_DEFAULT):
                             RecordResult[void] =
   let cPk = pkToPk(pk).get
-  r.update(cPk, ip, tcpPort, udpPort)
+  r.update(cPk, ip, tcpPort, udpPort, ttl)
 
 proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
@@ -274,11 +298,12 @@ proc toBase64*(r: SignedPeerRecord): string =
 
 proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 
-proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: crypto.PrivateKey,
-                           ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port]):
-                           RecordResult[T] =
+proc init*(T: type SignedPeerRecord,
+    pk: crypto.PrivateKey,
+    ip: Option[ValidIpAddress],
+    tcpPort, udpPort: Option[Port],
+    ttl: Duration = TTL_DEFAULT): RecordResult[T] =
+
   ## Initialize a `SignedPeerRecord` with given sequence number, private key, optional
   ## ip address, tcp port, udp port, and optional custom k:v pairs.
   ##
@@ -286,65 +311,42 @@ proc init*(T: type SignedPeerRecord, seqNum: uint64,
 
   let peerId = PeerId.init(pk).get
 
-  if tcpPort.isSome() and udpPort.isSome:
+  if tcpPort.isSome and udpPort.isSome:
     warn "Both tcp and udp ports specified, using udp in multiaddress",
       tcpPort, udpPort
 
   var
-    ipAddr = try: ValidIpAddress.init("127.0.0.1")
-             except ValueError as e:
-               return err ("Existing address contains invalid address: " & $e.msg).cstring
     proto: IpTransportProtocol
     protoPort: Port
 
-  if ip.isSome():
+  let
+    fallbackIp = ValidIpAddress.init(IPv4_loopback())
+    ipAddr = ip.get(fallbackIp)
 
-    ipAddr = ip.get
+  if tcpPort.isSome():
+    proto = IpTransportProtocol.tcpProtocol
+    protoPort = tcpPort.get()
+  if udpPort.isSome():
+    proto = IpTransportProtocol.udpProtocol
+    protoPort = udpPort.get()
 
-    if tcpPort.isSome():
-      proto = IpTransportProtocol.tcpProtocol
-      protoPort = tcpPort.get()
-    if udpPort.isSome():
-      proto = IpTransportProtocol.udpProtocol
-      protoPort = udpPort.get()
-  else:
-    if tcpPort.isSome():
-      proto = IpTransportProtocol.tcpProtocol
-      protoPort = tcpPort.get()
-    if udpPort.isSome():
-      proto = IpTransportProtocol.udpProtocol
-      protoPort = udpPort.get()
+  let
+    ma = MultiAddress.init(ipAddr, proto, protoPort)
+    pr = PeerRecord.init(peerId, @[ma], ttl.afterNow)
 
+  SignedPeerRecord.init(pk, pr)
+    .mapErr(
+      (e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring
+    )
 
-  let ma = MultiAddress.init(ipAddr, proto, protoPort)
-  # if ip.isSome:
-  #   let
-  #     ipAddr = ip.get
-  #     proto = ipAddr.family
-  #     address = if proto == IPv4: ipAddr.address_v4
-  #               else: ipAddr.address_v6
-  #   u and udpPort.isSome
-  #   # let ta = initTAddress(ip.get, udpPort.get)
-  #   # echo ta
-  #   # ma = MultiAddress.init(ta).get
-  #   #let ma1 = MultiAddress.init("/ip4/127.0.0.1").get() #TODO
-  #   #let ma2 = MultiAddress.init(multiCodec("udp"), udpPort.get.int).get
-  #   #ma = ma1 & ma2
-  #   ma = MultiAddress.init("/ip4/127.0.0.1/udp/" & $udpPort.get.int).get #TODO
-  # else:
-  #   ma = MultiAddress.init()
-  #   # echo "not implemented"
+proc init*(T: type SignedPeerRecord,
+    pk: keys.PrivateKey,
+    ip: Option[ValidIpAddress],
+    tcpPort, udpPort: Option[Port],
+    ttl: Duration = TTL_DEFAULT): RecordResult[T] =
 
-  let pr = PeerRecord.init(peerId, @[ma], seqNum)
-  SignedPeerRecord.init(pk, pr).mapErr((e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
-
-proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: keys.PrivateKey,
-                           ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port]):
-                           RecordResult[T] =
   let kPk = pkToPk(pk).get
-  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort)
+  SignedPeerRecord.init(kPk, ip, tcpPort, udpPort, ttl)
 
 proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the
