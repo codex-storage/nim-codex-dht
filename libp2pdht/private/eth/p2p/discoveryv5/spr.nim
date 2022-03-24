@@ -36,16 +36,14 @@ const
 proc seqNum*(r: SignedPeerRecord): uint64 =
   r.data.seqNo
 
-proc nowUnix*(): uint64 = now().utc.toTime.toUnix.uint64
+proc nowUnix*(): uint64 = getTime().toUnix.uint64
+
+proc useconds*(ttl: Duration): uint64 = ttl.inSeconds.uint64
 
 proc afterNow*(ttl: Duration): uint64 =
-  debugEcho ">>> [spr.afterNow] nowUnix(): ", nowUnix()
-  debugEcho ">>> [spr.afterNow] ttl.inSeconds.uint64: ", ttl.inSeconds.uint64
-  let res = nowUnix() + ttl.inSeconds.uint64
-  debugEcho ">>> [spr.afterNow] res: ", res
-  return res
+  nowUnix() + ttl.useconds
 
-proc isExpired*(r: SignedPeerRecord): bool =
+proc expired*(r: SignedPeerRecord): bool =
   r.seqNum < nowUnix()
 
 #proc encode
@@ -312,7 +310,7 @@ proc init*(T: type SignedPeerRecord,
   let peerId = PeerId.init(pk).get
 
   if tcpPort.isSome and udpPort.isSome:
-    warn "Both tcp and udp ports specified, using udp in multiaddress",
+    notice "Both tcp and udp ports specified, using udp in multiaddress",
       tcpPort, udpPort
 
   var

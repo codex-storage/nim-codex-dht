@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[tables, times],
+  std/[os, tables, times],
   chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   eth/keys,
@@ -362,8 +362,8 @@ suite "Discovery v5 Tests":
       check:
         n.isSome()
         n.get().id == targetId
-        n.get().record.seqNum - ttl.inSeconds.uint64 > targetSeqNum
-        not n.get().record.isExpired
+        n.get().record.seqNum - ttl.useconds > targetSeqNum
+        not n.get().record.expired
 
       # Add the updated version
       discard mainNode.addNode(n.get())
@@ -387,8 +387,8 @@ suite "Discovery v5 Tests":
       check:
         n.isSome()
         n.get().id == targetId
-        n.get().record.seqNum - ttl.inSeconds.uint64 > targetSeqNum
-        not n.get().record.isExpired
+        n.get().record.seqNum - ttl.useconds > targetSeqNum
+        not n.get().record.expired
 
     await mainNode.closeWait()
     await lookupNode.closeWait()
@@ -420,8 +420,8 @@ suite "Discovery v5 Tests":
       ip = some(ValidIpAddress.init("127.0.0.1"))
       port = Port(20301)
       now = nowUnix()
-      ttl1 = initDuration(minutes = 10)
-      ttl2 = initDuration(minutes = 20)
+      ttl1 = initDuration(seconds = 1)
+      ttl2 = initDuration(seconds = 2)
       node = newProtocol(privKey, ip, some(port), some(port), bindPort = port,
         rng = rng)
       noUpdatesNode = newProtocol(privKey, ip, some(port), some(port),
@@ -436,17 +436,17 @@ suite "Discovery v5 Tests":
         previousRecord = some(updatesNode.getRecord()),
         sprTtl = ttl2)
     check:
-      node.getRecord().seqNum == now + TTL_DEFAULT.inSeconds.uint64
-      not node.getRecord().isExpired
+      node.getRecord().seqNum == now + TTL_DEFAULT.useconds
+      not node.getRecord().expired
 
       noUpdatesNode.getRecord().seqNum == node.getRecord().seqNum
-      not noUpdatesNode.getRecord().isExpired
+      not noUpdatesNode.getRecord().expired
 
-      updatesNode.getRecord().seqNum == now + ttl1.inSeconds.uint64
-      not updatesNode.getRecord().isExpired
+      updatesNode.getRecord().seqNum >= now + ttl1.useconds
+      not updatesNode.getRecord().expired
 
-      moreUpdatesNode.getRecord().seqNum == now + ttl2.inSeconds.uint64
-      not moreUpdatesNode.getRecord().isExpired
+      moreUpdatesNode.getRecord().seqNum >= now + ttl2.useconds
+      not moreUpdatesNode.getRecord().expired
 
     # Defect (for now?) on incorrect key use
     expect ResultDefect:
@@ -461,19 +461,25 @@ suite "Discovery v5 Tests":
       testNode =
         initDiscoveryNode(rng, keys.PrivateKey.random(rng[]), localAddress(20302))
       testNodeId = testNode.localNode.id
-
-    check:
+      now = nowUnix()
+      ttl = initDuration(seconds = 1)
+      testNodeSeqNumOld = testNode.localNode.record.seqNum
       # Get node with current SPR in routing table.
       # Handshake will get done here.
-      (await testNode.ping(mainNode.localNode)).isOk()
-      testNode.updateRecord().isOk()
-      testNode.localNode.record.seqNum == 2
+      pong = await testNode.ping(mainNode.localNode)
 
-    # Get the node from routing table, seqNum should still be 1.
+    sleep 1000
+
+    check:
+      pong.isOk()
+      testNode.updateRecord(ttl).isOk()
+      testNode.localNode.record.seqNum >= now + ttl.useconds
+
+    # Get the node from routing table, seqNum should still be the old value.
     var n = mainNode.getNode(testNodeId)
     check:
       n.isSome()
-      n.get.record.seqNum == 1
+      n.get.record.seqNum == testNodeSeqNumOld
 
     # This should not do a handshake and thus the new SPR must come from the
     # findNode(0)
@@ -483,10 +489,24 @@ suite "Discovery v5 Tests":
     n = mainNode.getNode(testNodeId)
     check:
       n.isSome()
-      n.get.record.seqNum == 2
+      n.get.record.seqNum == testNode.localNode.record.seqNum
 
     await mainNode.closeWait()
     await testNode.closeWait()
+
+  test "Check record expiry":
+    let
+      privKey = keys.PrivateKey.random(rng[])
+      ip = some(ValidIpAddress.init("127.0.0.1"))
+      port = Port(20301)
+      mainNode = newProtocol(privKey, ip, some(port), some(port),
+        bindPort = port, rng = rng,
+        sprTtl = initDuration(seconds = 1))
+
+    sleep 2000
+
+    check mainNode.getRecord().expired
+
 
   test "Update node record with handshake":
     let
@@ -495,19 +515,22 @@ suite "Discovery v5 Tests":
       testNode =
         initDiscoveryNode(rng, keys.PrivateKey.random(rng[]), localAddress(20302))
       testNodeId = testNode.localNode.id
+      testNodeSeqNumOld = testNode.localNode.record.seqNum
+      now = nowUnix()
+      ttl = initDuration(seconds = 1)
 
     # Add the node (from the record, so new node!) so no handshake is done yet.
     check: mainNode.addNode(testNode.localNode.record)
 
     check:
-      testNode.updateRecord().isOk()
-      testNode.localNode.record.seqNum == 2
+      testNode.updateRecord(ttl).isOk()
+      testNode.localNode.record.seqNum >= now + ttl.useconds
 
     # Get the node from routing table, seqNum should still be 1.
     var n = mainNode.getNode(testNodeId)
     check:
       n.isSome()
-      n.get.record.seqNum == 1
+      n.get.record.seqNum == testNodeSeqNumOld
 
     # This should do a handshake and update the SPR through that.
     check (await testNode.ping(mainNode.localNode)).isOk()
@@ -516,7 +539,7 @@ suite "Discovery v5 Tests":
     n = mainNode.getNode(testNodeId)
     check:
       n.isSome()
-      n.get.record.seqNum == 2
+      n.get.record.seqNum == testNode.localNode.record.seqNum
 
     await mainNode.closeWait()
     await testNode.closeWait()

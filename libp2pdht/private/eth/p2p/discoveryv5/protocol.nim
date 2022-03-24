@@ -939,7 +939,7 @@ proc newProtocol*(
     debugEcho ">>> [protocol.newProtocol] record seqNum AFTER: ", record.seqNum
     debugEcho ">>> [protocol.newProtocol] previousRecord seqNum AFTER: ", previousRecord.get().seqNum
   else:
-    record = SignedPeerRecord.init(privKey, sprIp, sprTcpPort, sprUdpPort)
+    record = SignedPeerRecord.init(privKey, sprIp, sprTcpPort, sprUdpPort, sprTtl)
                .expect("SignedPeerRecord within size limits")
 
   info "SPR initialized", ip = sprIp, tcp = sprTcpPort, udp = sprUdpPort,
