@@ -933,11 +933,8 @@ proc newProtocol*(
   var record: SignedPeerRecord
   if previousRecord.isSome():
     record = previousRecord.get()
-    debugEcho ">>> [protocol.newProtocol] previousRecord seqNum BEFORE: ", record.seqNum
     record.update(privKey, sprIp, sprTcpPort, sprUdpPort, sprTtl)
             .expect("SignedPeerRecord within size limits and correct key")
-    debugEcho ">>> [protocol.newProtocol] record seqNum AFTER: ", record.seqNum
-    debugEcho ">>> [protocol.newProtocol] previousRecord seqNum AFTER: ", previousRecord.get().seqNum
   else:
     record = SignedPeerRecord.init(privKey, sprIp, sprTcpPort, sprUdpPort, sprTtl)
                .expect("SignedPeerRecord within size limits")
