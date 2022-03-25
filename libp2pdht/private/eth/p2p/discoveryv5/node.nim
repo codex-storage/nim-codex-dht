@@ -9,8 +9,14 @@
 
 import
   std/hashes,
-  nimcrypto, stint, chronos, stew/shims/net, chronicles,
-  eth/keys, eth/net/utils,
+  bearssl,
+  chronicles,
+  chronos,
+  nimcrypto,
+  stew/shims/net,
+  stint,
+  eth/net/utils,
+  ./crypto,
   ./spr
 
 export stint
@@ -24,24 +30,28 @@ type
 
   Node* = ref object
     id*: NodeId
-    pubkey*: keys.PublicKey
+    pubkey*: PublicKey
     address*: Option[Address]
     record*: SignedPeerRecord
     seen*: bool ## Indicates if there was at least one successful
     ## request-response with this node, or if the nde was verified
     ## through the underlying transport mechanisms.
 
-func toNodeId*(pk: keys.PublicKey): NodeId =
+func toNodeId*(pid: PeerId): NodeId =
   ## Convert public key to a node identifier.
   # Keccak256 hash is used as defined in SPR spec for scheme v4:
   # https://github.com/ethereum/devp2p/blob/master/enr.md#v4-identity-scheme
-  readUintBE[256](keccak256.digest(pk.toRaw()).data)
+  readUintBE[256](keccak256.digest(pid.data).data)
+
+proc toNodeId*(pk: PublicKey): Result[NodeId, cstring] =
+  let pid = ? PeerId.init(pk)
+  ok pid.toNodeId
 
 func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
   ## Create a new `Node` from a `SignedPeerRecord`.
   # TODO: Handle IPv6
 
-  let pk = r.get(keys.PublicKey)
+  let pk = r.get(PublicKey)
   # This check is redundant for a properly created record as the deserialization
   # of a record will fail at `verifySignature` if there is no public key.
   if pk.isNone():
@@ -49,17 +59,20 @@ func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
 
   # Also this can not fail for a properly created record as id is checked upon
   # deserialization.
-  let tr = ? r.toTypedRecord()
+  let
+    tr = ? r.toTypedRecord()
+    nodeId = ? pk.get().toNodeId()
+
   if tr.ip.isSome() and tr.udp.isSome():
     let a = Address(ip: ipv4(tr.ip.get()), port: Port(tr.udp.get()))
 
-    ok(Node(id: pk.get().toNodeId(), pubkey: pk.get() , record: r,
+    ok(Node(id: nodeId, pubkey: pk.get() , record: r,
        address: some(a)))
   else:
-    ok(Node(id: pk.get().toNodeId(), pubkey: pk.get(), record: r,
+    ok(Node(id: nodeId, pubkey: pk.get(), record: r,
        address: none(Address)))
 
-proc update*(n: Node, pk: keys.PrivateKey, ip: Option[ValidIpAddress],
+proc update*(n: Node, pk: PrivateKey, ip: Option[ValidIpAddress],
     tcpPort, udpPort: Option[Port] = none[Port]()): Result[void, cstring] =
   ? n.record.update(pk, ip, tcpPort, udpPort)
 
@@ -77,7 +90,8 @@ proc update*(n: Node, pk: keys.PrivateKey, ip: Option[ValidIpAddress],
 
   ok()
 
-func hash*(n: Node): hashes.Hash = hash(n.pubkey.toRaw)
+func hash*(n: Node): hashes.Hash =
+  hash(n.pubkey.getRawBytes.expect("Public key has correct structure"))
 
 func `==`*(a, b: Node): bool =
   (a.isNil and b.isNil) or

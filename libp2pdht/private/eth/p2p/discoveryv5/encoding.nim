@@ -14,15 +14,24 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, options, hashes, net],
-  nimcrypto, stint, chronicles, bearssl, stew/[results, byteutils], metrics,
-  eth/[rlp, keys],
+  std/[hashes, net, options, sugar, tables],
+  eth/rlp,
+  bearssl,
+  chronicles,
+  stew/[results, byteutils],
+  stint,
+  libp2p/crypto/crypto as libp2p_crypto,
+  libp2p/crypto/secp,
   libp2p/signed_envelope,
-  "."/[messages, messages_encoding, node, spr, hkdf, sessions]
+  metrics,
+  nimcrypto,
+  "."/[messages, messages_encoding, node, spr, hkdf, sessions],
+  "."/crypto
 
+from nimcrypto/utils import toHex
 from stew/objects import checkedEnumAssign
 
-export keys
+export crypto
 
 declareCounter discovery_session_lru_cache_hits, "Session LRU cache hits"
 declareCounter discovery_session_lru_cache_misses, "Session LRU cache misses"
@@ -57,7 +66,7 @@ type
 
   Challenge* = object
     whoareyouData*: WhoareyouData
-    pubkey*: Option[keys.PublicKey]
+    pubkey*: Option[PublicKey]
 
   StaticHeader* = object
     flag: Flag
@@ -93,11 +102,15 @@ type
 
   Codec* = object
     localNode*: Node
-    privKey*: keys.PrivateKey
+    privKey*: PrivateKey
     handshakes*: Table[HandshakeKey, Challenge]
     sessions*: Sessions
 
+  EncodeResult*[T] = Result[T, cstring]
+
   DecodeResult*[T] = Result[T, cstring]
+
+  CryptoResult*[T] = Result[T, CryptoError]
 
 func `==`*(a, b: HandshakeKey): bool =
   (a.nodeId == b.nodeId) and (a.address == b.address)
@@ -117,18 +130,23 @@ proc idHash(challengeData, ephkey: openArray[byte], nodeId: NodeId):
   result = ctx.finish()
   ctx.clear()
 
-proc createIdSignature*(privKey: keys.PrivateKey, challengeData,
-    ephKey: openArray[byte], nodeId: NodeId): SignatureNR =
-  signNR(privKey, SkMessage(idHash(challengeData, ephKey, nodeId).data))
+proc createIdSignature*(privKey: PrivateKey, challengeData,
+    ephKey: openArray[byte], nodeId: NodeId): EncodeResult[Signature] =
 
-proc verifyIdSignature*(sig: SignatureNR, challengeData, ephKey: openArray[byte],
-    nodeId: NodeId, pubkey: keys.PublicKey): bool =
   let h = idHash(challengeData, ephKey, nodeId)
-  verify(sig, SkMessage(h.data), pubkey)
+  sign(privKey, h.data).mapErr(e =>
+    ("Failed to sign challegene data: " & $e).cstring)
 
-proc deriveKeys*(n1, n2: NodeId, priv: keys.PrivateKey, pub: keys.PublicKey,
-    challengeData: openArray[byte]): HandshakeSecrets =
-  let eph = ecdhRawFull(priv, pub)
+proc verifyIdSignature*(sig: Signature, challengeData, ephKey: openArray[byte],
+    nodeId: NodeId, pubkey: PublicKey): bool =
+
+  let h = idHash(challengeData, ephKey, nodeId)
+  verify(sig, h.data, pubkey)
+
+proc deriveKeys*(n1, n2: NodeId, priv: PrivateKey, pub: PublicKey,
+    challengeData: openArray[byte]): EncodeResult[HandshakeSecrets] =
+
+  let eph = ? ecdhRaw(priv, pub)
 
   var info = newSeqOfCap[byte](keyAgreementPrefix.len + 32 * 2)
   for i, c in keyAgreementPrefix: info.add(byte(c))
@@ -141,7 +159,7 @@ proc deriveKeys*(n1, n2: NodeId, priv: keys.PrivateKey, pub: keys.PublicKey,
 
   hkdf(sha256, eph.data, challengeData, info,
     toOpenArray(res, 0, sizeof(secrets) - 1))
-  secrets
+  ok secrets
 
 proc encryptGCM*(key: AesKey, nonce, pt, authData: openArray[byte]): seq[byte] =
   var ectx: GCM[aes128]
@@ -236,7 +254,7 @@ proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
 proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, requestNonce: AESGCMNonce, recordSeq: uint64,
-    pubkey: Option[keys.PublicKey]): seq[byte] =
+    pubkey: Option[PublicKey]): seq[byte] =
   var idNonce: IdNonce
   brHmacDrbgGenerate(rng, idNonce)
 
@@ -278,7 +296,7 @@ proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
 proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte],
-    whoareyouData: WhoareyouData, pubkey: keys.PublicKey): seq[byte] =
+    whoareyouData: WhoareyouData, pubkey: PublicKey): EncodeResult[seq[byte]] =
   var header: seq[byte]
   var nonce: AESGCMNonce
   brHmacDrbgGenerate(rng, nonce)
@@ -289,37 +307,52 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
   var authdataHead: seq[byte]
 
   authdataHead.add(c.localNode.id.toByteArrayBE())
-  authdataHead.add(64'u8) # sig-size: 64
-  authdataHead.add(33'u8) # eph-key-size: 33
+
+  let ephKeys = ? KeyPair.random(rng)
+                    .mapErr((e: CryptoError) =>
+                      ("Failed to create random key pair: " & $e).cstring)
+
+  # TODO: Do we need to support non-secp256k1 schemes?
+  if ephKeys.pubkey.scheme != Secp256k1:
+    return err "Crypto scheme must be secp256k1".cstring
+
+  let
+    pubKeyRaw = ? ephKeys.pubkey.getBytes().mapErr((e: CryptoError) =>
+                  ("Failed to serialize public key: " & $e).cstring)
+    signature = ? createIdSignature(
+                  c.privKey,
+                  whoareyouData.challengeData,
+                  pubKeyRaw,
+                  toId)
+
+  let sigBytes = signature.getBytes()
+  authdataHead.add(sigBytes.len.uint8) # DER variable, less than 72 bytes
+  authdataHead.add(pubKeyRaw.len.uint8) # eph-key-size: 33
   authdata.add(authdataHead)
+  authdata.add(sigBytes)
 
-  let ephKeys = keys.KeyPair.random(rng)
-  let signature = createIdSignature(c.privKey, whoareyouData.challengeData,
-    ephKeys.pubkey.toRawCompressed(), toId)
-
-  authdata.add(signature.toRaw())
   # compressed pub key format (33 bytes)
-  authdata.add(ephKeys.pubkey.toRawCompressed())
+  authdata.add(pubKeyRaw)
 
   # Add SPR of sequence number is newer
   if whoareyouData.recordSeq < c.localNode.record.seqNum:
-    let encoded = c.localNode.record.encode
-    if encoded.isOk:
-      trace "Encoded local node's SignedPeerRecord", bytes = encoded.get
-      authdata.add(encoded.get)
-    else:
-      error "Failed to encode local node's SignedPeerRecord", error = encoded.error
-      authdata.add(@[])
+    let encoded = ? c.localNode.record.encode.mapErr((e: CryptoError) =>
+                    ("Failed to encode local node's SignedPeerRecord: " &
+                    $e).cstring)
+    authdata.add(encoded)
 
-  let secrets = deriveKeys(c.localNode.id, toId, ephKeys.seckey, pubkey,
-    whoareyouData.challengeData)
+  let secrets = ? deriveKeys(
+                    c.localNode.id,
+                    toId,
+                    ephKeys.seckey,
+                    pubkey,
+                    whoareyouData.challengeData)
 
   # Header
   let staticHeader = encodeStaticHeader(Flag.HandshakeMessage, nonce,
     authdata.len())
 
   header.add(staticHeader)
-  trace "Handshake packet's authdata", authdata
   header.add(authdata)
 
   c.sessions.store(toId, toAddr, secrets.recipientKey, secrets.initiatorKey)
@@ -333,7 +366,7 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
   packet.add(maskedHeader)
   packet.add(messageEncrypted)
 
-  return packet
+  return ok packet
 
 proc decodeHeader*(id: NodeId, iv, maskedHeader: openArray[byte]):
     DecodeResult[(StaticHeader, seq[byte])] =
@@ -437,6 +470,7 @@ proc decodeWhoareyouPacket(c: var Codec, nonce: AESGCMNonce,
 
 proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
     iv, header, ct: openArray[byte]): DecodeResult[Packet] =
+
   # Checking if there is enough data to decode authdata-head
   if header.len <= staticHeaderSize + authdataHeadSize:
     return err("Invalid header for handshake message packet: no authdata-head")
@@ -469,24 +503,26 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
   let
     ephKeyPos = authdataHeadSize + int(sigSize)
     ephKeyRaw = authdata[ephKeyPos..<ephKeyPos + int(ephKeySize)]
-    ephKey = ? keys.PublicKey.fromRaw(ephKeyRaw)
+    ephKey = ? PublicKey.init(ephKeyRaw).mapErr(e =>
+               ("Failed to deserialize PublicKey: " & $e).cstring)
 
   var record: Option[SignedPeerRecord]
   let recordPos = ephKeyPos + int(ephKeySize)
   if authdata.len() > recordPos:
     # There is possibly an SPR still
     try:
-      trace "Decoding handshake packet's authdata", authdata, recordPos, decodeBytes = authdata.toOpenArray(recordPos, authdata.high)
       # Signature check of record happens in decode.
       let
         prBytes = @(authdata.toOpenArray(recordPos, authdata.high))
-        decoded = SignedPeerRecord.decode(prBytes)
-                      .expect("Should be valid bytes for SignedPeerRecord")
+        decoded = ? SignedPeerRecord.decode(prBytes).mapErr(
+                    (e: EnvelopeError) =>
+                      ("Invalid bytes for SignedPeerRecord: " & $e).cstring
+                  )
       record = some(decoded)
     except RlpError, ValueError:
       return err("Invalid encoded SPR")
 
-  var pubkey: keys.PublicKey
+  var pubkey: PublicKey
   var newNode: Option[Node]
   # TODO: Shall we return Node or SignedPeerRecord? SignedPeerRecord makes
   # more sense, but we do need the pubkey and the nodeid
@@ -509,16 +545,27 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
       return err("Missing SPR in handshake packet")
 
   # Verify the id-signature
-  let sig = ? SignatureNR.fromRaw(
-    authdata.toOpenArray(authdataHeadSize, authdataHeadSize + int(sigSize) - 1))
+  let
+    sigBytes = @(authdata.toOpenArray(
+                   authdataHeadSize,
+                   authdataHeadSize + int(sigSize) - 1
+                 ))
+
+    sig = ? Signature.init(sigBytes).mapErr((e: CryptoError) =>
+            ("Failed to deserialize signature from bytes: " & $e).cstring)
+
   if not verifyIdSignature(sig, challenge.whoareyouData.challengeData,
       ephKeyRaw, c.localNode.id, pubkey):
     return err("Invalid id-signature")
 
   # Do the key derivation step only after id-signature is verified as this is
   # costly.
-  var secrets = deriveKeys(srcId, c.localNode.id, c.privKey,
-    ephKey, challenge.whoareyouData.challengeData)
+  var secrets = ? deriveKeys(
+                  srcId,
+                  c.localNode.id,
+                  c.privKey,
+                  ephKey,
+                  challenge.whoareyouData.challengeData)
 
   swap(secrets.recipientKey, secrets.initiatorKey)
 

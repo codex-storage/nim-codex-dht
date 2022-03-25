@@ -12,7 +12,6 @@ import
   stew/shims/net,
   stew/base64,
   eth/rlp,
-  eth/keys,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/routing_record,
@@ -36,13 +35,11 @@ proc seqNum*(r: SignedPeerRecord): uint64 =
 proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
   # echo "encoding to:" & $value.signedPeerRecord.encode.get
   var encoded = value.encode
-  trace "Encoding SignedPeerRecord for RLP", bytes = encoded.get(@[])
   if encoded.isErr:
     error "Error encoding SignedPeerRecord for RLP", error = encoded.error
   rlpWriter.append encoded.get(@[])
 
 proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
-  trace "Decoding SignedPeerRecord for RLP", bytes = s
 
   let decoded = SignedPeerRecord.decode(@s)
   if decoded.isErr:
@@ -56,46 +53,24 @@ proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
     T {.raises: [RlpError, ValueError, Defect].} =
     # echo "read:" & $rlp.rawData
     ## code directly borrowed from spr.nim
-    trace "Reading RLP SignedPeerRecord", rawData = rlp.rawData, toBytes = rlp.toBytes
     if not rlp.hasData() or not result.fromBytes(rlp.toBytes):
         # TODO: This could also just be an invalid signature, would be cleaner to
         # split of RLP deserialisation errors from this.
         raise newException(ValueError, "Could not deserialize")
     rlp.skipElem()
 
-proc get*(r: SignedPeerRecord, T: type crypto.PublicKey): Option[T] =
-  ## Get the `PublicKey` from provided `Record`. Return `none` when there is
-  ## no `PublicKey` in the record.
-  some(r.envelope.publicKey)
-
-func pkToPk(pk: crypto.PublicKey) : Option[keys.PublicKey] =
-  some((keys.PublicKey)(pk.skkey))
-
-func pkToPk(pk: keys.PublicKey) : Option[crypto.PublicKey] =
-  some(crypto.PublicKey.init((secp.SkPublicKey)(pk)))
-
-func pkToPk(pk: crypto.PrivateKey) : Option[keys.PrivateKey] =
-  some((keys.PrivateKey)(pk.skkey))
-
-func pkToPk(pk: keys.PrivateKey) : Option[crypto.PrivateKey] =
-  some(crypto.PrivateKey.init((secp.SkPrivateKey)(pk)))
-
-proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
+proc get*(r: SignedPeerRecord, T: type PublicKey): Option[T] =
   ## Get the `PublicKey` from provided `Record`. Return `none` when there is
   ## no `PublicKey` in the record.
   ## PublicKey* = distinct SkPublicKey
-  let
-    pk = r.envelope.publicKey
-  pkToPk(pk)
+  r.envelope.publicKey.some
 
 proc incSeqNo*(
     r: var SignedPeerRecord,
-    pk: keys.PrivateKey): RecordResult[void] =
-
-  let cryptoPk = pk.pkToPk.get() # TODO: remove when eth/keys removed
+    pk: PrivateKey): RecordResult[void] =
 
   r.data.seqNo.inc()
-  r = ? SignedPeerRecord.init(cryptoPk, r.data).mapErr(
+  r = ? SignedPeerRecord.init(pk, r.data).mapErr(
         (e: CryptoError) =>
           ("Error initialising SignedPeerRecord with incremented seqNo: " &
           $e).cstring
@@ -123,10 +98,11 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
   # ip/tcpPort/udpPort/extraFields
 
   let
-    pubkey = r.get(crypto.PublicKey)
-    keysPubKey = pubkey.get.pkToPk.get # remove when move away from eth/keys
-    keysPrivKey = pk.pkToPk.get
-  if pubkey.isNone() or keysPubKey != keysPrivKey.toPublicKey:
+    sprPubKey = r.get(PublicKey)
+    pubKey = pk.getPublicKey
+    # keysPubKey = pubkey.get.pkToPk.get # remove when move away from eth/keys
+    # keysPrivKey = pk.pkToPk.get
+  if sprPubKey.isNone or pubKey.isErr or sprPubKey.get != pubKey.get:
     return err("Public key does not correspond with given private key")
 
   var
@@ -208,13 +184,6 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
 
   return ok()
 
-proc update*(r: var SignedPeerRecord, pk: keys.PrivateKey,
-                            ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port]()):
-                            RecordResult[void] =
-  let cPk = pkToPk(pk).get
-  r.update(cPk, ip, tcpPort, udpPort)
-
 proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
 proc ip*(r: SignedPeerRecord): Option[array[4, byte]] =
@@ -275,7 +244,7 @@ proc toBase64*(r: SignedPeerRecord): string =
 proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 
 proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: crypto.PrivateKey,
+                           pk: PrivateKey,
                            ip: Option[ValidIpAddress],
                            tcpPort, udpPort: Option[Port]):
                            RecordResult[T] =
@@ -317,34 +286,9 @@ proc init*(T: type SignedPeerRecord, seqNum: uint64,
 
 
   let ma = MultiAddress.init(ipAddr, proto, protoPort)
-  # if ip.isSome:
-  #   let
-  #     ipAddr = ip.get
-  #     proto = ipAddr.family
-  #     address = if proto == IPv4: ipAddr.address_v4
-  #               else: ipAddr.address_v6
-  #   u and udpPort.isSome
-  #   # let ta = initTAddress(ip.get, udpPort.get)
-  #   # echo ta
-  #   # ma = MultiAddress.init(ta).get
-  #   #let ma1 = MultiAddress.init("/ip4/127.0.0.1").get() #TODO
-  #   #let ma2 = MultiAddress.init(multiCodec("udp"), udpPort.get.int).get
-  #   #ma = ma1 & ma2
-  #   ma = MultiAddress.init("/ip4/127.0.0.1/udp/" & $udpPort.get.int).get #TODO
-  # else:
-  #   ma = MultiAddress.init()
-  #   # echo "not implemented"
 
   let pr = PeerRecord.init(peerId, @[ma], seqNum)
   SignedPeerRecord.init(pk, pr).mapErr((e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
-
-proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: keys.PrivateKey,
-                           ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port]):
-                           RecordResult[T] =
-  let kPk = pkToPk(pk).get
-  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort)
 
 proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the

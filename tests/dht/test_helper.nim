@@ -1,19 +1,30 @@
 import
-  stew/shims/net, bearssl, chronos,
-  eth/keys,
-  libp2pdht/discv5/[spr, node, routing_table],
+  bearssl,
+  chronos,
+  libp2p/crypto/[crypto, secp],
+  libp2p/multiaddress,
+  libp2pdht/discv5/[node, routing_table, spr],
+  libp2pdht/discv5/crypto as dhtcrypto,
   libp2pdht/discv5/protocol as discv5_protocol,
-  libp2p/crypto/crypto,
-  libp2p/multiaddress
+  stew/shims/net
 
 export net
 
 proc localAddress*(port: int): Address =
   Address(ip: ValidIpAddress.init("127.0.0.1"), port: Port(port))
 
+proc example*(T: type PrivateKey, rng: ref HmacDrbgContext): PrivateKey =
+  PrivateKey.random(rng[]).expect("Valid rng for private key")
+
+proc example*(T: type NodeId, rng: ref HmacDrbgContext): NodeId =
+  let
+    privKey = PrivateKey.example(rng)
+    pubKey = privKey.getPublicKey.expect("Valid private key for public key")
+  pubKey.toNodeId().expect("Public key valid for node id")
+
 proc initDiscoveryNode*(
     rng: ref BrHmacDrbgContext,
-    privKey: keys.PrivateKey,
+    privKey: PrivateKey,
     address: Address,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
     localEnrFields: openArray[(string, seq[byte])] = [],
@@ -41,7 +52,7 @@ proc nodeIdInNodes*(id: NodeId, nodes: openArray[Node]): bool =
   for n in nodes:
     if id == n.id: return true
 
-proc generateNode*(privKey: keys.PrivateKey, port: int = 20302,
+proc generateNode*(privKey: PrivateKey, port: int = 20302,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
   let
     port = Port(port)
@@ -52,17 +63,20 @@ proc generateNode*(privKey: keys.PrivateKey, port: int = 20302,
 proc generateNRandomNodes*(rng: ref BrHmacDrbgContext, n: int): seq[Node] =
   var res = newSeq[Node]()
   for i in 1..n:
-    let node = generateNode(keys.PrivateKey.random(rng[]))
+    let
+      privKey = PrivateKey.example(rng)
+      node = privKey.generateNode()
     res.add(node)
   res
 
 proc nodeAndPrivKeyAtDistance*(n: Node, rng: var BrHmacDrbgContext, d: uint32,
-    ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): (Node, keys.PrivateKey) =
+    ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): (Node, PrivateKey) =
   while true:
-    let pk = keys.PrivateKey.random(rng)
-    let node = generateNode(pk, ip = ip)
+    let
+      privKey = PrivateKey.random(rng).expect("Valid rng for private key")
+      node = privKey.generateNode(ip = ip)
     if logDistance(n.id, node.id) == d:
-      return (node, pk)
+      return (node, privKey)
 
 proc nodeAtDistance*(n: Node, rng: var BrHmacDrbgContext, d: uint32,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
@@ -98,7 +112,7 @@ func udpExamples*(_: type MultiAddress, count: int): seq[MultiAddress] =
     res.add Multiaddress.init("/ip4/0.0.0.0/udp/" & $i).get
   return res
 
-proc toSignedPeerRecord*(privKey: crypto.PrivateKey) : SignedPeerRecord =
+proc toSignedPeerRecord*(privKey: PrivateKey) : SignedPeerRecord =
   ## handle conversion between the two worlds
 
   let pr = PeerRecord.init(
@@ -109,7 +123,7 @@ proc toSignedPeerRecord*(privKey: crypto.PrivateKey) : SignedPeerRecord =
 
 proc example*(T: type SignedPeerRecord): T =
   let
-    rng = crypto.newRng()
-    privKey = crypto.PrivateKey.random(rng[]).expect("Valid rng")
+    rng = newRng()
+    privKey = PrivateKey.example(rng)
 
   privKey.toSignedPeerRecord
