@@ -7,8 +7,10 @@
 # Everything below the handling of ordinary messages
 import
   std/[tables, options],
+  bearssl,
   chronos,
   chronicles,
+  libp2p/crypto/crypto,
   stew/shims/net,
   "."/[node, encoding, sessions]
 
@@ -124,8 +126,15 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         # This is a node we previously contacted and thus must have an address.
         doAssert(toNode.address.isSome())
         let address = toNode.address.get()
-        let data = encodeHandshakePacket(t.rng[], t.codec, toNode.id,
-          address, pr.message, packet.whoareyou, toNode.pubkey)
+        let data = encodeHandshakePacket(
+                    t.rng[],
+                    t.codec,
+                    toNode.id,
+                    address,
+                    pr.message,
+                    packet.whoareyou,
+                    toNode.pubkey
+                  ).expect("Valid handshake packet to encode")
 
         trace "Send handshake message packet", dstId = toNode.id, address
         t.send(toNode, data)
