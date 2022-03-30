@@ -190,12 +190,22 @@ proc encodeStaticHeader*(flag: Flag, nonce: AESGCMNonce, authSize: int):
   result.add((uint16(authSize)).toBytesBE())
 
 proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
-    toId: NodeId, toAddr: Address, message: openArray[byte]):
+    toId: NodeId, toAddr: Address, message: openArray[byte],
+    nonce1: Option[AESGCMNonce] = AESGCMNonce.none,
+    iv1: Option[array[ivSize, byte]] = array[ivSize, byte].none):
     (seq[byte], AESGCMNonce) =
+
   var nonce: AESGCMNonce
-  brHmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
+  if nonce1.isSome:
+    nonce = nonce1.get
+  else:
+    brHmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
+
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  if iv1.isSome:
+    iv = iv1.get
+  else:
+    brHmacDrbgGenerate(rng, iv) # Random IV
 
   # static-header
   let authdata = c.localNode.id.toByteArrayBE()
@@ -236,9 +246,14 @@ proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
 proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, requestNonce: AESGCMNonce, recordSeq: uint64,
-    pubkey: Option[keys.PublicKey]): seq[byte] =
+    pubkey: Option[keys.PublicKey],
+    idNonce1: Option[IdNonce] = IdNonce.none,
+    iv1: Option[array[ivSize, byte]] = array[ivSize, byte].none): seq[byte] =
   var idNonce: IdNonce
-  brHmacDrbgGenerate(rng, idNonce)
+  if idNonce1.isSome:
+    idNonce = idNonce1.get
+  else:
+    brHmacDrbgGenerate(rng, idNonce)
 
   # authdata
   var authdata: seq[byte]
@@ -255,7 +270,10 @@ proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
   header.add(authdata)
 
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  if iv1.isSome:
+    iv = iv1.get
+  else:
+    brHmacDrbgGenerate(rng, iv) # Random IV
 
   let maskedHeader = encryptHeader(toId, iv, header)
 
@@ -278,12 +296,22 @@ proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
 proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte],
-    whoareyouData: WhoareyouData, pubkey: keys.PublicKey): seq[byte] =
+    whoareyouData: WhoareyouData, pubkey: keys.PublicKey,
+    nonce1: Option[AESGCMNonce] = AESGCMNonce.none,
+    iv1: Option[array[ivSize, byte]] = array[ivSize, byte].none): seq[byte] =
+
   var header: seq[byte]
   var nonce: AESGCMNonce
-  brHmacDrbgGenerate(rng, nonce)
+  if nonce1.isSome:
+    nonce = nonce1.get
+  else:
+    brHmacDrbgGenerate(rng, nonce)
+
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  if iv1.isSome:
+    iv = iv1.get
+  else:
+    brHmacDrbgGenerate(rng, iv) # Random IV
 
   var authdata: seq[byte]
   var authdataHead: seq[byte]
@@ -305,7 +333,6 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
   if whoareyouData.recordSeq < c.localNode.record.seqNum:
     let encoded = c.localNode.record.encode
     if encoded.isOk:
-      trace "Encoded local node's SignedPeerRecord", bytes = encoded.get
       authdata.add(encoded.get)
     else:
       error "Failed to encode local node's SignedPeerRecord", error = encoded.error
@@ -319,7 +346,6 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
     authdata.len())
 
   header.add(staticHeader)
-  trace "Handshake packet's authdata", authdata
   header.add(authdata)
 
   c.sessions.store(toId, toAddr, secrets.recipientKey, secrets.initiatorKey)
@@ -476,7 +502,6 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
   if authdata.len() > recordPos:
     # There is possibly an SPR still
     try:
-      trace "Decoding handshake packet's authdata", authdata, recordPos, decodeBytes = authdata.toOpenArray(recordPos, authdata.high)
       # Signature check of record happens in decode.
       let
         prBytes = @(authdata.toOpenArray(recordPos, authdata.high))

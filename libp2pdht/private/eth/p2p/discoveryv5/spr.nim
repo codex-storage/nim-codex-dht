@@ -42,7 +42,6 @@ proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
   rlpWriter.append encoded.get(@[])
 
 proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
-  trace "Decoding SignedPeerRecord for RLP", bytes = s
 
   let decoded = SignedPeerRecord.decode(@s)
   if decoded.isErr:
@@ -56,7 +55,6 @@ proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
     T {.raises: [RlpError, ValueError, Defect].} =
     # echo "read:" & $rlp.rawData
     ## code directly borrowed from spr.nim
-    trace "Reading RLP SignedPeerRecord", rawData = rlp.rawData, toBytes = rlp.toBytes
     if not rlp.hasData() or not result.fromBytes(rlp.toBytes):
         # TODO: This could also just be an invalid signature, would be cleaner to
         # split of RLP deserialisation errors from this.

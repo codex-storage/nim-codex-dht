@@ -62,7 +62,7 @@ proc append*(writer: var RlpWriter, ip: IpAddress) =
 
 proc read*(rlp: var Rlp, T: type NodeId): T
     {.raises: [ValueError, RlpError, Defect].} =
-  mixin read
+
   let nodeId = NodeId.fromBytesBE(rlp.toBytes())
   rlp.skipElem()
   nodeId
@@ -79,7 +79,7 @@ proc encodeMessage*[T: SomeMessage](p: T, reqId: RequestId): seq[byte] =
   result.add(messageKind(T).ord)
 
   const
-    usePbs = T is AddProviderMessage | GetProvidersMessage | ProvidersMessage
+    usePbs = T is PingMessage | FindNodeFastMessage | AddProviderMessage | GetProvidersMessage | ProvidersMessage
     sz = if usePbs: 1 else: numFields(T)
 
   var writer = initRlpList(sz + 1)
@@ -124,13 +124,23 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
     try:
       case kind
       of unused: return err("Invalid message type")
-      of ping: rlp.decode(message.ping)
+      of ping:
+        let res = PingMessage.decode(rlp.toBytes)
+        if res.isOk:
+          message.ping = res.get
+        else:
+          return err "Unable to decode PingMessage"
       of pong: rlp.decode(message.pong)
       of findNode: rlp.decode(message.findNode)
-      of findNodeFast: rlp.decode(message.findNodeFast)
       of nodes: rlp.decode(message.nodes)
       of talkReq: rlp.decode(message.talkReq)
       of talkResp: rlp.decode(message.talkResp)
+      of findNodeFast:
+        let res = FindNodeFastMessage.decode(rlp.toBytes)
+        if res.isOk:
+          message.findNodeFast = res.get
+        else:
+          return err "Unable to decode FindNodeFastMessage"
       of addProvider:
         let res = AddProviderMessage.decode(rlp.toBytes)
         if res.isOk:

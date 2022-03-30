@@ -1,8 +1,9 @@
 import
+  chronicles, # delete me
   ../discv5/[node],
   libp2p/[routing_record, signed_envelope],
   libp2p/protobuf/minprotobuf,
-  ./providers_messages
+  ../discv5/messages
 
 func getField*(pb: ProtoBuffer, field: int,
                nid: var NodeId): ProtoResult[bool] {.inline.} =
@@ -81,6 +82,44 @@ proc encode*(msg: AddProviderMessage): seq[byte] =
 
   pb.finish()
   pb.buffer
+
+proc encode*(msg: PingMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.sprSeq)
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[PingMessage],
+  buffer: openArray[byte]): Result[PingMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = PingMessage()
+
+  ? pb.getRequiredField(1, msg.sprSeq)
+
+  ok(msg)
+
+proc encode*(msg: FindNodeFastMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.target)
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[FindNodeFastMessage],
+  buffer: openArray[byte]): Result[FindNodeFastMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = FindNodeFastMessage()
+
+  ? pb.getRequiredField(1, msg.target)
+
+  ok(msg)
 
 proc decode*(
   T: typedesc[GetProvidersMessage],

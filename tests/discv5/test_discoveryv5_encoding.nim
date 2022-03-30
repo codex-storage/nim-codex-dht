@@ -2,11 +2,12 @@
 
 import
   std/[options, sequtils, tables],
+  chronicles, # delete me
   chronos,
   asynctest/unittest2,
   stint, stew/byteutils, stew/shims/net,
   eth/[keys,rlp],
-  libp2pdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions],
+  libp2pdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions, protocol], # delete protocol
   ../dht/test_helper
 
 suite "Discovery v5.1 Protocol Message Encodings":
@@ -17,7 +18,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(p, reqId)
-    check byteutils.toHex(encoded) == "01c20101"
+    check byteutils.toHex(encoded) == "01c401820801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -25,7 +26,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
     let message = decoded.get()
     check:
       message.reqId == reqId
-      message.kind == ping
+      message.kind == MessageKind.ping
       message.ping.sprSeq == sprSeq
 
   test "Pong Response":
@@ -65,7 +66,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
     let message = decoded.get()
     check:
       message.reqId == reqId
-      message.kind == findNode
+      message.kind == MessageKind.findNode
       message.findNode.distances == distances
 
   test "Nodes Response (empty)":
@@ -125,7 +126,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
     let message = decoded.get()
     check:
       message.reqId == reqId
-      message.kind == talkReq
+      message.kind == MessageKind.talkReq
       message.talkReq.protocol == "echo".toBytes()
       message.talkReq.request == "hi".toBytes()
 
@@ -153,7 +154,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       # 1 byte too large
       reqId = RequestId(id: @[0.byte, 1, 2, 3, 4, 5, 6, 7, 8])
     let encoded = encodeMessage(p, reqId)
-    check byteutils.toHex(encoded) == "01cb8900010203040506070801"
+    check byteutils.toHex(encoded) == "01cd89000102030405060708820801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isErr()
@@ -249,8 +250,8 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
 # https://github.com/ethereum/devp2p/blob/master/discv5/discv5-wire-test-vectors.md#packet-encodings
 suite "Discovery v5.1 Packet Encodings Test Vectors":
   const
-    nodeAKey = "0xeef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f"
-    nodeBKey = "0x66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628"
+    nodeAKey = "0xfe5f08c842aa946659b266ce68faa5d2fd982634594dccdf7f916e3fcf0541a3"
+    nodeBKey = "0x00064765abe9a4e63b068b5af99c26c61c8ade9bfdae6494873b137ec8152578"
 
   var
     codecA, codecB: Codec
@@ -284,9 +285,10 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       pingSprSeq = 2'u64
 
       encodedPacket =
-        "00000000000000000000000000000000088b3d4342774649325f313964a39e55" &
-        "ea96c005ad52be8c7560413a7008f16c9e6d2f43bbea8814a546b7409ce783d3" &
-        "4c4f53245d08dab84102ed931f66d1492acb308fa1c6715b9d139b81acbdcc"
+        "00000000000000000000000000000000ff023f48428a4b169957779cb1d56ac3" &
+        "bc8023b3e9d565dbfa9a6ff526a2a1bc89cdf2d341e6fb3d7b6207e512443bc7" &
+        "99cd8a4d203201dde36d1a6d388297fa011578c000e37469965a293abffc4058" &
+        "9b"
 
     let dummyKey = "0x00000000000000000000000000000001" # of no importance
     codecA.sessions.store(nodeB.id, nodeB.address.get(),
@@ -300,7 +302,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       decoded.isOk()
       decoded.get().messageOpt.isSome()
       decoded.get().messageOpt.get().reqId.id == hexToSeqByte(pingReqId)
-      decoded.get().messageOpt.get().kind == ping
+      decoded.get().messageOpt.get().kind == MessageKind.ping
       decoded.get().messageOpt.get().ping.sprSeq == pingSprSeq
 
   test "Whoareyou Packet":
@@ -311,8 +313,8 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       whoareyouSprSeq = 0
 
       encodedPacket =
-        "00000000000000000000000000000000088b3d434277464933a1ccc59f5967ad" &
-        "1d6035f15e528627dde75cd68292f9e6c27d6b66c8100a873fcbaed4e16b8d"
+        "00000000000000000000000000000000ff023f48428a4b169857779cb1d56ac3" &
+        "bc8023b3e9d55d96c6f8f156eaae08ccd97a4fed2441cf6bb65b940facfcff"
 
     let decoded = codecB.decodePacket(nodeA.address.get(),
       hexToSeqByte(encodedPacket))
@@ -341,13 +343,13 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       whoareyouSprSeq = 1'u64
 
       encodedPacket =
-        "00000000000000000000000000000000088b3d4342774649305f313964a39e55" &
-        "ea96c005ad521d8c7560413a7008f16c9e6d2f43bbea8814a546b7409ce783d3" &
-        "4c4f53245d08da4bb252012b2cba3f4f374a90a75cff91f142fa9be3e0a5f3ef" &
-        "268ccb9065aeecfd67a999e7fdc137e062b2ec4a0eb92947f0d9a74bfbf44dfb" &
-        "a776b21301f8b65efd5796706adff216ab862a9186875f9494150c4ae06fa4d1" &
-        "f0396c93f215fa4ef524f1eadf5f0f4126b79336671cbcf7a885b1f8bd2a5d83" &
-        "9cf8"
+        "00000000000000000000000000000000ff023f48428a4b169b57779cb1d56ac3" &
+        "bc8023b3e9d5c6dbfa9a6ff526a2a1bc89cdf2d341e6fb3d7b6207e512443bc7" &
+        "99cd8a4d20320147b277d497aac4ff05f71dd7e65689d09f0efa7b8431022111" &
+        "07db3022756934ae242b67321aa2eac04c6522a397253dce85d1c276c1502a91" &
+        "a4d36dcce3064067e81dfd3a9a55afc76ca30a7e3fbd5657e1e271b4275a76cf" &
+        "517a562b5f143b416a609d4d7541044533b877a2ded6785f40f5086a97dec233" &
+        "b025e4d5"
 
     let
       whoareyouData = WhoareyouData(
@@ -367,7 +369,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
     check:
       decoded.isOk()
       decoded.get().message.reqId.id == hexToSeqByte(pingReqId)
-      decoded.get().message.kind == ping
+      decoded.get().message.kind == MessageKind.ping
       decoded.get().message.ping.sprSeq == pingSprSeq
       decoded.get().node.isNone()
 
@@ -387,18 +389,18 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       whoareyouSprSeq = 0'u64
 
       encodedPacket =
-        "2746cce362989b5d7e2496490b25f952e9198c524b06c7e9e069c5f7c8d2c84b" &
-        "943322ac741826023cb35086eee94baaf98f81217c3dbcb022afb1464555b144" &
-        "69b49cb19fe1f3459b4bbb03a52fc588bcc69d7ff50842ee6c3fc3ffd58d425f" &
-        "e8c7bec9777fcb15d9c9e37c4aa3b226274f6631526d6d2127f39e1daff277fd" &
-        "e867a8222ae509922d9e94456f7cbde14c1788894708713789b28b307ac983c8" &
-        "31ebc00113ded4011af2bfa06078c8f0a3401e8c034b3ae5506fb002a0355bf1" &
-        "48b19022bae8b088a0c0bdc22dc3d5ce4a6c5ad700a3f8a82be214c2bef98afe" &
-        "2dbf4ffaaf816602d470dcfe8184b1db8d873d8813984f86b6350ff5d00d466c" &
-        "06de59f1797ad01a68bb9c07b9cb56e6989ab0e94d32c60e435a48aa7c89d602" &
-        "3863bd1605a33f895903657fe72f79ded24b366486a1c02a893702ec7d299ea8" &
-        "7afe0bb771fad244b8d4d0bd7bf4dc833a17c4db2f926eb7614788308a6f98af" &
-        "9a0e20bd75af75175645058702122b15"
+        "00000000000000000000000000000000ff023f48428a4b169b57779cb1d56ac3" &
+        "bc8023b3e9d474dbfa9a6ff526a2a1bc89cdf2d341e6fb3d7b6207e512443bc7" &
+        "99cd8a4d20320147b2b0fbec3854e9ab1608f6b13bc38a03f7506ea8a33e94ae" &
+        "ce56d7c2428d96116d338e685b66e340cc0e4ecfb8bfddd34c8e747fd887b86a" &
+        "6a26a5a77f76896a971d46a883e9ff7c7750ec3c01eb931cc12c706162c29ced" &
+        "85be0126dcd9b23e38aeb6681d755368e815d0fa6d0409a31b938e7bccbb9e99" &
+        "a0c91c92c02b78b5ea7f8cbeb4968e68d655b358f4ba15e4ad4a9f6704497c6f" &
+        "c46f9f5b9626a130d25ac7e250abbbacf8cdffc7b53957550f6e1736fec386aa" &
+        "eb305dcdadbe57f87ebd7ce21e9da3679964b8a978b7d29ea4727a1f680758d5" &
+        "8ff4eaaef74625630bd50fedbcde23f505c3c11a1ac8a9bb6e2d06c1628cce59" &
+        "c0d90edad109285be25ef9491b3beaf04761bfb476e70be5330f157c6975bdab" &
+        "9e48fba9eb5732f51a364de43d7d32cf1682"
 
     let
       whoareyouData = WhoareyouData(
@@ -418,12 +420,259 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
     check:
       decoded.isOk()
       decoded.get().message.reqId.id == hexToSeqByte(pingReqId)
-      decoded.get().message.kind == ping
+      decoded.get().message.kind == MessageKind.ping
       decoded.get().message.ping.sprSeq == pingSprSeq
       decoded.get().node.isSome()
 
       codecB.decodePacket(nodeA.address.get(),
         hexToSeqByte(encodedPacket & "00")).isErr()
+
+# TODO: Delete this entire suite once Protobufs are completely incorporated
+suite "NEW ENCODING OUTPUT ONLY - REMOVE AFTER PROTOBUFS COMPLETE, Discovery v5.1 Packet Encodings Test Vectors":
+  var
+    rng = keys.newRng()
+    nodeAKey = "0xfe5f08c842aa946659b266ce68faa5d2fd982634594dccdf7f916e3fcf0541a3"
+    nodeBKey = "0x00064765abe9a4e63b068b5af99c26c61c8ade9bfdae6494873b137ec8152578"
+
+  var
+    codecA, codecB: Codec
+    nodeA, nodeB: Node
+    privKeyA, privKeyB: keys.PrivateKey
+
+  setup:
+    privKeyA = keys.PrivateKey.fromHex(nodeAKey)[] # sender -> encode
+    privKeyB = keys.PrivateKey.fromHex(nodeBKey)[] # receive -> decode
+
+    let
+      enrRecA = SignedPeerRecord.init(1, privKeyA,
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
+        some(Port(9000))).expect("Properly intialized private key")
+
+      enrRecB = SignedPeerRecord.init(1, privKeyB,
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
+        some(Port(9000))).expect("Properly intialized private key")
+
+    nodeA = newNode(enrRecA).expect("Properly initialized record")
+    nodeB = newNode(enrRecB).expect("Properly initialized record")
+    codecA = Codec(localNode: nodeA, privKey: privKeyA,
+      sessions: Sessions.init(5))
+    codecB = Codec(localNode: nodeB, privKey: privKeyB,
+      sessions: Sessions.init(5))
+
+  test "Ping Ordinary Message Packet":
+    const
+      readKey = "0x00000000000000000000000000000000"
+      pingReqId = "0x00000001"
+      pingSprSeq = 2'u64
+
+    let dummyKey = "0x00000000000000000000000000000001" # of no importance
+    codecA.sessions.store(nodeB.id, nodeB.address.get(),
+      hexToByteArray[aesKeySize](dummyKey), hexToByteArray[aesKeySize](readKey))
+    codecB.sessions.store(nodeA.id, nodeA.address.get(),
+      hexToByteArray[aesKeySize](readKey), hexToByteArray[aesKeySize](dummyKey))
+
+    # TODO: Remove me once all protobufs in place
+    let
+      ping = PingMessage(sprSeq: pingSprSeq)
+      reqId = RequestId(id: hexToSeqByte(pingReqId))
+      message = encodeMessage(ping, reqId)
+
+    var nonce: AESGCMNonce
+    let
+      nonceHex = "0x0102030405060708090a0b0c0d0e0f10"
+      nonceBytes = nonceHex.hexToByteArray(gcmNonceSize)
+    copyMem(addr nonce[0], unsafeAddr nonceBytes, gcmNonceSize)
+
+    var iv: array[ivSize, byte]
+    let ivHex = "0x00000000000000000000000000000000"
+    let ivBytes = ivHex.hexToByteArray(ivSize)
+    copyMem(addr iv[0], unsafeAddr ivBytes, ivSize)
+
+    let (encoded, nonceEnc) = encodeMessagePacket(rng[], codecA, nodeB.id,
+      nodeB.address.get(), message, nonce.some, iv.some)
+    trace ">>> [New Encoding] Ping Ordinary Message Packet", nonce = nonceEnc, encoded = byteutils.toHex(encoded)
+
+    let decoded = codecB.decodePacket(nodeA.address.get(), encoded)
+    check:
+      decoded.isOk()
+      decoded.get().messageOpt.isSome()
+      decoded.get().messageOpt.get().reqId.id == hexToSeqByte(pingReqId)
+      decoded.get().messageOpt.get().kind == MessageKind.ping
+      decoded.get().messageOpt.get().ping.sprSeq == pingSprSeq
+
+  test "Whoareyou Packet":
+    const
+      whoareyouChallengeData = "0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000"
+      whoareyouRequestNonce = "0x0102030405060708090a0b0c"
+      whoareyouIdNonce = "0x0102030405060708090a0b0c0d0e0f10"
+      whoareyouSprSeq = 0
+
+    var nonce: AESGCMNonce
+    let nonceBytes = whoareyouRequestNonce.hexToByteArray(gcmNonceSize)
+    copyMem(addr nonce[0], unsafeAddr nonceBytes, gcmNonceSize)
+
+    var idNonce: IdNonce
+    let idNonceBytes = whoareyouIdNonce.hexToByteArray(idNonceSize)
+    copyMem(addr idNonce[0], unsafeAddr idNonceBytes, idNonceSize)
+
+    var iv: array[ivSize, byte]
+    let ivHex = "0x00000000000000000000000000000000"
+    let ivBytes = ivHex.hexToByteArray(ivSize)
+    copyMem(addr iv[0], unsafeAddr ivBytes, ivSize)
+
+    let
+      encoded = encodeWhoareyouPacket(
+        rng[],
+        codecA,
+        nodeB.id,
+        nodeB.address.get(),
+        nonce,
+        whoareyouSprSeq.uint64,
+        keys.PublicKey.none,
+        idNonce.some,
+        iv.some)
+
+    trace ">>> [New Encoding] Whoareyou Packet", nonce, encoded = byteutils.toHex(encoded)
+
+    let decoded = codecB.decodePacket(nodeA.address.get(), encoded)
+
+    check:
+      decoded.isOk()
+      decoded.get().flag == Flag.Whoareyou
+      decoded.get().whoareyou.requestNonce == hexToByteArray[gcmNonceSize](whoareyouRequestNonce)
+      decoded.get().whoareyou.idNonce == hexToByteArray[idNonceSize](whoareyouIdNonce)
+      decoded.get().whoareyou.recordSeq == whoareyouSprSeq
+      decoded.get().whoareyou.challengeData == hexToSeqByte(whoareyouChallengeData)
+
+      codecB.decodePacket(nodeA.address.get(),
+        encoded & "00".hexToSeqByte).isErr()
+
+  test "Ping Handshake Message Packet":
+    const
+      pingReqId = "0x00000001"
+      pingSprSeq = 1'u64
+      #
+      # handshake inputs:
+      #
+      whoareyouChallengeData = "0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000001"
+      whoareyouRequestNonce = "0x0102030405060708090a0b0c"
+      whoareyouIdNonce = "0x0102030405060708090a0b0c0d0e0f10"
+      whoareyouSprSeq = 1'u64
+
+    let
+      whoareyouData = WhoareyouData(
+        requestNonce: hexToByteArray[gcmNonceSize](whoareyouRequestNonce),
+        idNonce: hexToByteArray[idNonceSize](whoareyouIdNonce),
+        recordSeq: whoareyouSprSeq,
+        challengeData: hexToSeqByte(whoareyouChallengeData))
+      pubkey = some(privKeyA.toPublicKey())
+      challenge = Challenge(whoareyouData: whoareyouData, pubkey: pubkey)
+      key = HandshakeKey(nodeId: nodeA.id, address: nodeA.address.get())
+
+    check: not codecB.handshakes.hasKeyOrPut(key, challenge)
+
+    let
+      m = PingMessage(sprSeq: pingSprSeq)
+      reqId = RequestId(id: hexToSeqByte(pingReqId))
+      message = encodeMessage(m, reqId)
+
+    var nonce: AESGCMNonce
+    copyMem(addr nonce[0], unsafeAddr whoareyouData.requestNonce, gcmNonceSize)
+
+    var idNonce: IdNonce
+    copyMem(addr idNonce[0], unsafeAddr whoareyouData.idNonce, idNonceSize)
+
+    var iv: array[ivSize, byte]
+    let ivHex = "0x00000000000000000000000000000000"
+    let ivBytes = ivHex.hexToByteArray(ivSize)
+    copyMem(addr iv[0], unsafeAddr ivBytes, ivSize)
+
+    let
+      encodedDummy = encodeWhoareyouPacket(rng[], codecB, nodeA.id,
+        nodeA.address.get(), nonce, whoareyouSprSeq, pubkey, idNonce.some, iv.some)
+      decodedDummy = codecA.decodePacket(nodeB.address.get(), encodedDummy)
+
+    let encoded = encodeHandshakePacket(rng[], codecA, nodeB.id,
+      nodeB.address.get(), message, decodedDummy[].whoareyou,
+      privKeyB.toPublicKey(), nonce.some, iv.some)
+
+    trace ">>> [New Encoding] Ping Handshake Message Packet", nonce, encoded = byteutils.toHex(encoded)
+
+    let decoded = codecB.decodePacket(nodeA.address.get(), encoded)
+
+    check:
+      decoded.isOk()
+      decoded.get().message.reqId.id == hexToSeqByte(pingReqId)
+      decoded.get().message.kind == MessageKind.ping
+      decoded.get().message.ping.sprSeq == pingSprSeq
+      decoded.get().node.isNone()
+
+      codecB.decodePacket(nodeA.address.get(),
+        encoded & "00".hexToSeqByte).isErr()
+
+  test "Ping Handshake Message Packet with SPR":
+    const
+      pingReqId = "0x00000001"
+      pingSprSeq = 1'u64
+      #
+      # handshake inputs:
+      #
+      whoareyouChallengeData = "0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000"
+      whoareyouRequestNonce = "0x0102030405060708090a0b0c"
+      whoareyouIdNonce = "0x0102030405060708090a0b0c0d0e0f10"
+      whoareyouSprSeq = 0'u64
+
+    let
+      whoareyouData = WhoareyouData(
+        requestNonce: hexToByteArray[gcmNonceSize](whoareyouRequestNonce),
+        idNonce: hexToByteArray[idNonceSize](whoareyouIdNonce),
+        recordSeq: whoareyouSprSeq,
+        challengeData: hexToSeqByte(whoareyouChallengeData))
+      pubkey = none(keys.PublicKey)
+      challenge = Challenge(whoareyouData: whoareyouData, pubkey: pubkey)
+      key = HandshakeKey(nodeId: nodeA.id, address: nodeA.address.get())
+
+    check: not codecB.handshakes.hasKeyOrPut(key, challenge)
+
+    let
+      m = PingMessage(sprSeq: pingSprSeq)
+      reqId = RequestId(id: hexToSeqByte(pingReqId))
+      message = encodeMessage(m, reqId)
+
+    var nonce: AESGCMNonce
+    copyMem(addr nonce[0], unsafeAddr whoareyouData.requestNonce, gcmNonceSize)
+
+    var idNonce: IdNonce
+    copyMem(addr idNonce[0], unsafeAddr whoareyouData.idNonce, idNonceSize)
+
+    var iv: array[ivSize, byte]
+    let ivHex = "0x00000000000000000000000000000000"
+    let ivBytes = ivHex.hexToByteArray(ivSize)
+    copyMem(addr iv[0], unsafeAddr ivBytes, ivSize)
+
+    let
+      encodedDummy = encodeWhoareyouPacket(rng[], codecB, nodeA.id,
+        nodeA.address.get(), nonce, whoareyouSprSeq, pubkey, idNonce.some, iv.some)
+      decodedDummy = codecA.decodePacket(nodeB.address.get(), encodedDummy)
+
+    let encoded = encodeHandshakePacket(rng[], codecA, nodeB.id,
+      nodeB.address.get(), message, decodedDummy[].whoareyou,
+      privKeyB.toPublicKey(), nonce.some, iv.some)
+
+    trace ">>> [New Encoding] Ping Handshake Message Packet with SPR", nonce, encoded = byteutils.toHex(encoded)
+
+    let decoded = codecB.decodePacket(nodeA.address.get(),
+      encoded)
+
+    check:
+      decoded.isOk()
+      decoded.get().message.reqId.id == hexToSeqByte(pingReqId)
+      decoded.get().message.kind == MessageKind.ping
+      decoded.get().message.ping.sprSeq == pingSprSeq
+      decoded.get().node.isSome()
+
+      codecB.decodePacket(nodeA.address.get(),
+        encoded & "00".hexToSeqByte).isErr()
 
 suite "Discovery v5.1 Additional Encode/Decode":
   var rng = keys.newRng()
@@ -570,7 +819,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     check:
       decoded.isOk()
       decoded.get().message.reqId == reqId
-      decoded.get().message.kind == ping
+      decoded.get().message.kind == MessageKind.ping
       decoded.get().message.ping.sprSeq == 0
       decoded.get().node.isNone()
 
@@ -601,7 +850,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     check:
       decoded.isOk()
       decoded.get().message.reqId == reqId
-      decoded.get().message.kind == ping
+      decoded.get().message.kind == MessageKind.ping
       decoded.get().message.ping.sprSeq == 0
       decoded.get().node.isSome()
       decoded.get().node.get().record.seqNum == 1
@@ -629,6 +878,6 @@ suite "Discovery v5.1 Additional Encode/Decode":
       decoded.get().flag == OrdinaryMessage
       decoded.get().messageOpt.isSome()
       decoded.get().messageOpt.get().reqId == reqId
-      decoded.get().messageOpt.get().kind == ping
+      decoded.get().messageOpt.get().kind == MessageKind.ping
       decoded.get().messageOpt.get().ping.sprSeq == 0
       decoded[].requestNonce == nonce
