@@ -77,7 +77,7 @@ import
   std/[tables, sets, options, math, sequtils, algorithm],
   stew/shims/net as stewNet, json_serialization/std/net,
   stew/[base64, endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
-  metrics, eth/[rlp, keys, async_utils], libp2p/routing_record,
+  metrics, eth/[rlp, async_utils], libp2p/routing_record,
   "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
 
 import nimcrypto except toHex
@@ -120,7 +120,7 @@ type
 
   Protocol* = ref object
     localNode*: Node
-    privateKey: keys.PrivateKey
+    privateKey: PrivateKey
     transport*: Transport[Protocol] # exported for tests
     routingTable*: RoutingTable
     awaitedMessages: Table[(NodeId, RequestId), Future[Option[Message]]]
@@ -214,7 +214,7 @@ proc neighboursAtDistances*(d: Protocol, distances: seq[uint16],
 
 proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 
-func privKey*(d: Protocol): lent keys.PrivateKey =
+func privKey*(d: Protocol): lent PrivateKey =
   d.privateKey
 
 func getRecord*(d: Protocol): SignedPeerRecord =
@@ -948,7 +948,7 @@ func init*(
   )
 
 proc newProtocol*(
-    privKey: keys.PrivateKey,
+    privKey: PrivateKey,
     enrIp: Option[ValidIpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
@@ -958,7 +958,7 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
-    rng = keys.newRng()):
+    rng = newRng()):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.

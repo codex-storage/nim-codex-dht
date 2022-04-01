@@ -5,7 +5,8 @@ import
   chronos,
   asynctest/unittest2,
   stint, stew/byteutils, stew/shims/net,
-  eth/[keys,rlp],
+  eth/rlp,
+  libp2p/crypto/crypto, secp256k1, bearssl,
   libp2pdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions],
   ../dht/test_helper
 
@@ -177,9 +178,9 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
       sharedSecret = "0x033b11a2a1f214567e1537ce5e509ffd9b21373247f2a3ff6841f4976f53165e7e"
 
     let
-      pub = keys.PublicKey.fromHex(publicKey)[]
-      priv = keys.PrivateKey.fromHex(secretKey)[]
-      eph = ecdhRawFull(priv, pub)
+      pub = PublicKey.init(publicKey).get
+      priv = PrivateKey.init(secretKey).get
+      eph = ecdhRaw(priv, pub)
     check:
       eph.data == hexToSeqByte(sharedSecret)
 
@@ -198,8 +199,8 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
     let secrets = deriveKeys(
       NodeId.fromHex(nodeIdA),
       NodeId.fromHex(nodeIdB),
-      keys.PrivateKey.fromHex(ephemeralKey)[],
-      keys.PublicKey.fromHex(destPubkey)[],
+      PrivateKey.init(ephemeralKey).get,
+      PublicKey.init(destPubkey).get,
       hexToSeqByte(challengeData))
 
     check:
@@ -217,17 +218,17 @@ suite "Discovery v5.1 Cryptographic Primitives Test Vectors":
       idSignature = "0x94852a1e2318c4e5e9d422c98eaf19d1d90d876b29cd06ca7cb7546d0fff7b484fe86c09a064fe72bdbef73ba8e9c34df0cd2b53e9d65528c2c7f336d5dfc6e6"
 
     let
-      privKey = keys.PrivateKey.fromHex(staticKey)[]
+      privKey = PrivateKey.init(staticKey).get
       signature = createIdSignature(
         privKey,
         hexToSeqByte(challengeData),
         hexToSeqByte(ephemeralPubkey),
         NodeId.fromHex(nodeIdB))
     check:
-      signature.toRaw() == hexToByteArray[64](idSignature)
+      signature.getBytes() == hexToByteArray[64](idSignature)
       verifyIdSignature(signature, hexToSeqByte(challengeData),
         hexToSeqByte(ephemeralPubkey), NodeId.fromHex(nodeIdB),
-        privKey.toPublicKey())
+        privKey.getPublicKey().get)
 
   test "Encryption/Decryption":
     const
@@ -255,11 +256,11 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
   var
     codecA, codecB: Codec
     nodeA, nodeB: Node
-    privKeyA, privKeyB: keys.PrivateKey
+    privKeyA, privKeyB: PrivateKey
 
   setup:
-    privKeyA = keys.PrivateKey.fromHex(nodeAKey)[] # sender -> encode
-    privKeyB = keys.PrivateKey.fromHex(nodeBKey)[] # receive -> decode
+    privKeyA = PrivateKey.init(nodeAKey).get # sender -> encode
+    privKeyB = PrivateKey.init(nodeBKey).get # receive -> decode
 
     let
       enrRecA = SignedPeerRecord.init(1, privKeyA,
@@ -355,7 +356,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         idNonce: hexToByteArray[idNonceSize](whoareyouIdNonce),
         recordSeq: whoareyouSprSeq,
         challengeData: hexToSeqByte(whoareyouChallengeData))
-      pubkey = some(privKeyA.toPublicKey())
+      pubkey = some(privKeyA.getPublicKey().get)
       challenge = Challenge(whoareyouData: whoareyouData, pubkey: pubkey)
       key = HandshakeKey(nodeId: nodeA.id, address: nodeA.address.get())
 
@@ -406,7 +407,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         idNonce: hexToByteArray[idNonceSize](whoareyouIdNonce),
         recordSeq: whoareyouSprSeq,
         challengeData: hexToSeqByte(whoareyouChallengeData))
-      pubkey = none(keys.PublicKey)
+      pubkey = none(PublicKey)
       challenge = Challenge(whoareyouData: whoareyouData, pubkey: pubkey)
       key = HandshakeKey(nodeId: nodeA.id, address: nodeA.address.get())
 
@@ -426,7 +427,7 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
         hexToSeqByte(encodedPacket & "00")).isErr()
 
 suite "Discovery v5.1 Additional Encode/Decode":
-  var rng = keys.newRng()
+  var rng = newRng()
 
   test "Encryption/Decryption":
     let
@@ -467,8 +468,8 @@ suite "Discovery v5.1 Additional Encode/Decode":
     var nonce: AESGCMNonce
     brHmacDrbgGenerate(rng[], nonce)
     let
-      privKey = keys.PrivateKey.random(rng[])
-      nodeId = privKey.toPublicKey().toNodeId()
+      privKey = PrivateKey.random(rng[]).get
+      nodeId = privKey.getPublicKey().get.toNodeId()
       authdata = newSeq[byte](32)
       staticHeader = encodeStaticHeader(Flag.OrdinaryMessage, nonce,
         authdata.len())
@@ -486,11 +487,11 @@ suite "Discovery v5.1 Additional Encode/Decode":
   var
     codecA, codecB: Codec
     nodeA, nodeB: Node
-    privKeyA, privKeyB: keys.PrivateKey
+    privKeyA, privKeyB: PrivateKey
 
   setup:
-    privKeyA = keys.PrivateKey.random(rng[]) # sender -> encode
-    privKeyB = keys.PrivateKey.random(rng[]) # receiver -> decode
+    privKeyA = PrivateKey.random(rng[]).get # sender -> encode
+    privKeyB = PrivateKey.random(rng[]).get # receiver -> decode
 
     let
       enrRecA = SignedPeerRecord.init(1, privKeyA,
@@ -528,7 +529,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     let recordSeq = 0'u64
 
     let data = encodeWhoareyouPacket(rng[], codecA, nodeB.id,
-      nodeB.address.get(), requestNonce, recordSeq, none(keys.PublicKey))
+      nodeB.address.get(), requestNonce, recordSeq, none(PublicKey))
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
 
@@ -551,7 +552,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       m = PingMessage(sprSeq: 0)
       reqId = RequestId.init(rng[])
       message = encodeMessage(m, reqId)
-      pubkey = some(privKeyA.toPublicKey())
+      pubkey = some(privKeyA.getPublicKey().get)
 
     # Encode/decode whoareyou packet to get the handshake stored and the
     # whoareyou data returned. It's either that or construct the header for the
@@ -563,7 +564,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
     let data = encodeHandshakePacket(rng[], codecA, nodeB.id,
       nodeB.address.get(), message, decodedDummy[].whoareyou,
-      privKeyB.toPublicKey())
+      privKeyB.getPublicKey().get)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
 
@@ -582,7 +583,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       m = PingMessage(sprSeq: 0)
       reqId = RequestId.init(rng[])
       message = encodeMessage(m, reqId)
-      pubkey = none(keys.PublicKey)
+      pubkey = none(PublicKey)
 
     # Encode/decode whoareyou packet to get the handshake stored and the
     # whoareyou data returned. It's either that or construct the header for the
@@ -594,7 +595,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
     let encoded = encodeHandshakePacket(rng[], codecA, nodeB.id,
       nodeB.address.get(), message, decodedDummy[].whoareyou,
-      privKeyB.toPublicKey())
+      privKeyB.getPublicKey().get)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), encoded)
 

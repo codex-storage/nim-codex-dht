@@ -12,7 +12,6 @@ import
   stew/shims/net,
   stew/base64,
   eth/rlp,
-  eth/keys,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/routing_record,
@@ -68,34 +67,12 @@ proc get*(r: SignedPeerRecord, T: type crypto.PublicKey): Option[T] =
   ## no `PublicKey` in the record.
   some(r.envelope.publicKey)
 
-func pkToPk(pk: crypto.PublicKey) : Option[keys.PublicKey] =
-  some((keys.PublicKey)(pk.skkey))
-
-func pkToPk(pk: keys.PublicKey) : Option[crypto.PublicKey] =
-  some(crypto.PublicKey.init((secp.SkPublicKey)(pk)))
-
-func pkToPk(pk: crypto.PrivateKey) : Option[keys.PrivateKey] =
-  some((keys.PrivateKey)(pk.skkey))
-
-func pkToPk(pk: keys.PrivateKey) : Option[crypto.PrivateKey] =
-  some(crypto.PrivateKey.init((secp.SkPrivateKey)(pk)))
-
-proc get*(r: SignedPeerRecord, T: type keys.PublicKey): Option[T] =
-  ## Get the `PublicKey` from provided `Record`. Return `none` when there is
-  ## no `PublicKey` in the record.
-  ## PublicKey* = distinct SkPublicKey
-  let
-    pk = r.envelope.publicKey
-  pkToPk(pk)
-
 proc incSeqNo*(
     r: var SignedPeerRecord,
-    pk: keys.PrivateKey): RecordResult[void] =
-
-  let cryptoPk = pk.pkToPk.get() # TODO: remove when eth/keys removed
+    pk: PrivateKey): RecordResult[void] =
 
   r.data.seqNo.inc()
-  r = ? SignedPeerRecord.init(cryptoPk, r.data).mapErr(
+  r = ? SignedPeerRecord.init(pk, r.data).mapErr(
         (e: CryptoError) =>
           ("Error initialising SignedPeerRecord with incremented seqNo: " &
           $e).cstring
@@ -103,7 +80,7 @@ proc incSeqNo*(
   ok()
 
 
-proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
+proc update*(r: var SignedPeerRecord, keysPrivKey: crypto.PrivateKey,
                             ip: Option[ValidIpAddress],
                             tcpPort, udpPort: Option[Port] = none[Port]()):
                             RecordResult[void] =
@@ -124,9 +101,8 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
 
   let
     pubkey = r.get(crypto.PublicKey)
-    keysPubKey = pubkey.get.pkToPk.get # remove when move away from eth/keys
-    keysPrivKey = pk.pkToPk.get
-  if pubkey.isNone() or keysPubKey != keysPrivKey.toPublicKey:
+    keysPubKey = pubkey.get
+  if pubkey.isNone() or keysPubKey != keysPrivKey.getPublicKey().get:
     return err("Public key does not correspond with given private key")
 
   var
@@ -201,19 +177,12 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
   # increase the sequence number only if we've updated the multiaddress
   if changed: r.data.seqNo.inc()
 
-  r = ? SignedPeerRecord.init(pk, r.data)
+  r = ? SignedPeerRecord.init(keysPrivKey, r.data)
           .mapErr((e: CryptoError) =>
             ("Failed to update SignedPeerRecord: " & $e).cstring
           )
 
   return ok()
-
-proc update*(r: var SignedPeerRecord, pk: keys.PrivateKey,
-                            ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port]()):
-                            RecordResult[void] =
-  let cPk = pkToPk(pk).get
-  r.update(cPk, ip, tcpPort, udpPort)
 
 proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
@@ -337,14 +306,6 @@ proc init*(T: type SignedPeerRecord, seqNum: uint64,
 
   let pr = PeerRecord.init(peerId, @[ma], seqNum)
   SignedPeerRecord.init(pk, pr).mapErr((e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
-
-proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: keys.PrivateKey,
-                           ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port]):
-                           RecordResult[T] =
-  let kPk = pkToPk(pk).get
-  SignedPeerRecord.init(seqNum, kPk, ip, tcpPort, udpPort)
 
 proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the

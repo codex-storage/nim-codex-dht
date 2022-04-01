@@ -13,8 +13,8 @@ import
   std/options,
   std/sequtils,
   chronos, stew/byteutils, nimcrypto, asynctest,
-  eth/keys,
   libp2pdht/dht,
+  bearssl,
   chronicles,
   libp2pdht/discv5/protocol as discv5_protocol,
   test_helper,
@@ -29,13 +29,13 @@ import
 proc bootstrapNodes(
     nodecount: int,
     bootnodes: seq[SignedPeerRecord],
-    rng = keys.newRng(),
+    rng = newRng(),
     delay: int = 0
-  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
+  ) : Future[seq[(discv5_protocol.Protocol, PrivateKey)]] {.async.} =
 
   debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
-    let privKey = keys.PrivateKey.random(rng[])
+    let privKey = PrivateKey.random(rng[]).get
     let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
     node.start()
     result.add((node, privKey))
@@ -47,13 +47,12 @@ proc bootstrapNodes(
 
 proc bootstrapNetwork(
     nodecount: int,
-    rng = keys.newRng(),
+    rng = newRng(),
     delay: int = 0
-  ) : Future[seq[(discv5_protocol.Protocol, keys.PrivateKey)]] {.async.} =
+  ) : Future[seq[(discv5_protocol.Protocol, PrivateKey)]] {.async.} =
 
   let
-    bootNodeKey = keys.PrivateKey.fromHex(
-      "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617")[]
+    bootNodeKey = PrivateKey.init("a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617").get()
     bootNodeAddr = localAddress(20301)
     bootNode = initDiscoveryNode(rng, bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
 
@@ -66,30 +65,23 @@ proc bootstrapNetwork(
   res.insert((bootNode, bootNodeKey), 0)
   return res
 
-# TODO: Remove this once we have removed all traces of nim-eth/keys
-func pkToPk(pk: keys.PrivateKey) : Option[crypto.PrivateKey] =
-  let res = some(crypto.PrivateKey.init((secp.SkPrivateKey)(pk)))
-  return res
-
-
 # suite "Providers Tests":
 suite "Providers Tests: node alone":
   var
     rng: ref HmacDrbgContext
-    nodes: seq[(discv5_protocol.Protocol, keys.PrivateKey)]
+    nodes: seq[(discv5_protocol.Protocol, PrivateKey)]
     targetId: NodeId
     node0: discv5_protocol.Protocol
-    privKey_keys0: keys.PrivateKey
+    privKey_keys0: PrivateKey
     privKey0: crypto.PrivateKey
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
   setupAll:
-    rng = keys.newRng()
+    rng = newRng()
     nodes = await bootstrapNetwork(nodecount=1)
-    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
-    (node0, privKey_keys0) = nodes[0]
-    privKey0 = privKey_keys0.pkToPk.get
+    targetId = toNodeId(PrivateKey.random(rng[]).get.getPublicKey.get)
+    (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
@@ -122,7 +114,7 @@ suite "Providers Tests: node alone":
 
   test "Should not retrieve bogus":
 
-    let bogusId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
+    let bogusId = toNodeId(PrivateKey.random(rng[]).get.getPublicKey.get)
 
     debug "---- STARTING PROVIDERS LOOKUP ---"
     let providersRes = await node0.getProviders(bogusId)
@@ -138,20 +130,19 @@ suite "Providers Tests: two nodes":
 
   var
     rng: ref HmacDrbgContext
-    nodes: seq[(discv5_protocol.Protocol, keys.PrivateKey)]
+    nodes: seq[(discv5_protocol.Protocol, PrivateKey)]
     targetId: NodeId
     node0: discv5_protocol.Protocol
-    privKey_keys0: keys.PrivateKey
+    privKey_keys0: PrivateKey
     privKey0: crypto.PrivateKey
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
   setupAll:
-    rng = keys.newRng()
+    rng = newRng()
     nodes = await bootstrapNetwork(nodecount=3)
-    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
-    (node0, privKey_keys0) = nodes[0]
-    privKey0 = privKey_keys0.pkToPk.get
+    targetId = toNodeId(PrivateKey.random(rng[]).get.getPublicKey.get)
+    (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
@@ -191,20 +182,19 @@ suite "Providers Tests: 20 nodes":
 
   var
     rng: ref HmacDrbgContext
-    nodes: seq[(discv5_protocol.Protocol, keys.PrivateKey)]
+    nodes: seq[(discv5_protocol.Protocol, PrivateKey)]
     targetId: NodeId
     node0: discv5_protocol.Protocol
-    privKey_keys0: keys.PrivateKey
+    privKey_keys0: PrivateKey
     privKey0: crypto.PrivateKey
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
   setupAll:
-    rng = keys.newRng()
+    rng = newRng()
     nodes = await bootstrapNetwork(nodecount=20)
-    targetId = toNodeId(keys.PrivateKey.random(rng[]).toPublicKey)
-    (node0, privKey_keys0) = nodes[0]
-    privKey0 = privKey_keys0.pkToPk.get
+    targetId = toNodeId(PrivateKey.random(rng[]).get.getPublicKey.get)
+    (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 

@@ -7,6 +7,8 @@
 # Everything below the handling of ordinary messages
 import
   std/[tables, options],
+  bearssl,
+  libp2p/crypto/crypto,
   chronos,
   chronicles,
   stew/shims/net,
