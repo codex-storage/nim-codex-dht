@@ -297,14 +297,14 @@ proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
   var authdata: seq[byte]
   var authdataHead: seq[byte]
 
-  authdataHead.add(c.localNode.id.toByteArrayBE())
-  authdataHead.add(64'u8) # sig-size: 64
-  authdataHead.add(33'u8) # eph-key-size: 33
-  authdata.add(authdataHead)
-
   let ephKeys = KeyPair.random(rng).get
   let signature = createIdSignature(c.privKey, whoareyouData.challengeData,
-    ephKeys.pubkey.getRawBytes().get, toId)
+    ephKeys.pubkey.getBytes().get, toId)
+
+  authdataHead.add(c.localNode.id.toByteArrayBE())
+  authdataHead.add((signature.getBytes().len).uint8) # sig-size
+  authdataHead.add((ephKeys.pubkey.getBytes().get.len).uint8) # eph-key-size
+  authdata.add(authdataHead)
 
   authdata.add(signature.getBytes())
   # compressed pub key format (33 bytes)
