@@ -52,7 +52,7 @@ proc bootstrapNetwork(
   ) : Future[seq[(discv5_protocol.Protocol, PrivateKey)]] {.async.} =
 
   let
-    bootNodeKey = PrivateKey.init("a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617").get()
+    bootNodeKey = PrivateKey.init(SkPrivateKey.init("a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617").get())
     bootNodeAddr = localAddress(20301)
     bootNode = initDiscoveryNode(rng, bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
 

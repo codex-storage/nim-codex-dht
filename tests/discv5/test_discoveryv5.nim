@@ -5,6 +5,7 @@ import
   chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   libp2p/crypto/crypto,
+  libp2p/crypto/secp,
   libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, messages, nodes_verification],
   libp2pdht/discv5/protocol as discv5_protocol,
   ../dht/test_helper
@@ -88,7 +89,7 @@ suite "Discovery v5 Tests":
     # Values for this test are taken from
     # https://github.com/ethereum/go-ethereum/blob/d8ff53dfb8a516f47db37dbc7fd7ad18a1e8a125/p2p/discover/v4_lookup_test.go#L176
     const
-      targetKey = "5d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"
+      targetKey = "045d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"
       testValues = [
         ("29738ba0c1a4397d6a65f292eee07f02df8e58d41594ba2be3cf84ce0fc58169", 251'u16),
         ("511b1686e4e58a917f7f848e9bf5539d206a68f5ad6b54b552c2399fe7d174ae", 251'u16),
@@ -136,10 +137,10 @@ suite "Discovery v5 Tests":
         ("e24a7bc9051058f918646b0f6e3d16884b2a55a15553b89bab910d55ebc36116", 256'u16)
       ]
 
-    let targetId = toNodeId(PublicKey.init(targetKey).get)
+    let targetId = toNodeId(PublicKey.init(SkPublicKey.init(targetKey).get))
 
     for (key, d) in testValues:
-      let id = toNodeId(PrivateKey.init(key).get.getPublicKey().get)
+      let id = toNodeId(PrivateKey.init(SkPrivateKey.init(key).get()).getPublicKey().get)
       check logDistance(targetId, id) == d
 
   test "Distance to id check":
@@ -160,7 +161,7 @@ suite "Discovery v5 Tests":
 
   test "Distance to id check with keys":
     const
-      targetKey = "5d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"
+      targetKey = "045d485bdcbe9bc89314a10ae9231e429d33853e3a8fa2af39f5f827370a2e4185e344ace5d16237491dad41f278f1d3785210d29ace76cd627b9147ee340b1125"
       testValues = [ # possible id in that distance range
         ("9e5b34809116e3790b2258a45e7ef03b11af786503fb1a6d4b4a8ca021ad653c", 251'u16),
         ("925b34809116e3790b2258a45e7ef03b11af786503fb1a6d4b4a8ca021ad653c", 252'u16),
@@ -170,7 +171,7 @@ suite "Discovery v5 Tests":
         ("1a5b34809116e3790b2258a45e7ef03b11af786503fb1a6d4b4a8ca021ad653c", 256'u16)
       ]
 
-    let targetId = toNodeId(PublicKey.init(targetKey).get)
+    let targetId = toNodeId(PublicKey.init(SkPublicKey.init(targetKey).get))
 
     for (id, d) in testValues:
       check idAtDistance(targetId, d) == parse(id, UInt256, 16)
@@ -179,9 +180,9 @@ suite "Discovery v5 Tests":
     const dist = 253'u16
     let
       mainNodeKey = PrivateKey.init(
-        "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617").get
+        SkPrivateKey.init("a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617").get)
       testNodeKey = PrivateKey.init(
-        "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a618").get
+        SkPrivateKey.init("a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a618").get)
       mainNode = initDiscoveryNode(rng, mainNodeKey, localAddress(20301))
       testNode = initDiscoveryNode(rng, testNodeKey, localAddress(20302))
       # logarithmic distance between mainNode and testNode is 256

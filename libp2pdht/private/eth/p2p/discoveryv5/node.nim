@@ -12,6 +12,7 @@ import
   nimcrypto, stint, chronos, stew/shims/net, chronicles,
   eth/net/utils,
   #TODO bearssl should be exported by libp2p
+  secp256k1,
   bearssl,
   ./spr
 
@@ -37,7 +38,9 @@ func toNodeId*(pk: PublicKey): NodeId =
   ## Convert public key to a node identifier.
   # Keccak256 hash is used as defined in SPR spec for scheme v4:
   # https://github.com/ethereum/devp2p/blob/master/enr.md#v4-identity-scheme
-  readUintBE[256](keccak256.digest(pk.getRawBytes().get).data)
+
+  # libp2p doesn't expose the raw bytes, only the compressed one
+  readUintBE[256](keccak256.digest(secp256k1.SkPublicKey(pk.skkey).toRaw()[1..^1]).data)
 
 func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
   ## Create a new `Node` from a `SignedPeerRecord`.
