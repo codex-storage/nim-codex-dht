@@ -222,12 +222,12 @@ func getRecord*(d: Protocol): SignedPeerRecord =
   ## Get the SPR of the local node.
   d.localNode.record
 
-proc updateRecord*(d: Protocol): DiscResult[void] =
+proc updateRecord*(d: Protocol, newSpr: SignedPeerRecord): DiscResult[void] =
   ## Update the ENR of the local node with provided `enrFields` k:v pairs.
 
-  # TODO: Do we need this proc? This simply serves so that seqNo will be
-  # incremented to satisfy the tests...
-  d.localNode.record.incSeqNo(d.privateKey)
+  info "Updated discovery SPR", uri=toURI(newSpr)
+  d.localNode.record = newSpr
+  ok()
 
   # TODO: Would it make sense to actively ping ("broadcast") to all the peers
   # we stored a handshake with in order to get that ENR updated?
@@ -889,6 +889,7 @@ proc refreshLoop(d: Protocol) {.async.} =
     trace "refreshLoop canceled"
 
 proc ipMajorityLoop(d: Protocol) {.async.} =
+  #TODO this should be handled by libp2p, not the DHT
   ## When `enrAutoUpdate` is enabled, the IP:port combination returned
   ## by the majority will be used to update the local SPR.
   ## This should be safe as long as the routing table is not overwhelmed by
@@ -1002,6 +1003,33 @@ proc newProtocol*(
     bootstrapRecords: @bootstrapRecords,
     ipVote: IpVote.init(),
     enrAutoUpdate: enrAutoUpdate,
+    routingTable: RoutingTable.init(
+      node, config.bitsPerHop, config.tableIpLimits, rng),
+    rng: rng)
+
+  result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
+
+proc newProtocol*(
+    privKey: PrivateKey,
+    bindPort: Port,
+    record: SignedPeerRecord,
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
+    bindIp = IPv4_any(),
+    config = defaultDiscoveryConfig,
+    rng = newRng()):
+    Protocol =
+  info "Discovery SPR initialized", seqNum = record.seqNum, uri = toURI(record)
+  let node = newNode(record).expect("Properly initialized record")
+
+  # TODO Consider whether this should be a Defect
+  doAssert rng != nil, "RNG initialization failed"
+
+  result = Protocol(
+    privateKey: privKey,
+    localNode: node,
+    bootstrapRecords: @bootstrapRecords,
+    ipVote: IpVote.init(),
+    enrAutoUpdate: false, #TODO this should be removed from nim-libp2p-dht
     routingTable: RoutingTable.init(
       node, config.bitsPerHop, config.tableIpLimits, rng),
     rng: rng)
