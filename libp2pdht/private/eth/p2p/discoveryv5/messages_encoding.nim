@@ -10,8 +10,6 @@
 
 import
   std/net,
-  stew/arrayops,
-  eth/[rlp],
   chronicles,
   libp2p/routing_record,
   libp2p/signed_envelope,
@@ -23,83 +21,312 @@ from stew/objects import checkedEnumAssign
 type
   DecodeResult*[T] = Result[T, cstring]
 
-proc read*(rlp: var Rlp, T: type RequestId): T
-    {.raises: [ValueError, RlpError, Defect].} =
-  mixin read
-  var reqId: RequestId
-  reqId.id = rlp.toBytes()
-  if reqId.id.len > 8:
-    raise newException(ValueError, "RequestId is > 8 bytes")
-  rlp.skipElem()
+  Distances = seq[uint16]
 
-  reqId
+  EncodedMessage = seq[byte]
 
-proc append*(writer: var RlpWriter, value: RequestId) =
-  writer.append(value.id)
+  IPv4 = array[0..3, uint8]
 
-proc read*(rlp: var Rlp, T: type IpAddress): T
-    {.raises: [RlpError, Defect].} =
-  let ipBytes = rlp.toBytes()
-  rlp.skipElem()
+  IPv6 = array[0..15, uint8]
 
-  if ipBytes.len == 4:
-    var ip: array[4, byte]
-    discard copyFrom(ip, ipBytes)
-    IpAddress(family: IPv4, address_v4: ip)
-  elif ipBytes.len == 16:
-    var ip: array[16, byte]
-    discard copyFrom(ip, ipBytes)
-    IpAddress(family: IPv6, address_v6: ip)
+  Port = uint16
+
+proc getField*(pb: ProtoBuffer, field: int,
+               reqId: var RequestId): ProtoResult[bool] {.inline.} =
+  ## Read ``RequestId`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  elif buffer.len > 8:
+    ok(false) # RequestId must not be more than 8 bytes
   else:
-    raise newException(RlpTypeMismatch,
-      "Amount of bytes for IP address is different from 4 or 16")
+    reqId = RequestId(id: buffer)
+    ok(true)
 
-proc append*(writer: var RlpWriter, ip: IpAddress) =
+proc write*(pb: var ProtoBuffer, field: int, reqId: RequestId) =
+  ## Write RequestId value ``reqId`` to object ``pb`` using ProtoBuf's encoding.
+  let encoded = reqId.id
+  write(pb, field, encoded)
+
+proc decode*(
+  T: typedesc[PingMessage],
+  buffer: openArray[byte]): Result[PingMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = PingMessage()
+
+  ? pb.getRequiredField(1, msg.sprSeq)
+
+  ok(msg)
+
+proc encode*(msg: PingMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.sprSeq)
+
+  pb.finish()
+  pb.buffer
+
+proc getField*(pb: ProtoBuffer, field: int,
+               ipv4: var IPv4): ProtoResult[bool] {.inline.} =
+  ## Read ``IPv4`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    for i in 0..<ipv4.len: ipv4[i] = buffer[i]
+    ok(true)
+
+proc getField*(pb: ProtoBuffer, field: int,
+               ipv6: var IPv6): ProtoResult[bool] {.inline.} =
+  ## Read ``IPv6`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    for i in 0..<ipv6.len: ipv6[i] = buffer[i]
+    ok(true)
+
+proc getField*(pb: ProtoBuffer, field: int,
+               family: var IpAddressFamily): ProtoResult[bool] {.inline.} =
+  ## Read ``IpAddressFamily`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    family = uint8.fromBytesBE(buffer).IpAddressFamily
+    ok(true)
+
+proc write*(pb: var ProtoBuffer, field: int, family: IpAddressFamily) =
+  ## Write IpAddressFamily value ``family`` to object ``pb`` using ProtoBuf's encoding.
+  let encoded = family.uint8.toBytesBe()
+  write(pb, field, encoded)
+
+proc decode*(
+  T: typedesc[IpAddress],
+  buffer: openArray[byte]): Result[IpAddress, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var family: IpAddressFamily
+
+  ? pb.getRequiredField(1, family)
+
+  var ip = IpAddress(family: family)
+
   case ip.family:
+  of IpAddressFamily.IPv6:
+    ? pb.getRequiredField(2, ip.address_v6)
   of IpAddressFamily.IPv4:
-    writer.append(ip.address_v4)
-  of IpAddressFamily.IPv6: writer.append(ip.address_v6)
+    ? pb.getRequiredField(2, ip.address_v4)
 
-proc read*(rlp: var Rlp, T: type NodeId): T
-    {.raises: [ValueError, RlpError, Defect].} =
-  mixin read
-  let nodeId = NodeId.fromBytesBE(rlp.toBytes())
-  rlp.skipElem()
-  nodeId
+  ok(ip)
 
-proc append*(writer: var RlpWriter, value: NodeId) =
-  writer.append(value.toBytesBE)
+proc encode*(ip: IpAddress): seq[byte] =
+  var pb = initProtoBuffer()
 
-proc numFields(T: typedesc): int =
-  for k, v in fieldPairs(default(T)): inc result
+  pb.write(1, ip.family)
+  case ip.family:
+  of IpAddressFamily.IPv6:
+    pb.write(2, ip.address_v6)
+  of IpAddressFamily.IPv4:
+    pb.write(2, ip.address_v4)
+
+  pb.finish()
+  pb.buffer
+
+proc getField*(pb: ProtoBuffer, field: int,
+               ip: var IpAddress): ProtoResult[bool] {.inline.} =
+  ## Read ``IpAddress`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    let res2 = IpAddress.decode(buffer)
+    if res2.isOk():
+      ip = res2.get()
+      ok(true)
+    else:
+      err(ProtoError.IncorrectBlob)
+
+proc write*(pb: var ProtoBuffer, field: int, ip: IpAddress) =
+  ## Write IpAddress value ``ip`` to object ``pb`` using ProtoBuf's encoding.
+  let encoded = ip.encode()
+  write(pb, field, encoded)
+
+proc getField*(pb: ProtoBuffer, field: int,
+               port: var Port): ProtoResult[bool] {.inline.} =
+  ## Read ``Port`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    port = uint16.fromBytesBE(buffer)
+    ok(true)
+
+proc write*(pb: var ProtoBuffer, field: int, port: Port) =
+  ## Write Port value ``port`` to object ``pb`` using ProtoBuf's encoding.
+  write(pb, field, port.toBytesBE())
+
+proc decode*(
+  T: typedesc[PongMessage],
+  buffer: openArray[byte]): Result[PongMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = PongMessage()
+
+  ? pb.getRequiredField(1, msg.sprSeq)
+  ? pb.getRequiredField(2, msg.ip)
+  ? pb.getRequiredField(3, msg.port)
+
+  ok(msg)
+
+proc encode*(msg: PongMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.sprSeq)
+  pb.write(2, msg.ip)
+  pb.write(3, msg.port)
+
+  pb.finish()
+  pb.buffer
+
+proc getRepeatedField*(pb: ProtoBuffer, field: int,
+                       distances: var Distances): ProtoResult[bool] {.inline.} =
+  ## Read ``Distances`` from ProtoBuf's message and validate it
+  var buffers: seq[seq[byte]]
+  distances.setLen(0)
+  let res = ? pb.getRepeatedField(field, buffers)
+  if not(res):
+    ok(false)
+  else:
+    for b in buffers:
+      distances.add(uint16.fromBytesBE(b))
+    ok(true)
+
+proc decode*(
+  T: typedesc[FindNodeMessage],
+  buffer: openArray[byte]): Result[FindNodeMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = FindNodeMessage()
+
+  ? pb.getRequiredRepeatedField(1, msg.distances)
+
+  ok(msg)
+
+proc encode*(msg: FindNodeMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  for d in msg.distances:
+    pb.write(1, d.toBytesBE())
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[FindNodeFastMessage],
+  buffer: openArray[byte]): Result[FindNodeFastMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = FindNodeFastMessage()
+
+  ? pb.getRequiredField(1, msg.target)
+
+  ok(msg)
+
+proc encode*(msg: FindNodeFastMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.target)
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[NodesMessage],
+  buffer: openArray[byte]): Result[NodesMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = NodesMessage()
+
+  ? pb.getRequiredField(1, msg.total)
+  discard ? pb.getRepeatedField(2, msg.sprs)
+
+  ok(msg)
+
+proc encode*(msg: NodesMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.total)
+  for r in msg.sprs:
+    pb.write(2, r)
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[TalkReqMessage],
+  buffer: openArray[byte]): Result[TalkReqMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = TalkReqMessage()
+
+  ? pb.getRequiredField(1, msg.protocol)
+  ? pb.getRequiredField(2, msg.request)
+
+  ok(msg)
+
+proc encode*(msg: TalkReqMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.protocol)
+  pb.write(2, msg.request)
+
+  pb.finish()
+  pb.buffer
+
+proc decode*(
+  T: typedesc[TalkRespMessage],
+  buffer: openArray[byte]): Result[TalkRespMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = TalkRespMessage()
+
+  ? pb.getRequiredField(2, msg.response)
+
+  ok(msg)
+
+proc encode*(msg: TalkRespMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(2, msg.response)
+
+  pb.finish()
+  pb.buffer
 
 proc encodeMessage*[T: SomeMessage](p: T, reqId: RequestId): seq[byte] =
-  # TODO: Remove all RLP encoding in favour of Protobufs
   result = newSeqOfCap[byte](64)
   result.add(messageKind(T).ord)
 
-  const
-    usePbs = T is AddProviderMessage | GetProvidersMessage | ProvidersMessage
-    sz = if usePbs: 1 else: numFields(T)
-
-  var writer = initRlpList(sz + 1)
-  writer.append(reqId)
-
-  when usePbs:
-    let encoded =
-      try: p.encode()
-      except ResultError[CryptoError] as e:
-        error "Failed to encode protobuf message", typ = $T, msg = e.msg
-        @[]
-    writer.append(encoded)
-    trace "Encoded protobuf message", typ = $T, encoded
-  else:
-    for k, v in fieldPairs(p):
-      writer.append(v)
-  result.add(writer.finish())
+  let encoded =
+    try: p.encode()
+    except ResultError[CryptoError] as e:
+      error "Failed to encode protobuf message", typ = $T, msg = e.msg
+      @[]
+  var pb = initProtoBuffer()
+  pb.write(1, reqId)
+  pb.write(2, encoded)
+  pb.finish()
+  result.add(pb.buffer)
+  trace "Encoded protobuf message", typ = $T, encoded
 
 proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
-  # TODO: Remove all RLP decoding in favour of Protobufs
   ## Decodes to the specific `Message` type.
   if body.len < 1:
     return err("No message data")
@@ -109,56 +336,107 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
     return err("Invalid message type")
 
   var message = Message(kind: kind)
-  var rlp = rlpFromBytes(body.toOpenArray(1, body.high))
-  if rlp.enterList:
-    try:
-      message.reqId = rlp.read(RequestId)
-    except RlpError, ValueError:
-      return err("Invalid request-id")
 
-    proc decode[T](rlp: var Rlp, v: var T)
-        {.nimcall, raises:[RlpError, ValueError, Defect].} =
-      for k, v in v.fieldPairs:
-        v = rlp.read(typeof(v))
+  let pb = initProtoBuffer(body[1..body.high])
 
-    try:
-      case kind
-      of unused: return err("Invalid message type")
-      of ping: rlp.decode(message.ping)
-      of pong: rlp.decode(message.pong)
-      of findNode: rlp.decode(message.findNode)
-      of findNodeFast: rlp.decode(message.findNodeFast)
-      of nodes: rlp.decode(message.nodes)
-      of talkReq: rlp.decode(message.talkReq)
-      of talkResp: rlp.decode(message.talkResp)
-      of addProvider:
-        let res = AddProviderMessage.decode(rlp.toBytes)
-        if res.isOk:
-          message.addProvider = res.get
-        else:
-          return err "Unable to decode AddProviderMessage"
-      of getProviders:
-        let res = GetProvidersMessage.decode(rlp.toBytes)
-        if res.isOk:
-          message.getProviders = res.get
-        else:
-          return err "Unable to decode GetProvidersMessage"
-      of providers:
-        let res = ProvidersMessage.decode(rlp.toBytes)
-        if res.isOk:
-          message.provs = res.get
-        else:
-          return err "Unable to decode ProvidersMessage"
-      of regTopic, ticket, regConfirmation, topicQuery:
-        # We just pass the empty type of this message without attempting to
-        # decode, so that the protocol knows what was received.
-        # But we ignore the message as per specification as "the content and
-        # semantics of this message are not final".
-        discard
-    except RlpError, ValueError:
-      return err("Invalid message encoding")
+  var
+    reqId: RequestId
+    encoded: EncodedMessage
 
-    ok(message)
-  else:
-    err("Invalid message encoding: no rlp list")
+  if pb.getRequiredField(1, reqId).isErr:
+    return err("Invalid request-id")
 
+  message.reqId = reqId
+
+  if pb.getRequiredField(2, encoded).isErr:
+    return err("Invalid message encoding")
+
+  case kind
+  of unused: return err("Invalid message type")
+
+  of ping:
+    let res = PingMessage.decode(encoded)
+    if res.isOk:
+      message.ping = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode PingMessage")
+
+  of pong:
+    let res = PongMessage.decode(encoded)
+    if res.isOk:
+      message.pong = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode PongMessage")
+
+  of findNode:
+    let res = FindNodeMessage.decode(encoded)
+    if res.isOk:
+      message.findNode = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode FindNodeMessage")
+
+  of nodes:
+    let res = NodesMessage.decode(encoded)
+    if res.isOk:
+      message.nodes = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode NodesMessage")
+
+  of talkReq:
+    let res = TalkReqMessage.decode(encoded)
+    if res.isOk:
+      message.talkReq = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode TalkReqMessage")
+
+  of talkResp:
+    let res = TalkRespMessage.decode(encoded)
+    if res.isOk:
+      message.talkResp = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode TalkRespMessage")
+
+  of findNodeFast:
+    let res = FindNodeFastMessage.decode(encoded)
+    if res.isOk:
+      message.findNodeFast = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode FindNodeFastMessage")
+
+  of addProvider:
+    let res = AddProviderMessage.decode(encoded)
+    if res.isOk:
+      message.addProvider = res.get
+      return ok(message)
+    else:
+      return err "Unable to decode AddProviderMessage"
+
+  of getProviders:
+    let res = GetProvidersMessage.decode(encoded)
+    if res.isOk:
+      message.getProviders = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode GetProvidersMessage")
+
+  of providers:
+    let res = ProvidersMessage.decode(encoded)
+    if res.isOk:
+      message.provs = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode ProvidersMessage")
+
+  of regTopic, ticket, regConfirmation, topicQuery:
+    # We just pass the empty type of this message without attempting to
+    # decode, so that the protocol knows what was received.
+    # But we ignore the message as per specification as "the content and
+    # semantics of this message are not final".
+    discard

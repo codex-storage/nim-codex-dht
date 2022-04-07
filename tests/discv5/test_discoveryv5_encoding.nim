@@ -5,7 +5,6 @@ import
   asynctest/unittest2,
   bearssl,
   chronos,
-  eth/rlp,
   libp2p/crypto/secp,
   libp2pdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions],
   libp2pdht/discv5/crypto,
@@ -24,7 +23,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(p, reqId)
-    check byteutils.toHex(encoded) == "01c20101"
+    check byteutils.toHex(encoded) == "010a010112020801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -44,7 +43,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(p, reqId)
-    check byteutils.toHex(encoded) == "02ca0101847f000001821388"
+    check byteutils.toHex(encoded) == "020a01011211080112090a010112047f0000011a021388"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -64,7 +63,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(fn, reqId)
-    check byteutils.toHex(encoded) == "03c501c3820100"
+    check byteutils.toHex(encoded) == "030a010112040a020100"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -82,7 +81,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(n, reqId)
-    check byteutils.toHex(encoded) == "04c30101c0"
+    check byteutils.toHex(encoded) == "040a010112020801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -104,7 +103,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(n, reqId)
-    check byteutils.toHex(encoded) == "04f901a00101f9019bb8cc0a250802122102339d487ed237392d83791950dc891f0636de698c1fa051ea01ae3fa58bd78580120203011a560a2700250802122102339d487ed237392d83791950dc891f0636de698c1fa051ea01ae3fa58bd78580109cfd8992061a0b0a090400000000910200011a0b0a090400000000910200021a0b0a090400000000910200032a4730450221008cc77fd265e33c955174b9f49628048b2d72a6395acb30f0ba9d90536fa1a5d502207fa8e5bab8e8ddee9884a8e244b0990228e3546b5a9b6848632abd924796e576b8cb0a2508021221026beda5cfddf1cd89130e7b5bb6092bac23db4a044bf847328aa0310dd123a445120203011a560a27002508021221026beda5cfddf1cd89130e7b5bb6092bac23db4a044bf847328aa0310dd123a445109cfd8992061a0b0a090400000000910200011a0b0a090400000000910200021a0b0a090400000000910200032a46304402203d41b1a78c5e6d98c9b4f3fcb213dc16ae4de50a1c8715ab29c516afe6488b4e02205841d09e92b3d2f1ad72c7bc066e561dab57320886f3fbbf272d2cf1732ca259"
+    check byteutils.toHex(encoded) == "040a0101129f03080112cc010a250802122102339d487ed237392d83791950dc891f0636de698c1fa051ea01ae3fa58bd78580120203011a560a2700250802122102339d487ed237392d83791950dc891f0636de698c1fa051ea01ae3fa58bd78580109cfd8992061a0b0a090400000000910200011a0b0a090400000000910200021a0b0a090400000000910200032a4730450221008cc77fd265e33c955174b9f49628048b2d72a6395acb30f0ba9d90536fa1a5d502207fa8e5bab8e8ddee9884a8e244b0990228e3546b5a9b6848632abd924796e57612cb010a2508021221026beda5cfddf1cd89130e7b5bb6092bac23db4a044bf847328aa0310dd123a445120203011a560a27002508021221026beda5cfddf1cd89130e7b5bb6092bac23db4a044bf847328aa0310dd123a445109cfd8992061a0b0a090400000000910200011a0b0a090400000000910200021a0b0a090400000000910200032a46304402203d41b1a78c5e6d98c9b4f3fcb213dc16ae4de50a1c8715ab29c516afe6488b4e02205841d09e92b3d2f1ad72c7bc066e561dab57320886f3fbbf272d2cf1732ca259"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -124,7 +123,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(tr, reqId)
-    check byteutils.toHex(encoded) == "05c901846563686f826869"
+    check byteutils.toHex(encoded) == "050a0101120a0a046563686f12026869"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -142,7 +141,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       reqId = RequestId(id: @[1.byte])
 
     let encoded = encodeMessage(tr, reqId)
-    check byteutils.toHex(encoded) == "06c401826869"
+    check byteutils.toHex(encoded) == "060a0101120412026869"
 
     let decoded = decodeMessage(encoded)
     check decoded.isOk()
@@ -160,7 +159,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
       # 1 byte too large
       reqId = RequestId(id: @[0.byte, 1, 2, 3, 4, 5, 6, 7, 8])
     let encoded = encodeMessage(p, reqId)
-    check byteutils.toHex(encoded) == "01cb8900010203040506070801"
+    check byteutils.toHex(encoded) == "010a0900010203040506070812020801"
 
     let decoded = decodeMessage(encoded)
     check decoded.isErr()
@@ -299,7 +298,8 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       encodedPacket =
         "000000000000000000000000000000003788c1e1079e89374c4beac74d76364d" &
         "bd9e8cd1847adc2f49fbacc6862425583586c023b19b6fdd1d836777ee39fee8" &
-        "7afd279a5fe4ffdded6d1a6d388217da82d38761b60b0c6e9dd94a8713bc5d"
+        "7afd279a5fe4ffdd21ed1a6d388207f00b48115b8ee4e8eaf675b0865821e126" &
+        "36bc"
 
     let dummyKey = "0x00000000000000000000000000000001" # of no importance
     codecA.sessions.store(nodeB.id, nodeB.address.get(),
@@ -356,11 +356,11 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
       encodedPacket =
         "000000000000000000000000000000003788c1e1079e89374e4beac74d76364d" &
         "bd9e8cd1847a712f49fbacc6862425583586c023b19b6fdd1d836777ee39fee8" &
-        "7afd279a5fe4ff441af3b17ec968350f37edbda9e0ba8ac0fd2617ef67a1e362" &
-        "5ea8eb284a3ca85f7ef976ccf2e87932ffeada775849d7aca378033b7a75dbe8" &
-        "7cc1767123bb7d7e5d96b5d6ad7c26cb55f6160b250d042ef1b9e6000191ce4e" &
-        "a93234ca3de051518684902e70e6a47eb8f0c2efeca8e42d2ea7f5bd1f27c12d" &
-        "ae3c579ddcef630659089c99"
+        "7afd279a5fe4ff441af3b17ec840104be4fae12da6828a752f1f7df615c4c757" &
+        "9558b0b537760549eb0e5ada50545b066734abb4b7bddbd503fad873e981b485" &
+        "dc9f8eee725661ebf766ce027edc9dcb55f6160b06d9c764481fb520b7581678" &
+        "e5fce2ab0d5fa2edaa92f252db6d6ea30d52a78e4114fb9dcf26fb1690e65ca0" &
+        "079386331f311bfc0aef4a771155ed"
 
     let
       whoareyouData = WhoareyouData(
@@ -403,17 +403,17 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
 
       encodedPacket =
         "000000000000000000000000000000003788c1e1079e89374e4beac74d76364d" &
-        "bd9e8cd1847bc02f49fbacc6862425583586c023b19b6fdd1d836777ee39fee8" &
-        "7afd279a5fe4ff451af3b07ec8407cedec19c57a8460e08d3d8a908f78261170" &
-        "68196e7df56279e7493fbb2076025b395dde6ffeecc45daa59def06c9be97b1f" &
-        "95636fb8f16887cf13b4a8cca0bcaf805fe62529ad86c59204e73917cf183d19" &
-        "847617448722cc8c0eea80b68653e858eff5d250abbd55315db21fac1485db8f" &
-        "deaadba582d43c88f0b25512a5fd8395bd2f9519362d29cceb29028de04e0076" &
-        "4f6aece318e26e2d123888e484cb1c0ce37ecfee42ced9a811966bae40f40e9d" &
-        "4b46e27c388330304409a405b6455547661361d2129aa7bed4ff26f68d53532d" &
-        "cb6bae00506a7c5161b0652afcbf2416e97116bdcf9a7a548d6d8b5b0ab2ed0e" &
-        "b7a737afc0dbf65f32fd22c27cb17ebfe3c0d43e9bf45cfd24170c9fea348b10" &
-        "1207010ad51e28040b46770c1e96e22e7c552a6f1a62b4e29f8c99"
+        "bd9e8cd1847bc72f49fbacc6862425583586c023b19b6fdd1d836777ee39fee8" &
+        "7afd279a5fe4ff441af3b17ec96b7e0586467988bd0c4784575e02a32d0e7594" &
+        "b65e939a8490bd71813894c9f4e8796f8c3d3fce29171fc3c568ace28d89ea80" &
+        "a9707693d2ee9388e74f89a5a62bc3cb55f6160bae865f0779b75c989805232d" &
+        "55b73645bbd797a7d550db7233300b3d1de011fbde92783b4d813ddabff9c96a" &
+        "a0361139ec10df16cf2c136caf44d064194cc6777202952dc24c6fccf04f026d" &
+        "6d58c1c43dcf643d211afe4ff8d9f9727fb45380862d47978fd015a4f9a7ff39" &
+        "28158c38173fd1192164e714ad5454446b681ed2130a349fdffd4b81f814700c" &
+        "5b04551e621b65432d3e1beca05dc8e801a4c21da44d4cb29b1eddb92417aedd" &
+        "de855ba1016e93eb25d55879a0d27d170dc7904c6dfa06ce813b0455b3258c66" &
+        "1de55dcd349397bc5b8eb8e8ef5b4ed2115e968197effe44a0f5fb2b7d"
 
     let
       whoareyouData = WhoareyouData(

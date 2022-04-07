@@ -15,7 +15,6 @@
 
 import
   std/[hashes, net, options, sugar, tables],
-  eth/rlp,
   bearssl,
   chronicles,
   stew/[results, byteutils],
@@ -519,7 +518,7 @@ proc decodeHandshakePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
                       ("Invalid bytes for SignedPeerRecord: " & $e).cstring
                   )
       record = some(decoded)
-    except RlpError, ValueError:
+    except ValueError:
       return err("Invalid encoded SPR")
 
   var pubkey: PublicKey

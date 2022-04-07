@@ -6,12 +6,11 @@
 #
 import
   chronicles,
-  std/[options, sequtils, strutils, sugar],
+  std/[options, strutils, sugar],
   pkg/stew/[results, byteutils, arrayops],
   stew/endians2,
   stew/shims/net,
   stew/base64,
-  eth/rlp,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/routing_record,
@@ -31,14 +30,6 @@ type
 proc seqNum*(r: SignedPeerRecord): uint64 =
     r.data.seqNo
 
-#proc encode
-proc append*(rlpWriter: var RlpWriter, value: SignedPeerRecord) =
-  # echo "encoding to:" & $value.signedPeerRecord.encode.get
-  var encoded = value.encode
-  if encoded.isErr:
-    error "Error encoding SignedPeerRecord for RLP", error = encoded.error
-  rlpWriter.append encoded.get(@[])
-
 proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
 
   let decoded = SignedPeerRecord.decode(@s)
@@ -48,16 +39,6 @@ proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
 
   r = decoded.get
   return true
-
-proc read*(rlp: var Rlp, T: typedesc[SignedPeerRecord]):
-    T {.raises: [RlpError, ValueError, Defect].} =
-    # echo "read:" & $rlp.rawData
-    ## code directly borrowed from spr.nim
-    if not rlp.hasData() or not result.fromBytes(rlp.toBytes):
-        # TODO: This could also just be an invalid signature, would be cleaner to
-        # split of RLP deserialisation errors from this.
-        raise newException(ValueError, "Could not deserialize")
-    rlp.skipElem()
 
 proc get*(r: SignedPeerRecord, T: type PublicKey): Option[T] =
   ## Get the `PublicKey` from provided `Record`. Return `none` when there is
@@ -100,8 +81,6 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
   let
     sprPubKey = r.get(PublicKey)
     pubKey = pk.getPublicKey
-    # keysPubKey = pubkey.get.pkToPk.get # remove when move away from eth/keys
-    # keysPrivKey = pk.pkToPk.get
   if sprPubKey.isNone or pubKey.isErr or sprPubKey.get != pubKey.get:
     return err("Public key does not correspond with given private key")
 
@@ -220,7 +199,7 @@ proc udp*(r: SignedPeerRecord): Option[int] =
         return some(p.int)
 
 proc fromBase64*(r: var SignedPeerRecord, s: string): bool =
-  ## Loads SPR from base64-encoded rlp-encoded bytes, and validates the
+  ## Loads SPR from base64-encoded protobuf-encoded bytes, and validates the
   ## signature.
   let bytes = Base64Url.decode(s)
   r.fromBytes(bytes)
