@@ -77,7 +77,7 @@ import
   std/[tables, sets, options, math, sequtils, algorithm],
   stew/shims/net as stewNet, json_serialization/std/net,
   stew/[base64, endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
-  metrics, eth/[rlp, async_utils],
+  metrics, eth/async_utils,
   libp2p/[crypto/crypto, routing_record],
   "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
 
@@ -296,7 +296,7 @@ proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
     fnf: FindNodeFastMessage, reqId: RequestId) =
   d.sendNodes(fromId, fromAddr, reqId,
     d.routingTable.neighbours(fnf.target, seenOnly = true))
-  # TODO: if known, maybe we should add exact target even if not yet "seen" 
+  # TODO: if known, maybe we should add exact target even if not yet "seen"
 
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
     talkreq: TalkReqMessage, reqId: RequestId) =
@@ -593,7 +593,7 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
     while i < closestNodes.len and pendingQueries.len < alpha:
       let n = closestNodes[i]
       if not asked.containsOrIncl(n.id):
-        if fast: 
+        if fast:
           pendingQueries.add(d.lookupWorkerFast(n, target))
         else:
           pendingQueries.add(d.lookupWorker(n, target))

@@ -7,14 +7,14 @@
 #
 ## Discovery v5 Protocol Messages as specified at
 ## https://github.com/ethereum/devp2p/blob/master/discv5/discv5-wire.md#protocol-messages
-## These messages get RLP encoded.
+## These messages get protobuf encoded, while in the spec they get RLP encoded.
 ##
 
 {.push raises: [Defect].}
 
 import
   std/[hashes, net],
-  eth/[keys],
+  bearssl,
   ./spr,
   ./node,
   ../../../../dht/providers_messages

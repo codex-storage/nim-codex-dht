@@ -121,4 +121,3 @@ proc encode*(msg: ProvidersMessage): seq[byte] =
 
   pb.finish()
   pb.buffer
-
