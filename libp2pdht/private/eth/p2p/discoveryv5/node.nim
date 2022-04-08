@@ -15,7 +15,6 @@ import
   nimcrypto,
   stew/shims/net,
   stint,
-  eth/net/utils,
   ./crypto,
   ./spr
 
@@ -122,6 +121,11 @@ func shortLog*(id: NodeId): string =
     for i in (len(sid) - 6)..sid.high:
       result.add(sid[i])
 chronicles.formatIt(NodeId): shortLog(it)
+
+func hash*(ip: ValidIpAddress): Hash =
+  case ip.family
+  of IpAddressFamily.IPv6: hash(ip.address_v6)
+  of IpAddressFamily.IPv4: hash(ip.address_v4)
 
 func hash*(a: Address): hashes.Hash =
   let res = a.ip.hash !& a.port.hash

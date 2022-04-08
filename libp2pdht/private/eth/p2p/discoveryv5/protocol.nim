@@ -76,8 +76,8 @@
 import
   std/[tables, sets, options, math, sequtils, algorithm],
   stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[base64, endians2, results], chronicles, chronos, chronos/timer, stint, bearssl,
-  metrics, eth/async_utils,
+  stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
+  metrics,
   libp2p/[crypto/crypto, routing_record],
   "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
 

@@ -8,9 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, times, sequtils, bitops, sets, options],
+  std/[algorithm, times, sequtils, bitops, sets, options, tables],
   stint, chronicles, metrics, bearssl, chronos, stew/shims/net as stewNet,
-  eth/net/utils,
   "."/[node, random2, spr]
 
 export options
@@ -27,6 +26,11 @@ type
     calculateDistance*: DistanceProc
     calculateLogDistance*: LogDistanceProc
     calculateIdAtDistance*: IdAtDistanceProc
+
+  IpLimits* = object
+    limit*: uint
+    ips: Table[ValidIpAddress, uint]
+
 
   RoutingTable* = object
     localNode*: Node
@@ -92,7 +96,21 @@ type
     ReplacementExisting
     NoAddress
 
-# xor distance functions
+func inc*(ipLimits: var IpLimits, ip: ValidIpAddress): bool =
+  let val = ipLimits.ips.getOrDefault(ip, 0)
+  if val < ipLimits.limit:
+    ipLimits.ips[ip] = val + 1
+    true
+  else:
+    false
+
+func dec*(ipLimits: var IpLimits, ip: ValidIpAddress) =
+  let val = ipLimits.ips.getOrDefault(ip, 0)
+  if val == 1:
+    ipLimits.ips.del(ip)
+  elif val > 1:
+    ipLimits.ips[ip] = val - 1
+
 func distance*(a, b: NodeId): UInt256 =
   ## Calculate the distance to a NodeId.
   a xor b
