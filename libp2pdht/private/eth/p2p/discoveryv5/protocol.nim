@@ -316,7 +316,7 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
 proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
-  trace "adding provider to local db", n=p.localNode, cId, prov
+  trace "adding provider to local db", cid=cId, spr=prov.data
   p.providers.mgetOrPut(cId, @[]).add(prov)
 
 proc handleAddProvider(d: Protocol, fromId: NodeId, fromAddr: Address,
@@ -328,7 +328,7 @@ proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
 
   #TODO: add checks, add signed version
   let provs = d.providers.getOrDefault(getProviders.cId)
-  trace "providers:", provs
+  trace "providers:", prov=provs.mapIt(it.data)
 
   ##TODO: handle multiple messages
   let response = ProvidersMessage(total: 1, provs: provs)
@@ -692,7 +692,7 @@ proc getProviders*(
 
   # What providers do we know about?
   var res = d.getProvidersLocal(cId, maxitems)
-  trace "local providers:", res
+  trace "local providers:", prov=res.mapIt(it.data)
 
   let nodesNearby = await d.lookup(cId)
   trace "nearby:", nodesNearby
@@ -710,7 +710,6 @@ proc getProviders*(
       providersFut.del(index)
 
     let providersMsg2 = await providersMsg
-    trace "2", providersMsg2
 
     let providersMsgRes = providersMsg.read
     if providersMsgRes.isOk:
@@ -720,7 +719,7 @@ proc getProviders*(
       error "Sending of GetProviders message failed", error = providersMsgRes.error
       # TODO: should we consider this as an error result if all GetProviders
       # requests fail??
-  trace "getProviders collected: ", res
+  trace "getProviders collected: ", res=res.mapIt(it.data)
 
   return ok res
 
