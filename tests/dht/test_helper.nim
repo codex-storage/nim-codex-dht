@@ -1,6 +1,10 @@
 import
+  std/[oids, os]
+
+import
   bearssl,
   chronos,
+  datastore/sqlite_datastore,
   libp2p/crypto/[crypto, secp],
   libp2p/multiaddress,
   libp2pdht/discv5/[node, routing_table, spr],
@@ -22,6 +26,10 @@ proc example*(T: type NodeId, rng: ref HmacDrbgContext): NodeId =
     pubKey = privKey.getPublicKey.expect("Valid private key for public key")
   pubKey.toNodeId().expect("Public key valid for node id")
 
+const testDataDir* = "tests/data"
+
+proc randDbName*(): string = "dht_" & $genOid() & dbExt
+
 proc initDiscoveryNode*(
     rng: ref BrHmacDrbgContext,
     privKey: PrivateKey,
@@ -42,7 +50,9 @@ proc initDiscoveryNode*(
     localEnrFields = localEnrFields,
     previousRecord = previousRecord,
     config = config,
-    rng = rng)
+    rng = rng,
+    dataDir = testDataDir,
+    dbName = randDbName())
 
   protocol.open()
 

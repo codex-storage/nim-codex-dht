@@ -10,7 +10,7 @@
 {.used.}
 
 import
-  std/[options, sequtils],
+  std/[options, os, sequtils],
   asynctest,
   bearssl,
   chronicles,
@@ -78,6 +78,9 @@ suite "Providers Tests: node alone":
     peerRec0: PeerRecord
 
   setupAll:
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
+    createDir(testDataDir)
     rng = newRng()
     nodes = await bootstrapNetwork(nodecount=1)
     targetId = NodeId.example(rng)
@@ -89,6 +92,8 @@ suite "Providers Tests: node alone":
     for (n, _) in nodes:
       await n.closeWait()
     await sleepAsync(chronos.seconds(3))
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
 
 
   test "Node in isolation should store":
@@ -99,7 +104,7 @@ suite "Providers Tests: node alone":
     debug "---- STARTING CHECKS ---"
     check (addedTo.len == 1)
     check (addedTo[0].id == node0.localNode.id)
-    check (node0.getProvidersLocal(targetId)[0].data.peerId == peerRec0.peerId)
+    check ((await node0.getProvidersLocal(targetId))[0].data.peerId == peerRec0.peerId)
 
   test "Node in isolation should retrieve":
 
@@ -138,8 +143,11 @@ suite "Providers Tests: two nodes":
     peerRec0: PeerRecord
 
   setupAll:
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
+    createDir(testDataDir)
     rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=3)
+    nodes = await bootstrapNetwork(nodecount=2)
     targetId = NodeId.example(rng)
     (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
@@ -149,6 +157,8 @@ suite "Providers Tests: two nodes":
     for (n, _) in nodes:
       await n.closeWait()
     await sleepAsync(chronos.seconds(3))
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
 
   test "2 nodes, store and retrieve from same":
 
@@ -187,6 +197,9 @@ suite "Providers Tests: 20 nodes":
     peerRec0: PeerRecord
 
   setupAll:
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
+    createDir(testDataDir)
     rng = newRng()
     nodes = await bootstrapNetwork(nodecount=20)
     targetId = NodeId.example(rng)
@@ -199,6 +212,8 @@ suite "Providers Tests: 20 nodes":
   teardownAll:
     for (n, _) in nodes: # if last test is enabled, we need nodes[1..^1] here
       await n.closeWait()
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
 
   test "20 nodes, store and retrieve from same":
 

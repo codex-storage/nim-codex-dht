@@ -1,8 +1,9 @@
 {.used.}
 
 import
-  std/tables,
+  std/[os, tables],
   chronos, chronicles, stint, asynctest, stew/shims/net,
+  datastore/sqlite_datastore,
   stew/byteutils, bearssl,
   libp2p/crypto/crypto,
   libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, messages, nodes_verification],
@@ -15,6 +16,16 @@ suite "Discovery v5 Tests":
 
   setup:
     rng = newRng()
+
+  setupAll:
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
+    createDir(testDataDir)
+
+  teardownAll:
+    removeDir(testDataDir)
+    require(not dirExists(testDataDir))
+    discard
 
   test "GetNode":
     # TODO: This could be tested in just a routing table only context
@@ -439,15 +450,18 @@ suite "Discovery v5 Tests":
       ip = some(ValidIpAddress.init("127.0.0.1"))
       port = Port(20301)
       node = newProtocol(privKey, ip, some(port), some(port), bindPort = port,
-        rng = rng)
+        rng = rng, dataDir = testDataDir, dbName = randDbName())
       noUpdatesNode = newProtocol(privKey, ip, some(port), some(port),
-        bindPort = port, rng = rng, previousRecord = some(node.getRecord()))
+        bindPort = port, rng = rng, previousRecord = some(node.getRecord()),
+        dataDir = testDataDir, dbName = randDbName())
       updatesNode = newProtocol(privKey, ip, some(port), some(Port(20302)),
         bindPort = port, rng = rng,
-        previousRecord = some(noUpdatesNode.getRecord()))
+        previousRecord = some(noUpdatesNode.getRecord()), dataDir = testDataDir,
+        dbName = randDbName())
       moreUpdatesNode = newProtocol(privKey, ip, some(port), some(port),
         bindPort = port, rng = rng, localEnrFields = {"addfield": @[byte 0]},
-        previousRecord = some(updatesNode.getRecord()))
+        previousRecord = some(updatesNode.getRecord()), dataDir = testDataDir,
+        dbName = randDbName())
     check:
       node.getRecord().seqNum == 1
       noUpdatesNode.getRecord().seqNum == 1
@@ -458,7 +472,8 @@ suite "Discovery v5 Tests":
     expect ResultDefect:
       let incorrectKeyUpdates = newProtocol(PrivateKey.example(rng),
         ip, some(port), some(port), bindPort = port, rng = rng,
-        previousRecord = some(updatesNode.getRecord()))
+        previousRecord = some(updatesNode.getRecord()), dataDir = testDataDir,
+        dbName = randDbName())
 
   test "Update node record with revalidate":
     let
@@ -631,7 +646,7 @@ suite "Discovery v5 Tests":
 
       let (packet, _) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
-      receiveNode.transport.receive(a, packet)
+      await receiveNode.transport.receive(a, packet)
 
     # Checking different nodeIds but same address
     check receiveNode.transport.codec.handshakes.len == 5
@@ -661,7 +676,7 @@ suite "Discovery v5 Tests":
       let a = localAddress(20303 + i)
       let (packet, _) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
-      receiveNode.transport.receive(a, packet)
+      await receiveNode.transport.receive(a, packet)
 
     # Checking different nodeIds but same address
     check receiveNode.transport.codec.handshakes.len == 5
@@ -693,7 +708,7 @@ suite "Discovery v5 Tests":
     for i in 0 ..< 5:
       let (packet, requestNonce) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
-      receiveNode.transport.receive(a, packet)
+      await receiveNode.transport.receive(a, packet)
       if i == 0:
         firstRequestNonce = requestNonce
 

@@ -101,7 +101,7 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
   else:
     debug "Node with this id already has ongoing handshake, ignoring packet"
 
-proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
+proc receive*(t: Transport, a: Address, packet: seq[byte]) {.async.} =
   let decoded = t.codec.decodePacket(a, packet)
   if decoded.isOk:
     let packet = decoded[]
@@ -111,7 +111,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         let message = packet.messageOpt.get()
         trace "Received message packet", srcId = packet.srcId, address = a,
           kind = message.kind, packet
-        t.client.handleMessage(packet.srcId, a, message)
+        await t.client.handleMessage(packet.srcId, a, message)
       else:
         trace "Not decryptable message packet received",
           srcId = packet.srcId, address = a
@@ -143,7 +143,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
     of HandshakeMessage:
       trace "Received handshake message packet", srcId = packet.srcIdHs,
         address = a, kind = packet.message.kind
-      t.client.handleMessage(packet.srcIdHs, a, packet.message)
+      await t.client.handleMessage(packet.srcIdHs, a, packet.message)
       # For a handshake message it is possible that we received an newer SPR.
       # In that case we can add/update it to the routing table.
       if packet.node.isSome():
@@ -178,7 +178,7 @@ proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
              return
   let a = Address(ip: ValidIpAddress.init(ip), port: raddr.port)
 
-  t.receive(a, buf)
+  await t.receive(a, buf)
 
 proc open*[T](t: Transport[T]) {.raises: [Defect, CatchableError].} =
   info "Starting transport", bindAddress = t.bindAddress

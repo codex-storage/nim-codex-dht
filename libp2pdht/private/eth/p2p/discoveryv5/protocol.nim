@@ -74,12 +74,15 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, sets, options, math, sequtils, algorithm],
+  std/[tables, sets, options, math, sequtils, algorithm, hashes],
   stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
+  stew/[base64, endians2], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
+  stew/results as stewResults,
   metrics,
-  libp2p/[crypto/crypto, routing_record],
-  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
+  libp2p/[crypto/crypto, routing_record, signed_envelope],
+  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification],
+  questionable, questionable/results,
+  datastore/sqlite_datastore
 
 import nimcrypto except toHex
 
@@ -135,7 +138,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
-    providers: Table[NodeId, seq[SignedPeerRecord]]
+    providers: SQLiteDatastore
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -315,19 +318,52 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
     kind = MessageKind.talkresp
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
-proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
+proc fromBytes(T: type SignedPeerRecord, bytes: seq[byte]): ?!T =
+  let decodeRes = T.decode(bytes)
+  if decodeRes.isErr:
+    failure $decodeRes.error
+  else:
+    success decodeRes.get
+
+proc toBytes(prov: SignedPeerRecord): ?!seq[byte] =
+  let encodeRes = prov.encode
+  if encodeRes.isErr:
+    failure $encodeRes.error
+  else:
+    success encodeRes.get
+
+proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) {.async.} =
   trace "adding provider to local db", n=p.localNode, cId, prov
-  p.providers.mgetOrPut(cId, @[]).add(prov)
+  without provBytes =? prov.toBytes, error:
+    trace "error when encoding SPR", cId, error = error.msg
+
+  without key =? Key.init($cid & "/" & $provBytes.hash), error:
+    trace "error when encoding cId as a key", cId, error = error.msg
+
+  let putRes = await p.providers.put(key, provBytes)
+  if putRes.isErr:
+    trace "error when storing encoded SPR in database", cId, error = error.msg
 
 proc handleAddProvider(d: Protocol, fromId: NodeId, fromAddr: Address,
-    addProvider: AddProviderMessage, reqId: RequestId) =
-  d.addProviderLocal(addProvider.cId, addProvider.prov)
+    addProvider: AddProviderMessage, reqId: RequestId) {.async.} =
+  await d.addProviderLocal(addProvider.cId, addProvider.prov)
 
 proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
-    getProviders: GetProvidersMessage, reqId: RequestId) =
+    getProviders: GetProvidersMessage, reqId: RequestId) {.async.} =
 
   #TODO: add checks, add signed version
-  let provs = d.providers.getOrDefault(getProviders.cId)
+  var provs: seq[SignedPeerRecord]
+  let cId = getProviders.cId
+  without queryKey =? Key.init($cId & "/*"), error:
+    trace "error when encoding cId as a query key", cId, error = error.msg
+
+  for kv in d.providers.query(Query.init(queryKey)):
+    let (_, provBytes) = await kv
+    without prov =? SignedPeerRecord.fromBytes(provBytes), error:
+      trace "error when decoding SPR retrieved from database", cId , error = error.msg
+
+    provs.add prov
+
   trace "providers:", provs
 
   ##TODO: handle multiple messages
@@ -335,7 +371,7 @@ proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
   d.sendResponse(fromId, fromAddr, response, reqId)
 
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
-    message: Message) =
+    message: Message) {.async.} =
   case message.kind
   of ping:
     discovery_message_requests_incoming.inc()
@@ -352,10 +388,10 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
   of addProvider:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
-    d.handleAddProvider(srcId, fromAddr, message.addProvider, message.reqId)
+    await d.handleAddProvider(srcId, fromAddr, message.addProvider, message.reqId)
   of getProviders:
     discovery_message_requests_incoming.inc()
-    d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
+    await d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
   of regTopic, topicQuery:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
@@ -643,7 +679,7 @@ proc addProvider*(
     if toNode != d.localNode:
       discard d.sendRequest(toNode, AddProviderMessage(cId: cId, prov: pr))
     else:
-      d.addProviderLocal(cId, pr)
+      await d.addProviderLocal(cId, pr)
 
   return res
 
@@ -677,11 +713,20 @@ proc getProvidersLocal*(
     d: Protocol,
     cId: NodeId,
     maxitems: int = 5,
-  ): seq[SignedPeerRecord] {.raises: [KeyError,Defect].} =
+  ): Future[seq[SignedPeerRecord]] {.async.} =
 
-  return
-    if (cId in d.providers): d.providers[cId]
-    else: @[]
+  var provs: seq[SignedPeerRecord]
+  without queryKey =? Key.init($cId & "/*"), error:
+    trace "error when encoding cId as a query key", cId, error = error.msg
+
+  for kv in d.providers.query(Query.init(queryKey)):
+    let (_, provBytes) = await kv
+    without prov =? SignedPeerRecord.fromBytes(provBytes), error:
+      trace "error when decoding SPR retrieved from database", cId , error = error.msg
+
+    provs.add prov
+
+  return provs
 
 proc getProviders*(
     d: Protocol,
@@ -691,7 +736,7 @@ proc getProviders*(
   ): Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
 
   # What providers do we know about?
-  var res = d.getProvidersLocal(cId, maxitems)
+  var res = await d.getProvidersLocal(cId, maxitems)
   trace "local providers:", res
 
   let nodesNearby = await d.lookup(cId)
@@ -959,7 +1004,9 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
-    rng = newRng()):
+    rng = newRng(),
+    dataDir: string,
+    dbName: string):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
@@ -996,6 +1043,9 @@ proc newProtocol*(
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
 
+  without providers =? SQLiteDatastore.new(dataDir, dbName), error:
+    raise (ref Defect)(msg: error.msg)
+
   result = Protocol(
     privateKey: privKey,
     localNode: node,
@@ -1004,7 +1054,8 @@ proc newProtocol*(
     enrAutoUpdate: enrAutoUpdate,
     routingTable: RoutingTable.init(
       node, config.bitsPerHop, config.tableIpLimits, rng),
-    rng: rng)
+    rng: rng,
+    providers: providers)
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
@@ -1033,6 +1084,7 @@ proc close*(d: Protocol) =
     d.ipMajorityLoop.cancel()
 
   d.transport.close()
+  d.providers.close()
 
 proc closeWait*(d: Protocol) {.async.} =
   doAssert(not d.transport.closed)
@@ -1046,3 +1098,4 @@ proc closeWait*(d: Protocol) {.async.} =
     await d.ipMajorityLoop.cancelAndWait()
 
   await d.transport.closeWait()
+  d.providers.close()
