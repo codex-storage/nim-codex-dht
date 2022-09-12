@@ -22,7 +22,7 @@ import
 export providers_messages
 
 type
-  MessageKind* = enum
+  MessageKind* {.pure.} = enum
     # TODO This is needed only to make Nim 1.2.6 happy
     #      Without it, the `MessageKind` type cannot be used as
     #      a discriminator in case objects.
@@ -116,16 +116,16 @@ type
       discard
 
 template messageKind*(T: typedesc[SomeMessage]): MessageKind =
-  when T is PingMessage: ping
-  elif T is PongMessage: pong
-  elif T is FindNodeMessage: findNode
-  elif T is FindNodeFastMessage: findNodeFast
-  elif T is NodesMessage: nodes
-  elif T is TalkReqMessage: talkReq
-  elif T is TalkRespMessage: talkResp
-  elif T is AddProviderMessage: addProvider
-  elif T is GetProvidersMessage: getProviders
-  elif T is ProvidersMessage: providers
+  when T is PingMessage: MessageKind.ping
+  elif T is PongMessage: MessageKind.pong
+  elif T is FindNodeMessage: MessageKind.findNode
+  elif T is FindNodeFastMessage: MessageKind.findNodeFast
+  elif T is NodesMessage: MessageKind.nodes
+  elif T is TalkReqMessage: MessageKind.talkReq
+  elif T is TalkRespMessage: MessageKind.talkResp
+  elif T is AddProviderMessage: MessageKind.addProvider
+  elif T is GetProvidersMessage: MessageKind.getProviders
+  elif T is ProvidersMessage: MessageKind.providers
 
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)

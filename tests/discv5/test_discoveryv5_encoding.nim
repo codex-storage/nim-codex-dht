@@ -89,7 +89,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
     let message = decoded.get()
     check:
       message.reqId == reqId
-      message.kind == nodes
+      message.kind == MessageKind.nodes
       message.nodes.total == total
       message.nodes.sprs.len() == 0
 
@@ -111,7 +111,7 @@ suite "Discovery v5.1 Protocol Message Encodings":
     let message = decoded.get()
     check:
       message.reqId == reqId
-      message.kind == nodes
+      message.kind == MessageKind.nodes
       message.nodes.total == total
       message.nodes.sprs.len() == 2
       message.nodes.sprs[0] == s1
