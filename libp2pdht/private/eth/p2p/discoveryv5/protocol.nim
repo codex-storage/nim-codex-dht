@@ -138,7 +138,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
-    providers: SQLiteDatastore
+    providers: Datastore
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -357,7 +357,7 @@ proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
   without queryKey =? Key.init($cId & "/*"), error:
     trace "error when encoding cId as a query key", cId, error = error.msg
 
-  for kv in d.providers.query(Query.init(queryKey)):
+  let q = d.providers.query; for kv in q(d.providers, Query.init(queryKey)):
     let (_, provBytes) = await kv
     without prov =? SignedPeerRecord.fromBytes(provBytes), error:
       trace "error when decoding SPR retrieved from database", cId , error = error.msg
@@ -719,7 +719,7 @@ proc getProvidersLocal*(
   without queryKey =? Key.init($cId & "/*"), error:
     trace "error when encoding cId as a query key", cId, error = error.msg
 
-  for kv in d.providers.query(Query.init(queryKey)):
+  let q = d.providers.query; for kv in q(d.providers, Query.init(queryKey)):
     let (_, provBytes) = await kv
     without prov =? SignedPeerRecord.fromBytes(provBytes), error:
       trace "error when decoding SPR retrieved from database", cId , error = error.msg
@@ -1072,7 +1072,7 @@ proc start*(d: Protocol) =
   d.revalidateLoop = revalidateLoop(d)
   d.ipMajorityLoop = ipMajorityLoop(d)
 
-proc close*(d: Protocol) =
+proc close*(d: Protocol) {.async.} =
   doAssert(not d.transport.closed)
 
   debug "Closing discovery node", node = d.localNode
@@ -1084,7 +1084,7 @@ proc close*(d: Protocol) =
     d.ipMajorityLoop.cancel()
 
   d.transport.close()
-  d.providers.close()
+  await d.providers.close()
 
 proc closeWait*(d: Protocol) {.async.} =
   doAssert(not d.transport.closed)
@@ -1098,4 +1098,4 @@ proc closeWait*(d: Protocol) {.async.} =
     await d.ipMajorityLoop.cancelAndWait()
 
   await d.transport.closeWait()
-  d.providers.close()
+  await d.providers.close()
