@@ -150,7 +150,7 @@ suite "Discovery v5 Tests":
         privKey = PrivateKey.fromHex(key).expect("Valid private key hex")
         pubKey = privKey.getPublicKey.expect("Valid private key for public key")
         id = pubKey.toNodeId.expect("Public key valid for node id")
-      debugEcho ">>> key: ", key
+      # debugEcho ">>> key: ", key
       check logDistance(targetId, id) == d
 
   test "Distance to id check":

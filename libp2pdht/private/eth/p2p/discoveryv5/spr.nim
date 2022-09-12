@@ -31,7 +31,6 @@ proc seqNum*(r: SignedPeerRecord): uint64 =
     r.data.seqNo
 
 proc fromBytes(r: var SignedPeerRecord, s: openArray[byte]): bool =
-
   let decoded = SignedPeerRecord.decode(@s)
   if decoded.isErr:
     error "Error decoding SignedPeerRecord", error = decoded.error
@@ -47,22 +46,21 @@ proc get*(r: SignedPeerRecord, T: type PublicKey): Option[T] =
   r.envelope.publicKey.some
 
 proc incSeqNo*(
-    r: var SignedPeerRecord,
-    pk: PrivateKey): RecordResult[void] =
+  r: var SignedPeerRecord,
+  pk: PrivateKey): RecordResult[void] =
 
   r.data.seqNo.inc()
   r = ? SignedPeerRecord.init(pk, r.data).mapErr(
         (e: CryptoError) =>
-          ("Error initialising SignedPeerRecord with incremented seqNo: " &
-          $e).cstring
-      )
+          ("Error initializing SignedPeerRecord with incremented seqNo: " & $e).cstring)
   ok()
 
-
-proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
-                            ip: Option[ValidIpAddress],
-                            tcpPort, udpPort: Option[Port] = none[Port]()):
-                            RecordResult[void] =
+proc update*(
+  r: var SignedPeerRecord,
+  pk: crypto.PrivateKey,
+  ip: Option[ValidIpAddress],
+  tcpPort, udpPort: Option[Port] = none[Port]()):
+  RecordResult[void] =
   ## Update a `SignedPeerRecord` with given ip address, tcp port, udp port and optional
   ## custom k:v pairs.
   ##
@@ -110,7 +108,6 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
       transProtoPort = udpPort.get
 
     updated = MultiAddress.init(ipAddr, transProto, transProtoPort)
-
   else:
     let
       existing = r.data.addresses[0].address
@@ -158,22 +155,21 @@ proc update*(r: var SignedPeerRecord, pk: crypto.PrivateKey,
 
   r = ? SignedPeerRecord.init(pk, r.data)
           .mapErr((e: CryptoError) =>
-            ("Failed to update SignedPeerRecord: " & $e).cstring
-          )
+            ("Failed to update SignedPeerRecord: " & $e).cstring)
 
   return ok()
 
 proc toTypedRecord*(r: SignedPeerRecord) : RecordResult[SignedPeerRecord] = ok(r)
 
 proc ip*(r: SignedPeerRecord): Option[array[4, byte]] =
-    let ma = r.data.addresses[0].address
-
-    let code = ma[0].get.protoCode()
-    if code.isOk and code.get == multiCodec("ip4"):
-      var ipbuf: array[4, byte]
-      let res = ma[0].get.protoArgument(ipbuf)
-      if res.isOk:
-        return some(ipbuf)
+    for address in r.data.addresses:
+      let ma = address.address
+      let code = ma[0].get.protoCode()
+      if code.isOk and code.get == multiCodec("ip4"):
+        var ipbuf: array[4, byte]
+        let res = ma[0].get.protoArgument(ipbuf)
+        if res.isOk:
+          return some(ipbuf)
 
 #         err("Incorrect IPv4 address")
 #       else:
@@ -188,15 +184,16 @@ proc ip*(r: SignedPeerRecord): Option[array[4, byte]] =
 #     err("MultiAddress must be wire address (tcp, udp or unix)")
 
 proc udp*(r: SignedPeerRecord): Option[int] =
-    let ma = r.data.addresses[0].address
+    for address in r.data.addresses:
+      let ma = address.address
 
-    let code = ma[1].get.protoCode()
-    if code.isOk and code.get == multiCodec("udp"):
-      var pbuf: array[2, byte]
-      let res = ma[1].get.protoArgument(pbuf)
-      if res.isOk:
-        let p = fromBytesBE(uint16, pbuf)
-        return some(p.int)
+      let code = ma[1].get.protoCode()
+      if code.isOk and code.get == multiCodec("udp"):
+        var pbuf: array[2, byte]
+        let res = ma[1].get.protoArgument(pbuf)
+        if res.isOk:
+          let p = fromBytesBE(uint16, pbuf)
+          return some(p.int)
 
 proc fromBase64*(r: var SignedPeerRecord, s: string): bool =
   ## Loads SPR from base64-encoded protobuf-encoded bytes, and validates the
@@ -222,11 +219,13 @@ proc toBase64*(r: SignedPeerRecord): string =
 
 proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 
-proc init*(T: type SignedPeerRecord, seqNum: uint64,
-                           pk: PrivateKey,
-                           ip: Option[ValidIpAddress],
-                           tcpPort, udpPort: Option[Port]):
-                           RecordResult[T] =
+proc init*(
+  T: type SignedPeerRecord,
+  seqNum: uint64,
+  pk: PrivateKey,
+  ip: Option[ValidIpAddress],
+  tcpPort, udpPort: Option[Port]):
+  RecordResult[T] =
   ## Initialize a `SignedPeerRecord` with given sequence number, private key, optional
   ## ip address, tcp port, udp port, and optional custom k:v pairs.
   ##
@@ -267,7 +266,9 @@ proc init*(T: type SignedPeerRecord, seqNum: uint64,
   let ma = MultiAddress.init(ipAddr, proto, protoPort)
 
   let pr = PeerRecord.init(peerId, @[ma], seqNum)
-  SignedPeerRecord.init(pk, pr).mapErr((e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
+  SignedPeerRecord.init(pk, pr)
+    .mapErr(
+      (e: CryptoError) => ("Failed to init SignedPeerRecord: " & $e).cstring)
 
 proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   # TODO: use FieldPair for this, but that is a bit cumbersome. Perhaps the
@@ -280,4 +281,5 @@ proc contains*(r: SignedPeerRecord, fp: (string, seq[byte])): bool =
   debugEcho "`contains` is not yet implemented for SignedPeerRecords"
   return false
 
-proc `==`*(a, b: SignedPeerRecord): bool = a.data == b.data
+proc `==`*(a, b: SignedPeerRecord): bool =
+  a.data == b.data
