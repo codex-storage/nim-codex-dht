@@ -2,10 +2,12 @@ import std/[tables, lists, options]
 
 {.push raises: [Defect].}
 
+export tables, lists, options
+
 type
   LRUCache*[K, V] = object of RootObj
     list: DoublyLinkedList[(K, V)] # Head is MRU k:v and tail is LRU k:v
-    table: Table[K, DoublyLinkedNode[(K, V)]] # DoublyLinkedNode is alraedy ref
+    table: Table[K, DoublyLinkedNode[(K, V)]] # DoublyLinkedNode is already ref
     capacity: int
 
 func init*[K, V](T: type LRUCache[K, V], capacity: int): LRUCache[K, V] =
@@ -39,3 +41,13 @@ func del*[K, V](lru: var LRUCache[K, V], key: K) =
 
 func len*[K, V](lru: LRUCache[K, V]): int =
   lru.table.len
+
+proc contains*[K, V](lru: LRUCache[K, V], k: K): bool =
+  k in lru.table
+
+iterator items*[K, V](lru: LRUCache[K, V]): V =
+  ## This will not increment LRU/MRU access stats
+  ##
+
+  for item in lru.list:
+    yield item[1]
