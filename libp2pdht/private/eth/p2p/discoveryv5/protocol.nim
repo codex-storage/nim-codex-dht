@@ -222,15 +222,28 @@ func getRecord*(d: Protocol): SignedPeerRecord =
   ## Get the SPR of the local node.
   d.localNode.record
 
-proc updateRecord*(d: Protocol, newSpr: SignedPeerRecord): DiscResult[void] =
+proc updateRecord*(
+  d: Protocol,
+  spr: Option[SignedPeerRecord] = SignedPeerRecord.none): DiscResult[void] =
   ## Update the ENR of the local node with provided `enrFields` k:v pairs.
+  ##
 
-  info "Updated discovery SPR", uri=toURI(newSpr)
-  d.localNode.record = newSpr
-  ok()
+  if spr.isSome:
+    let
+      newSpr = spr.get()
+      seqNo = d.localNode.record.seqNum
+
+    info "Updated discovery SPR", uri = toURI(newSpr)
+
+    d.localNode.record = newSpr
+    d.localNode.record.data.seqNo = seqNo
+
+  ? d.localNode.record.incSeqNo(d.privateKey)
 
   # TODO: Would it make sense to actively ping ("broadcast") to all the peers
   # we stored a handshake with in order to get that ENR updated?
+
+  ok()
 
 proc sendResponse(d: Protocol, dstId: NodeId, dstAddr: Address,
     message: SomeMessage, reqId: RequestId) =
