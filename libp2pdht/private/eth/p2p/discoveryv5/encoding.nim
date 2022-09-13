@@ -15,7 +15,7 @@
 
 import
   std/[hashes, net, options, sugar, tables],
-  bearssl,
+  bearssl/rand,
   chronicles,
   stew/[results, byteutils],
   stint,
@@ -206,13 +206,13 @@ proc encodeStaticHeader*(flag: Flag, nonce: AESGCMNonce, authSize: int):
   # TODO: assert on authSize of > 2^16?
   result.add((uint16(authSize)).toBytesBE())
 
-proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
+proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte]):
     (seq[byte], AESGCMNonce) =
   var nonce: AESGCMNonce
-  brHmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
+  hmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  hmacDrbgGenerate(rng, iv) # Random IV
 
   # static-header
   let authdata = c.localNode.id.toByteArrayBE()
@@ -238,7 +238,7 @@ proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
     # 1 byte (e.g "01c20101"). Could increase to 27 for 8 bytes requestId in
     # case this must not look like a random packet.
     var randomData: array[gcmTagSize + 4, byte]
-    brHmacDrbgGenerate(rng, randomData)
+    hmacDrbgGenerate(rng, randomData)
     messageEncrypted.add(randomData)
     discovery_session_lru_cache_misses.inc()
 
@@ -251,11 +251,11 @@ proc encodeMessagePacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
   return (packet, nonce)
 
-proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
+proc encodeWhoareyouPacket*(rng: var HmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, requestNonce: AESGCMNonce, recordSeq: uint64,
     pubkey: Option[PublicKey]): seq[byte] =
   var idNonce: IdNonce
-  brHmacDrbgGenerate(rng, idNonce)
+  hmacDrbgGenerate(rng, idNonce)
 
   # authdata
   var authdata: seq[byte]
@@ -272,7 +272,7 @@ proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
   header.add(authdata)
 
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  hmacDrbgGenerate(rng, iv) # Random IV
 
   let maskedHeader = encryptHeader(toId, iv, header)
 
@@ -293,14 +293,14 @@ proc encodeWhoareyouPacket*(rng: var BrHmacDrbgContext, c: var Codec,
 
   return packet
 
-proc encodeHandshakePacket*(rng: var BrHmacDrbgContext, c: var Codec,
+proc encodeHandshakePacket*(rng: var HmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte],
     whoareyouData: WhoareyouData, pubkey: PublicKey): EncodeResult[seq[byte]] =
   var header: seq[byte]
   var nonce: AESGCMNonce
-  brHmacDrbgGenerate(rng, nonce)
+  hmacDrbgGenerate(rng, nonce)
   var iv: array[ivSize, byte]
-  brHmacDrbgGenerate(rng, iv) # Random IV
+  hmacDrbgGenerate(rng, iv) # Random IV
 
   var authdata: seq[byte]
   var authdataHead: seq[byte]

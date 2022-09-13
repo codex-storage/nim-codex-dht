@@ -170,7 +170,7 @@ type
     ipVote: IpVote
     enrAutoUpdate: bool
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
-    rng*: ref BrHmacDrbgContext
+    rng*: ref HmacDrbgContext
     providers: ProvidersManager
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
