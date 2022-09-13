@@ -79,7 +79,7 @@ import
   stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
   metrics,
   libp2p/[crypto/crypto, routing_record],
-  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification]
+  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification, lru]
 
 import nimcrypto except toHex
 
@@ -98,26 +98,31 @@ logScope:
   topics = "discv5"
 
 const
-  alpha = 3 ## Kademlia concurrency factor
-  lookupRequestLimit = 3 ## Amount of distances requested in a single Findnode
+  Alpha = 3 ## Kademlia concurrency factor
+  LookupRequestLimit = 3 ## Amount of distances requested in a single Findnode
   ## message for a lookup or query
-  findNodeResultLimit = 16 ## Maximum amount of SPRs in the total Nodes messages
+  FindNodeResultLimit = 16 ## Maximum amount of SPRs in the total Nodes messages
   ## that will be processed
-  maxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
-  refreshInterval = 5.minutes ## Interval of launching a random query to
+  MaxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
+  RefreshInterval = 5.minutes ## Interval of launching a random query to
   ## refresh the routing table.
-  revalidateMax = 10000 ## Revalidation of a peer is done between 0 and this
+  RevalidateMax = 10000 ## Revalidation of a peer is done between 0 and this
   ## value in milliseconds
-  ipMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
+  IpMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
   ## majority and updating this when SPR auto update is set.
-  initialLookups = 1 ## Amount of lookups done when populating the routing table
-  responseTimeout* = 4.seconds ## timeout for the response of a request-response
+  InitialLookups = 1 ## Amount of lookups done when populating the routing table
+  ResponseTimeout* = 4.seconds ## timeout for the response of a request-response
+  MaxProvidersEntries* = 1_000_000 # one million records
+  MaxProvidersPerEntry* = 20 # providers per entry
   ## call
 
 type
   DiscoveryConfig* = object
     tableIpLimits*: TableIpLimits
     bitsPerHop*: int
+
+  ProvidersCache = LRUCache[PeerId, SignedPeerRecord]
+  ItemsCache = LRUCache[NodeId, ProvidersCache]
 
   Protocol* = ref object
     localNode*: Node
@@ -135,7 +140,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
-    providers: Table[NodeId, seq[SignedPeerRecord]]
+    providers: ItemsCache
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -267,11 +272,11 @@ proc sendNodes(d: Protocol, toId: NodeId, toAddr: Address, reqId: RequestId,
   # TODO: Do the total calculation based on the max UDP packet size we want to
   # send and the SPR size of all (max 16) nodes.
   # Which UDP packet size to take? 1280? 576?
-  message.total = ceil(nodes.len / maxNodesPerMessage).uint32
+  message.total = ceil(nodes.len / MaxNodesPerMessage).uint32
 
   for i in 0 ..< nodes.len:
     message.sprs.add(nodes[i].record)
-    if message.sprs.len == maxNodesPerMessage:
+    if message.sprs.len == MaxNodesPerMessage:
       d.sendNodes(toId, toAddr, message, reqId)
       message.sprs.setLen(0)
 
@@ -329,23 +334,36 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
 proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
-  trace "adding provider to local db", cid=cId, spr=prov.data
-  p.providers.mgetOrPut(cId, @[]).add(prov)
+  trace "adding provider to local db", n=p.localNode, cId, prov
 
-proc handleAddProvider(d: Protocol, fromId: NodeId, fromAddr: Address,
-    addProvider: AddProviderMessage, reqId: RequestId) =
+  var providers =
+    if cId notin p.providers:
+      ProvidersCache.init(MaxProvidersPerEntry)
+    else:
+      p.providers.get(cId).get()
+
+  providers.put(prov.data.peerId, prov)
+  p.providers.put(cId, providers)
+
+proc handleAddProvider(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  addProvider: AddProviderMessage,
+  reqId: RequestId) =
   d.addProviderLocal(addProvider.cId, addProvider.prov)
 
 proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
     getProviders: GetProvidersMessage, reqId: RequestId) =
 
   #TODO: add checks, add signed version
-  let provs = d.providers.getOrDefault(getProviders.cId)
-  trace "providers:", prov=provs.mapIt(it.data)
+  let provs = d.providers.get(getProviders.cId)
+  if provs.isSome:
+    trace "providers:", provs
 
-  ##TODO: handle multiple messages
-  let response = ProvidersMessage(total: 1, provs: provs)
-  d.sendResponse(fromId, fromAddr, response, reqId)
+    ##TODO: handle multiple messages
+    let response = ProvidersMessage(total: 1, provs: toSeq(provs.get()))
+    d.sendResponse(fromId, fromAddr, response, reqId)
 
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
@@ -406,7 +424,7 @@ proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
   result = newFuture[Option[Message]]("waitMessage")
   let res = result
   let key = (fromNode.id, reqId)
-  sleepAsync(responseTimeout).addCallback() do(data: pointer):
+  sleepAsync(ResponseTimeout).addCallback() do(data: pointer):
     d.awaitedMessages.del(key)
     if not res.finished:
       res.complete(none(Message))
@@ -422,12 +440,12 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
   ## Same counts for out of order receival.
   var op = await d.waitMessage(fromNode, reqId)
   if op.isSome:
-    if op.get.kind == nodes:
+    if op.get.kind == MessageKind.nodes:
       var res = op.get.nodes.sprs
       let total = op.get.nodes.total
       for i in 1 ..< total:
         op = await d.waitMessage(fromNode, reqId)
-        if op.isSome and op.get.kind == nodes:
+        if op.isSome and op.get.kind == MessageKind.nodes:
           res.add(op.get.nodes.sprs)
         else:
           # No error on this as we received some nodes.
@@ -498,7 +516,7 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   let nodes = await d.waitNodes(toNode, reqId)
 
   if nodes.isOk:
-    let res = verifyNodesRecords(nodes.get(), toNode, findNodeResultLimit, distances)
+    let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
     d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
@@ -515,7 +533,7 @@ proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
   let nodes = await d.waitNodes(toNode, reqId)
 
   if nodes.isOk:
-    let res = verifyNodesRecords(nodes.get(), toNode, findNodeResultLimit)
+    let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit)
     d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
@@ -550,7 +568,7 @@ proc lookupDistances*(target, dest: NodeId): seq[uint16] =
   let tdAsInt = int(td)
   result.add(td)
   var i = 1
-  while result.len < lookupRequestLimit:
+  while result.len < LookupRequestLimit:
     if tdAsInt + i < 256:
       result.add(td + uint16(i))
     if tdAsInt - i > 0:
@@ -561,7 +579,7 @@ proc lookupWorker(d: Protocol, destNode: Node, target: NodeId):
     Future[seq[Node]] {.async.} =
   let dists = lookupDistances(target, destNode.id)
 
-  # Instead of doing max `lookupRequestLimit` findNode requests, make use
+  # Instead of doing max `LookupRequestLimit` findNode requests, make use
   # of the discv5.1 functionality to request nodes for multiple distances.
   let r = await d.findNode(destNode, dists)
   if r.isOk:
@@ -597,13 +615,13 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
   for node in closestNodes:
     seen.incl(node.id)
 
-  var pendingQueries = newSeqOfCap[Future[seq[Node]]](alpha)
+  var pendingQueries = newSeqOfCap[Future[seq[Node]]](Alpha)
 
   while true:
     var i = 0
-    # Doing `alpha` amount of requests at once as long as closer non queried
+    # Doing `Alpha` amount of requests at once as long as closer non queried
     # nodes are discovered.
-    while i < closestNodes.len and pendingQueries.len < alpha:
+    while i < closestNodes.len and pendingQueries.len < Alpha:
       let n = closestNodes[i]
       if not asked.containsOrIncl(n.id):
         if fast:
@@ -693,7 +711,7 @@ proc getProvidersLocal*(
   ): seq[SignedPeerRecord] {.raises: [KeyError,Defect].} =
 
   return
-    if (cId in d.providers): d.providers[cId]
+    if (cId in d.providers): toSeq(d.providers.get(cId).get())
     else: @[]
 
 proc getProviders*(
@@ -752,11 +770,11 @@ proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
   for node in queryBuffer:
     seen.incl(node.id)
 
-  var pendingQueries = newSeqOfCap[Future[seq[Node]]](alpha)
+  var pendingQueries = newSeqOfCap[Future[seq[Node]]](Alpha)
 
   while true:
     var i = 0
-    while i < min(queryBuffer.len, k) and pendingQueries.len < alpha:
+    while i < min(queryBuffer.len, k) and pendingQueries.len < Alpha:
       let n = queryBuffer[i]
       if not asked.containsOrIncl(n.id):
         pendingQueries.add(d.lookupWorker(n, target))
@@ -847,8 +865,8 @@ proc populateTable*(d: Protocol) {.async.} =
   let selfQuery = await d.query(d.localNode.id)
   trace "Discovered nodes in self target query", nodes = selfQuery.len
 
-  # `initialLookups` random queries
-  for i in 0..<initialLookups:
+  # `InitialLookups` random queries
+  for i in 0..<InitialLookups:
     let randomQuery = await d.queryRandom()
     trace "Discovered nodes in random target query", nodes = randomQuery.len
 
@@ -875,7 +893,7 @@ proc revalidateLoop(d: Protocol) {.async.} =
   ## message.
   try:
     while true:
-      await sleepAsync(milliseconds(d.rng[].rand(revalidateMax)))
+      await sleepAsync(milliseconds(d.rng[].rand(RevalidateMax)))
       let n = d.routingTable.nodeToRevalidate()
       if not n.isNil:
         traceAsyncErrors d.revalidateNode(n)
@@ -884,19 +902,19 @@ proc revalidateLoop(d: Protocol) {.async.} =
 
 proc refreshLoop(d: Protocol) {.async.} =
   ## Loop that refreshes the routing table by starting a random query in case
-  ## no queries were done since `refreshInterval` or more.
+  ## no queries were done since `RefreshInterval` or more.
   ## It also refreshes the majority address voted for via pong responses.
   try:
     await d.populateTable()
 
     while true:
       let currentTime = now(chronos.Moment)
-      if currentTime > (d.lastLookup + refreshInterval):
+      if currentTime > (d.lastLookup + RefreshInterval):
         let randomQuery = await d.queryRandom()
         trace "Discovered nodes in random target query", nodes = randomQuery.len
         debug "Total nodes in discv5 routing table", total = d.routingTable.len()
 
-      await sleepAsync(refreshInterval)
+      await sleepAsync(RefreshInterval)
   except CancelledError:
     trace "refreshLoop canceled"
 
@@ -944,7 +962,7 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
           debug "Discovered external address matches current address", majority,
             current = d.localNode.address
 
-      await sleepAsync(ipMajorityInterval)
+      await sleepAsync(IpMajorityInterval)
   except CancelledError:
     trace "ipMajorityLoop canceled"
 
@@ -1009,15 +1027,22 @@ proc newProtocol*(
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
 
+  let
+    routingTable = RoutingTable.init(
+      node,
+      config.bitsPerHop,
+      config.tableIpLimits,
+      rng)
+
   result = Protocol(
     privateKey: privKey,
     localNode: node,
     bootstrapRecords: @bootstrapRecords,
     ipVote: IpVote.init(),
     enrAutoUpdate: enrAutoUpdate,
-    routingTable: RoutingTable.init(
-      node, config.bitsPerHop, config.tableIpLimits, rng),
-    rng: rng)
+    routingTable: routingTable,
+    rng: rng,
+    providers: ItemsCache.init(MaxProvidersEntries))
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
