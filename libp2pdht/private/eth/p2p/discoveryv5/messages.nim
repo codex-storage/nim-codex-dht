@@ -14,7 +14,7 @@
 
 import
   std/[hashes, net],
-  bearssl,
+  bearssl/rand,
   ./spr,
   ./node,
   ../../../../dht/providers_messages
@@ -130,7 +130,7 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)
 
-proc init*(T: type RequestId, rng: var BrHmacDrbgContext): T =
+proc init*(T: type RequestId, rng: var HmacDrbgContext): T =
   var reqId = RequestId(id: newSeq[byte](8)) # RequestId must be <= 8 bytes
-  brHmacDrbgGenerate(rng, reqId.id)
+  hmacDrbgGenerate(rng, reqId.id)
   reqId

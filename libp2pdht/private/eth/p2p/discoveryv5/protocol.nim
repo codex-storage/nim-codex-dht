@@ -76,7 +76,7 @@
 import
   std/[tables, sets, options, math, sequtils, algorithm, strutils],
   stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
+  stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl/rand,
   metrics,
   libp2p/[crypto/crypto, routing_record],
   "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification, lru]
@@ -159,7 +159,7 @@ type
     enrAutoUpdate: bool
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
-    rng*: ref BrHmacDrbgContext
+    rng*: ref HmacDrbgContext
     providers: ItemsCache
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]

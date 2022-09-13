@@ -7,7 +7,7 @@
 # Everything below the handling of ordinary messages
 import
   std/[tables, options],
-  bearssl,
+  bearssl/rand,
   chronos,
   chronicles,
   libp2p/crypto/crypto,
@@ -27,7 +27,7 @@ type
     transp: DatagramTransport
     pendingRequests: Table[AESGCMNonce, PendingRequest]
     codec*: Codec
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
 
   PendingRequest = object
     node: Node

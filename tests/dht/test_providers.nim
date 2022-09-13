@@ -12,7 +12,7 @@
 import
   std/[options, sequtils],
   asynctest,
-  bearssl,
+  bearssl/rand,
   chronicles,
   chronos,
   nimcrypto,
