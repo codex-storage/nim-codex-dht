@@ -1046,6 +1046,33 @@ proc newProtocol*(
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
+proc newProtocol*(
+    privKey: PrivateKey,
+    bindPort: Port,
+    record: SignedPeerRecord,
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
+    bindIp = IPv4_any(),
+    config = defaultDiscoveryConfig,
+    rng = newRng()):
+    Protocol =
+  info "Discovery SPR initialized", seqNum = record.seqNum, uri = toURI(record)
+  let node = newNode(record).expect("Properly initialized record")
+
+  # TODO Consider whether this should be a Defect
+  doAssert rng != nil, "RNG initialization failed"
+
+  result = Protocol(
+    privateKey: privKey,
+    localNode: node,
+    bootstrapRecords: @bootstrapRecords,
+    ipVote: IpVote.init(),
+    enrAutoUpdate: false, #TODO this should be removed from nim-libp2p-dht
+    routingTable: RoutingTable.init(
+      node, config.bitsPerHop, config.tableIpLimits, rng),
+    rng: rng)
+
+  result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
+
 
 proc open*(d: Protocol) {.raises: [Defect, CatchableError].} =
   info "Starting discovery node", node = d.localNode
