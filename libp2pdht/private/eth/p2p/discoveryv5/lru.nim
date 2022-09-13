@@ -11,6 +11,7 @@ type
     capacity: int
 
 func init*[K, V](T: type LRUCache[K, V], capacity: int): LRUCache[K, V] =
+  doAssert capacity > 0, "Capacity should be greater than 0!"
   LRUCache[K, V](capacity: capacity) # Table and list init is done default
 
 func get*[K, V](lru: var LRUCache[K, V], key: K): Option[V] =
@@ -27,7 +28,7 @@ func put*[K, V](lru: var LRUCache[K, V], key: K, value: V) =
   if not node.isNil:
     lru.list.remove(node)
   else:
-    if lru.table.len >= lru.capacity:
+    if lru.len > 0 and lru.table.len >= lru.capacity:
       lru.table.del(lru.list.tail.value[0])
       lru.list.remove(lru.list.tail)
 
@@ -43,10 +44,13 @@ func len*[K, V](lru: LRUCache[K, V]): int =
   lru.table.len
 
 proc contains*[K, V](lru: LRUCache[K, V], k: K): bool =
+  ## Check for cached item - this doesn't touch the cache
+  ##
+
   k in lru.table
 
 iterator items*[K, V](lru: LRUCache[K, V]): V =
-  ## This will not increment LRU/MRU access stats
+  ## Get cached items - this doesn't touch the cache
   ##
 
   for item in lru.list:
