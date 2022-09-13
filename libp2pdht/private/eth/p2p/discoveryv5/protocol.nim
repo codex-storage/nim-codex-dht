@@ -337,7 +337,7 @@ proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
   trace "adding provider to local db", n=p.localNode, cId, prov
 
   var providers =
-    if p.providers.get(cId).isNone:
+    if cId notin p.providers:
       ProvidersCache.init(MaxProvidersPerEntry)
     else:
       p.providers.get(cId).get()
