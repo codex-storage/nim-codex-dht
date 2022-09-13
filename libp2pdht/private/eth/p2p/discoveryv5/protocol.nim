@@ -74,7 +74,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, sets, options, math, sequtils, algorithm],
+  std/[tables, sets, options, math, sequtils, algorithm, strutils],
   stew/shims/net as stewNet, json_serialization/std/net,
   stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
   metrics,
@@ -115,6 +115,26 @@ const
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
   ## call
+
+func shortLog*(record: SignedPeerRecord): string =
+  ## Returns compact string representation of ``SignedPeerRecord``.
+  ##
+
+  result =
+    "peerId: " & record.data.peerId.shortLog & ", " &
+    "seqNo: " & $record.data.seqNo & ", " &
+    "addresses: " & record.data.addresses.mapIt($it.address).join(", ")
+
+func shortLog*(records: seq[SignedPeerRecord]): string =
+  ## Returns compact string representation of a sequence of
+  ## ``SignedPeerRecord``.
+  ##
+
+  for r in records:
+    result &= "provider: " & r.shortLog
+
+chronicles.formatIt(SignedPeerRecord): shortLog(it)
+chronicles.formatIt(seq[SignedPeerRecord]): shortLog(it)
 
 type
   DiscoveryConfig* = object
@@ -334,7 +354,7 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
 proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
-  trace "adding provider to local db", n=p.localNode, cId, prov
+  trace "adding provider to local db", n = p.localNode, cId, prov
 
   var providers =
     if cId notin p.providers:
@@ -353,13 +373,17 @@ proc handleAddProvider(
   reqId: RequestId) =
   d.addProviderLocal(addProvider.cId, addProvider.prov)
 
-proc handleGetProviders(d: Protocol, fromId: NodeId, fromAddr: Address,
-    getProviders: GetProvidersMessage, reqId: RequestId) =
+proc handleGetProviders(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  getProviders: GetProvidersMessage,
+  reqId: RequestId) =
 
   #TODO: add checks, add signed version
   let provs = d.providers.get(getProviders.cId)
   if provs.isSome:
-    trace "providers:", provs
+    trace "providers:", providers = toSeq(provs.get())
 
     ##TODO: handle multiple messages
     let response = ProvidersMessage(total: 1, provs: toSeq(provs.get()))
@@ -723,7 +747,7 @@ proc getProviders*(
 
   # What providers do we know about?
   var res = d.getProvidersLocal(cId, maxitems)
-  trace "local providers:", prov=res.mapIt(it.data)
+  trace "local providers:", prov = res.mapIt(it)
 
   let nodesNearby = await d.lookup(cId)
   trace "nearby:", nodesNearby
