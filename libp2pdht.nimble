@@ -10,10 +10,10 @@ skipDirs      = @["tests"]
 # Dependencies
 requires "nim >= 1.2.0",
          "nimcrypto >= 0.5.4 & < 0.6.0",
-         "bearssl#head",
+         "bearssl >= 0.1.5 & < 0.2.0",
          "chronicles >= 0.10.2 & < 0.11.0",
          "chronos >= 3.0.11 & < 3.1.0",
-         "libp2p#unstable",
+         "libp2p#c7504d2446717a48a79c8b15e0f21bbfc84957ba",
          "metrics",
          "protobufserialization >= 0.2.0 & < 0.3.0",
          "secp256k1 >= 0.5.2 & < 0.6.0",
@@ -57,4 +57,4 @@ task coverage, "generates code coverage report":
   exec("genhtml coverage/coverage.f.info --output-directory coverage/report")
   echo "Opening HTML coverage report in browser..."
   exec("open coverage/report/index.html")
-
+  

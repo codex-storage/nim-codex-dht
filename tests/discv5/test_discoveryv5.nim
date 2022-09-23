@@ -3,7 +3,7 @@
 import
   std/tables,
   chronos, chronicles, stint, asynctest, stew/shims/net,
-  stew/byteutils, bearssl/rand,
+  stew/byteutils, bearssl,
   libp2p/crypto/crypto,
   libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, messages, nodes_verification],
   libp2pdht/discv5/crypto as dhtcrypto,
