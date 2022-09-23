@@ -102,7 +102,7 @@ proc decode(
 
 proc getProvByKey*(self: ProvidersManager, key: Key): Future[?!SignedPeerRecord] {.async.} =
 
-  without bytes =? (await self.store.get(key)) or bytes.len <= 0:
+  without bytes =? (await self.store.get(key)) and bytes.len <= 0:
     trace "No provider in store"
     return failure("No no provider in store")
 
