@@ -9,7 +9,7 @@
 
 import
   std/[algorithm, times, sequtils, bitops, sets, options, tables],
-  stint, chronicles, metrics, bearssl/rand, chronos, stew/shims/net as stewNet,
+  stint, chronicles, metrics, bearssl, chronos, stew/shims/net as stewNet,
   "."/[node, random2, spr]
 
 export options
@@ -46,7 +46,7 @@ type
     ipLimits: IpLimits ## IP limits for total routing table: all buckets and
     ## replacement caches.
     distanceCalculator: DistanceCalculator
-    rng: ref HmacDrbgContext
+    rng: ref BrHmacDrbgContext
 
   KBucket = ref object
     istart, iend: NodeId ## Range of NodeIds this KBucket covers. This is not a
@@ -278,7 +278,7 @@ proc computeSharedPrefixBits(nodes: openArray[NodeId]): int =
   doAssert(false, "Unable to calculate number of shared prefix bits")
 
 proc init*(T: type RoutingTable, localNode: Node, bitsPerHop = DefaultBitsPerHop,
-    ipLimits = DefaultTableIpLimits, rng: ref HmacDrbgContext,
+    ipLimits = DefaultTableIpLimits, rng: ref BrHmacDrbgContext,
     distanceCalculator = XorDistanceCalculator): T =
   ## Initialize the routing table for provided `Node` and bitsPerHop value.
   ## `bitsPerHop` is default set to 5 as recommended by original Kademlia paper.

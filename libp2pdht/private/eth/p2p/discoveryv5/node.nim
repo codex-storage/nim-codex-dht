@@ -9,7 +9,7 @@
 
 import
   std/hashes,
-  bearssl/rand,
+  bearssl,
   chronicles,
   chronos,
   nimcrypto,
@@ -99,9 +99,9 @@ func `==`*(a, b: Node): bool =
 func hash*(id: NodeId): Hash =
   hash(id.toByteArrayBE)
 
-proc random*(T: type NodeId, rng: var HmacDrbgContext): T =
+proc random*(T: type NodeId, rng: var BrHmacDrbgContext): T =
   var id: NodeId
-  hmacDrbgGenerate(rng, addr id, csize_t(sizeof(id)))
+  brHmacDrbgGenerate(addr rng, addr id, csize_t(sizeof(id)))
 
   id
 

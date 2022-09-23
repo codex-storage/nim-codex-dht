@@ -1,5 +1,5 @@
 import
-  bearssl/rand,
+  bearssl,
   chronos,
   libp2p/crypto/[crypto, secp],
   libp2p/multiaddress,
@@ -23,7 +23,7 @@ proc example*(T: type NodeId, rng: ref HmacDrbgContext): NodeId =
   pubKey.toNodeId().expect("Public key valid for node id")
 
 proc initDiscoveryNode*(
-    rng: ref HmacDrbgContext,
+    rng: ref BrHmacDrbgContext,
     privKey: PrivateKey,
     address: Address,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
@@ -60,7 +60,7 @@ proc generateNode*(privKey: PrivateKey, port: int = 20302,
               .expect("Properly intialized private key")
   result = newNode(spr).expect("Properly initialized node")
 
-proc generateNRandomNodes*(rng: ref HmacDrbgContext, n: int): seq[Node] =
+proc generateNRandomNodes*(rng: ref BrHmacDrbgContext, n: int): seq[Node] =
   var res = newSeq[Node]()
   for i in 1..n:
     let
@@ -69,7 +69,7 @@ proc generateNRandomNodes*(rng: ref HmacDrbgContext, n: int): seq[Node] =
     res.add(node)
   res
 
-proc nodeAndPrivKeyAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
+proc nodeAndPrivKeyAtDistance*(n: Node, rng: var BrHmacDrbgContext, d: uint32,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): (Node, PrivateKey) =
   while true:
     let
@@ -78,19 +78,19 @@ proc nodeAndPrivKeyAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
     if logDistance(n.id, node.id) == d:
       return (node, privKey)
 
-proc nodeAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
+proc nodeAtDistance*(n: Node, rng: var BrHmacDrbgContext, d: uint32,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
   let (node, _) = n.nodeAndPrivKeyAtDistance(rng, d, ip)
   node
 
 proc nodesAtDistance*(
-    n: Node, rng: var HmacDrbgContext, d: uint32, amount: int,
+    n: Node, rng: var BrHmacDrbgContext, d: uint32, amount: int,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): seq[Node] =
   for i in 0..<amount:
     result.add(nodeAtDistance(n, rng, d, ip))
 
 proc nodesAtDistanceUniqueIp*(
-    n: Node, rng: var HmacDrbgContext, d: uint32, amount: int,
+    n: Node, rng: var BrHmacDrbgContext, d: uint32, amount: int,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): seq[Node] =
   var ta = initTAddress(ip, Port(0))
   for i in 0..<amount:
