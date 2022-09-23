@@ -85,7 +85,7 @@ import
 
 import nimcrypto except toHex
 
-export options, results, node, spr
+export options, results, node, spr, providersmngr
 
 declareCounter discovery_message_requests_outgoing,
   "Discovery protocol outgoing message requests", labels = ["response"]
