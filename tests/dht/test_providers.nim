@@ -224,7 +224,7 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retieve after bootnode dies":
+  test "20 nodes, retrieve after bootnodes dies":
     debug "---- KILLING BOOTSTRAP NODE ---"
     let (node0, _) = nodes[0]
     let (node18, _) = nodes[^2]
