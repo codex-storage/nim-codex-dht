@@ -99,7 +99,7 @@ suite "Providers Tests: node alone":
     debug "---- STARTING CHECKS ---"
     check (addedTo.len == 1)
     check (addedTo[0].id == node0.localNode.id)
-    check (node0.getProvidersLocal(targetId)[0].data.peerId == peerRec0.peerId)
+    check ((await node0.getProvidersLocal(targetId))[0].data.peerId == peerRec0.peerId)
 
   test "Node in isolation should retrieve":
 
