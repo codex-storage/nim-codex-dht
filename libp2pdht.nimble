@@ -19,7 +19,9 @@ requires "nim >= 1.2.0",
          "secp256k1 >= 0.5.2 & < 0.6.0",
          "stew#head",
          "stint",
-         "asynctest >= 0.3.1 & < 0.4.0"
+         "asynctest >= 0.3.1 & < 0.4.0",
+         "https://github.com/status-im/nim-datastore#head",
+         "questionable"
 
 task coverage, "generates code coverage report":
   var (output, exitCode) = gorgeEx("which lcov")
