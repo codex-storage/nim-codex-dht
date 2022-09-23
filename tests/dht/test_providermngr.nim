@@ -12,7 +12,7 @@ import libp2pdht/private/eth/p2p/discoveryv5/providersmngr
 import libp2pdht/discv5/node
 import ./test_helper
 
-suite "Test simple":
+suite "Test Providers Manager simple":
   let
     ds = SQLiteDatastore.new(Memory).tryGet()
     manager = ProvidersManager.new(ds)
@@ -65,7 +65,7 @@ suite "Test simple":
     check:
       not (await manager.contains(nodeId, provider.data.peerId))
 
-suite "Test multiple":
+suite "Test Providers Manager multiple":
   let
     rng = newRng()
     privKeys = (0..<10).mapIt( PrivateKey.example(rng) )

@@ -12,7 +12,7 @@ import pkg/datastore
 import pkg/chronos
 import pkg/libp2p
 import pkg/chronicles
-import pkg/stew/result
+import pkg/stew/results as rs
 import pkg/stew/byteutils
 import pkg/questionable
 import pkg/questionable/results
@@ -126,20 +126,25 @@ proc add*(
   let
     expires = (self.ttl + (Moment.now() - ZeroMoment)).seconds.uint64
     ttl = expires.toBytesBE
+    bytes: seq[byte] =
+      if existing =? (await self.getProvByKey(provKey)) and
+        existing.data.seqNo >= provider.data.seqNo:
+        trace "Provider with same seqNo already exist", seqno = $provider.data.seqNo
+        @[]
+      else:
+        without bytes =? provider.envelope.encode:
+          trace "Enable to encode provider"
+          return failure "Unable to encode provider"
+        bytes
 
-  if existing =? (await self.getProvByKey(provKey)):
-    if existing.data.seqNo >= provider.data.seqNo:
-      trace "Provider with same seqNo already exist", seqno = $provider.data.seqNo
-      return success()
+  if bytes.len > 0:
+    trace "Adding or updating provider record", cid, peerId
 
-  without bytes =? provider.envelope.encode:
-    trace "Enable to encode provider"
-    return failure "Unable to encode provider"
+    if (let res = (await self.store.put(provKey, bytes)); res.isErr):
+      trace "Unable to store provider with key", key = provKey
 
-  trace "Adding or updating provider record", cid, peerId
-  let res = (
-    (await self.store.put(provKey, bytes)) and
-    (await self.store.put(cidKey, @ttl)))
+  let
+    res = (await self.store.put(cidKey, @ttl)) # add/update cid ttl
 
   if res.isOk:
     self.addCache(cid, provider)
