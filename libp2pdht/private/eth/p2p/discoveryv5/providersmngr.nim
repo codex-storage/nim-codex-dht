@@ -22,7 +22,7 @@ import pkg/questionable/results
 import ./lru
 import ./node
 
-export node, lru
+export node, lru, datastore
 
 const
   DefaultProviderTTL = 24.hours

@@ -79,7 +79,9 @@ import
   stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
   metrics,
   libp2p/[crypto/crypto, routing_record],
-  "."/[transport, messages, messages_encoding, node, routing_table, spr, random2, ip_vote, nodes_verification, lru]
+  transport, messages, messages_encoding, node,
+  routing_table, spr, random2, ip_vote, nodes_verification,
+  providersmngr
 
 import nimcrypto except toHex
 
@@ -141,9 +143,6 @@ type
     tableIpLimits*: TableIpLimits
     bitsPerHop*: int
 
-  ProvidersCache = LRUCache[PeerId, SignedPeerRecord]
-  ItemsCache = LRUCache[NodeId, ProvidersCache]
-
   Protocol* = ref object
     localNode*: Node
     privateKey: PrivateKey
@@ -160,7 +159,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
-    providers: ItemsCache
+    providers: ProvidersManager
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -353,17 +352,11 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
     kind = MessageKind.talkresp
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
-proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) =
+proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) {.async.} =
   trace "adding provider to local db", n = p.localNode, cId, prov
 
-  var providers =
-    if cId notin p.providers:
-      ProvidersCache.init(MaxProvidersPerEntry)
-    else:
-      p.providers.get(cId).get()
-
-  providers.put(prov.data.peerId, prov)
-  p.providers.put(cId, providers)
+  if (let res = (await p.providers.add(cid, prov)); res.isErr):
+    trace "Unable to add provider", cid, peerId = prov.data.peerId
 
 proc handleAddProvider(
   d: Protocol,
@@ -371,23 +364,26 @@ proc handleAddProvider(
   fromAddr: Address,
   addProvider: AddProviderMessage,
   reqId: RequestId) =
-  d.addProviderLocal(addProvider.cId, addProvider.prov)
+  asyncSpawn d.addProviderLocal(addProvider.cId, addProvider.prov)
 
 proc handleGetProviders(
   d: Protocol,
   fromId: NodeId,
   fromAddr: Address,
   getProviders: GetProvidersMessage,
-  reqId: RequestId) =
+  reqId: RequestId) {.async.} =
 
   #TODO: add checks, add signed version
-  let provs = d.providers.get(getProviders.cId)
-  if provs.isSome:
-    trace "providers:", providers = toSeq(provs.get())
+  let
+    provs = await d.providers.get(getProviders.cId)
 
-    ##TODO: handle multiple messages
-    let response = ProvidersMessage(total: 1, provs: toSeq(provs.get()))
-    d.sendResponse(fromId, fromAddr, response, reqId)
+  if provs.isErr:
+    trace "Unable to get providers", cid = getProviders.cId, err = provs.error.msg
+    return
+
+  ##TODO: handle multiple messages
+  let response = ProvidersMessage(total: 1, provs: provs.get)
+  d.sendResponse(fromId, fromAddr, response, reqId)
 
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
@@ -410,7 +406,7 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     d.handleAddProvider(srcId, fromAddr, message.addProvider, message.reqId)
   of getProviders:
     discovery_message_requests_incoming.inc()
-    d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
+    asyncSpawn d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
   of regTopic, topicQuery:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
@@ -698,7 +694,7 @@ proc addProvider*(
     if toNode != d.localNode:
       discard d.sendRequest(toNode, AddProviderMessage(cId: cId, prov: pr))
     else:
-      d.addProviderLocal(cId, pr)
+      asyncSpawn d.addProviderLocal(cId, pr)
 
   return res
 
@@ -732,11 +728,13 @@ proc getProvidersLocal*(
     d: Protocol,
     cId: NodeId,
     maxitems: int = 5,
-  ): seq[SignedPeerRecord] {.raises: [KeyError,Defect].} =
+  ): Future[seq[SignedPeerRecord]] {.async.} =
 
-  return
-    if (cId in d.providers): toSeq(d.providers.get(cId).get())
-    else: @[]
+  let provs = await d.providers.get(cId)
+  if provs.isErr:
+    trace "Unable to get local providers", cId, err = provs.error.msg
+
+  return provs.get
 
 proc getProviders*(
     d: Protocol,
@@ -746,7 +744,7 @@ proc getProviders*(
   ): Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
 
   # What providers do we know about?
-  var res = d.getProvidersLocal(cId, maxitems)
+  var res = await d.getProvidersLocal(cId, maxitems)
   trace "local providers:", prov = res.mapIt(it)
 
   let nodesNearby = await d.lookup(cId)
@@ -1014,7 +1012,8 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
-    rng = newRng()):
+    rng = newRng(),
+    providers: ProvidersManager = nil):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
@@ -1058,6 +1057,13 @@ proc newProtocol*(
       config.tableIpLimits,
       rng)
 
+    providers =
+      if providers.isNil:
+        # TODO: There should be a passthrough datastore
+        ProvidersManager.new(SQLiteDatastore.new(Memory).expect("Should not fail!"))
+      else:
+        providers
+
   result = Protocol(
     privateKey: privKey,
     localNode: node,
@@ -1066,7 +1072,7 @@ proc newProtocol*(
     enrAutoUpdate: enrAutoUpdate,
     routingTable: routingTable,
     rng: rng,
-    providers: ItemsCache.init(MaxProvidersEntries))
+    providers: providers)
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
