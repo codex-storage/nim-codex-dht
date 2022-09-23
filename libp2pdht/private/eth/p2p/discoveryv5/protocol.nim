@@ -1083,13 +1083,22 @@ proc newProtocol*(
     bootstrapRecords: openArray[SignedPeerRecord] = [],
     bindIp = IPv4_any(),
     config = defaultDiscoveryConfig,
-    rng = newRng()):
+    rng = newRng(),
+    providers: ProvidersManager = nil):
     Protocol =
   info "Discovery SPR initialized", seqNum = record.seqNum, uri = toURI(record)
   let node = newNode(record).expect("Properly initialized record")
 
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
+
+  let
+    providers =
+      if providers.isNil:
+        # TODO: There should be a passthrough datastore
+        ProvidersManager.new(SQLiteDatastore.new(Memory).expect("Should not fail!"))
+      else:
+        providers
 
   result = Protocol(
     privateKey: privKey,
@@ -1099,7 +1108,8 @@ proc newProtocol*(
     enrAutoUpdate: false, #TODO this should be removed from nim-libp2p-dht
     routingTable: RoutingTable.init(
       node, config.bitsPerHop, config.tableIpLimits, rng),
-    rng: rng)
+    rng: rng,
+    providers: providers)
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
