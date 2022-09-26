@@ -5,7 +5,7 @@ import
   chronos, chronicles, stint, asynctest, stew/shims/net,
   stew/byteutils, bearssl,
   libp2p/crypto/crypto,
-  libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, messages, nodes_verification],
+  libp2pdht/discv5/[transport, spr, node, routing_table, encoding, sessions, nodes_verification],
   libp2pdht/discv5/crypto as dhtcrypto,
   libp2pdht/discv5/protocol as discv5_protocol,
   ../dht/test_helper
