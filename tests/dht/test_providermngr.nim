@@ -15,7 +15,7 @@ import ./test_helper
 suite "Test Providers Manager simple":
   let
     ds = SQLiteDatastore.new(Memory).tryGet()
-    manager = ProvidersManager.new(ds)
+    manager = ProvidersManager.new(ds, disableCache = true)
     rng = newRng()
     privKey = PrivateKey.example(rng)
     provider = privKey.toSignedPeerRecord()
@@ -35,10 +35,6 @@ suite "Test Providers Manager simple":
 
   test "Should check provider presence":
     check:
-      nodeId in manager.providers
-      provider.data.peerId in manager.providers.get(nodeId).get
-
-    check:
       (await manager.contains(nodeId))
       (await manager.contains(provider.data.peerId))
       (await manager.contains(nodeId, provider.data.peerId))
@@ -54,9 +50,6 @@ suite "Test Providers Manager simple":
 
   test "Should remove single record by NodeId and PeerId":
     check:
-      nodeId in manager.providers
-      provider.data.peerId in manager.providers.get(nodeId).get
-
       (await manager.contains(nodeId))
       (await manager.contains(provider.data.peerId))
 
@@ -78,7 +71,7 @@ suite "Test Providers Manager multiple":
 
   setup:
     ds = SQLiteDatastore.new(Memory).tryGet()
-    manager = ProvidersManager.new(ds)
+    manager = ProvidersManager.new(ds, disableCache = true)
 
     for id in nodeIds:
       for p in providers:
@@ -103,13 +96,8 @@ suite "Test Providers Manager multiple":
     (await (manager.remove(nodeIds[99]))).tryGet
 
     check:
-      nodeIds[0] notin manager.providers
       not (await manager.contains(nodeIds[0]))
-
-      nodeIds[49] notin manager.providers
       not (await manager.contains(nodeIds[49]))
-
-      nodeIds[99] notin manager.providers
       not (await manager.contains(nodeIds[99]))
 
   test "Should remove by PeerId":
@@ -119,13 +107,8 @@ suite "Test Providers Manager multiple":
 
     for id in nodeIds:
       check:
-        providers[0].data.peerId notin manager.providers.get(id).get
         not (await manager.contains(id, providers[0].data.peerId))
-
-        providers[5].data.peerId notin manager.providers.get(id).get
         not (await manager.contains(id, providers[5].data.peerId))
-
-        providers[9].data.peerId notin manager.providers.get(id).get
         not (await manager.contains(id, providers[9].data.peerId))
 
     check:
