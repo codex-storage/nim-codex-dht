@@ -223,15 +223,12 @@ proc get*(
     # TODO: =? doesn't support tuples
     if pair =? (await item) and pair.key.isSome:
       let
-        (key, data) = (pair.key.get, pair.data)
+        (key, val) = (pair.key.get, pair.data)
 
       without peerId =? key.id.peerIdFromCidKey() and
         provKey =? makeProviderKey(peerId), err:
         trace "Error creating key from provider record", err = err.msg
         continue
-
-      let
-        expired = Moment.init(uint64.fromBytesBE(data).int64, Microsecond)
 
       trace "Querying provider key", key = provKey
       without data =? (await self.store.get(provKey)):
