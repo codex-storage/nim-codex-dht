@@ -14,7 +14,6 @@ import pkg/libp2p
 import pkg/chronicles
 import pkg/stew/results as rs
 import pkg/stew/byteutils
-import pkg/questionable
 import pkg/questionable/results
 
 {.push raises: [Defect].}
@@ -23,6 +22,9 @@ import ./lru
 import ./node
 
 export node, lru, datastore
+
+logScope:
+  topics = "discv5 providers manager"
 
 const
   DefaultProviderTTL = 24.hours
@@ -56,6 +58,15 @@ proc makeProviderKey(peerId: PeerId): ?!Key =
 proc makeCidKey(cid: NodeId, peerId: PeerId): ?!Key =
   (CidKey / cid.toHex / $peerId / "ttl")
 
+proc peerIdFromCidKey(key: string): ?!PeerId =
+  let
+    parts = key.split("/")
+
+  if parts.len == 5:
+    return PeerId.init(parts[3]).mapErr(mapFailure)
+
+  return failure("Unable to extract peer id from key")
+
 func addCache*(
   self: ProvidersManager,
   cid: NodeId,
@@ -70,8 +81,28 @@ func addCache*(
     else:
       self.providers.get(cid).get()
 
-  providers.put(provider.data.peerId, provider)
+  let
+    peerId = provider.data.peerId
+
+  trace "Adding provider to cache", cid, peerId
+  providers.put(peerId, provider)
   self.providers.put(cid, providers)
+
+func getCache*(
+  self: ProvidersManager,
+  cid: NodeId,
+  limit = MaxProvidersPerEntry.int): seq[SignedPeerRecord] =
+
+  if self.disableCache:
+    return
+
+  if cid in self.providers:
+    let
+      recs = self.providers.get(cid).get
+      providers = toSeq(recs)[0..<min(recs.len, limit)]
+
+    trace "Providers already cached", cid, len = providers.len
+    return providers
 
 func removeCache*(
   self: ProvidersManager,
@@ -87,6 +118,7 @@ func removeCache*(
   var
     providers = self.providers.get(cid).get()
 
+  trace "Removing provider from cache", cid
   providers.del(peerId)
   self.providers.put(cid, providers)
 
@@ -95,8 +127,7 @@ proc decode(
   bytes: seq[byte]): ?!SignedPeerRecord =
 
   let
-    envelope = ?Envelope.decode(bytes, PeerRecord.payloadDomain()).mapErr(mapFailure)
-    provider = ?SignedPeerRecord.decode(envelope.payload).mapErr(mapFailure)
+    provider = ?SignedPeerRecord.decode(bytes).mapErr(mapFailure)
 
   return success provider
 
@@ -111,8 +142,11 @@ proc getProvByKey*(self: ProvidersManager, key: Key): Future[?!SignedPeerRecord]
 proc add*(
   self: ProvidersManager,
   cid: NodeId,
-  provider: SignedPeerRecord): Future[?!void] {.async.} =
-  let peerId = provider.data.peerId
+  provider: SignedPeerRecord,
+  ttl = ZeroDuration): Future[?!void] {.async.} =
+
+  let
+    peerId = provider.data.peerId
 
   trace "Adding provider to persistent store", cid, peerId
   without provKey =? makeProviderKey(peerId), err:
@@ -124,12 +158,18 @@ proc add*(
     return failure err.msg
 
   let
-    expires = (self.ttl + (Moment.now() - ZeroMoment)).seconds.uint64
-    ttl = expires.toBytesBE
+    expires =
+      if ttl > ZeroDuration:
+        ttl
+      else:
+        Moment.fromNow(self.ttl) - ZeroMoment
+
+    ttl = expires.microseconds.uint64.toBytesBE
+
     bytes: seq[byte] =
       if existing =? (await self.getProvByKey(provKey)) and
         existing.data.seqNo >= provider.data.seqNo:
-        trace "Provider with same seqNo already exist", seqno = $provider.data.seqNo
+        trace "Provider with same seqNo already exist", seqNo = $provider.data.seqNo
         @[]
       else:
         without bytes =? provider.envelope.encode:
@@ -139,47 +179,74 @@ proc add*(
 
   if bytes.len > 0:
     trace "Adding or updating provider record", cid, peerId
-
     if (let res = (await self.store.put(provKey, bytes)); res.isErr):
       trace "Unable to store provider with key", key = provKey
 
-  let
-    res = (await self.store.put(cidKey, @ttl)) # add/update cid ttl
+  trace "Adding or updating cid", cid, key = cidKey, ttl = expires.minutes
+  if (let res = (await self.store.put(cidKey, @ttl)); res.isErr):
+    trace "Unable to store provider with key", key = cidKey
+    return
 
-  if res.isOk:
-    self.addCache(cid, provider)
+  self.addCache(cid, provider)
 
-  return res
+  trace "Provider for cid added", cidKey, provKey
+  return success()
 
 proc get*(
   self: ProvidersManager,
   id: NodeId,
   limit = MaxProvidersPerEntry.int): Future[?!seq[SignedPeerRecord]] {.async.} =
+  trace "Retrieving providers from persistent store", cid = id
 
-  if id in self.providers:
-    let recs = self.providers.get(id).get
-    return success toSeq(recs)[0..<min(recs.len, limit)]
+  let provs = self.getCache(id, limit)
+  if provs.len > 0:
+    return success provs
 
   without cidKey =? (CidKey / id.toHex), err:
     return failure err.msg
 
-  without iter =?
+  without cidIter =?
     (await self.store.query(Query.init(cidKey, limit = limit))), err:
     return failure err.msg
 
   defer:
-    discard (await iter.dispose())
+    discard (await cidIter.dispose())
 
-  var providers: seq[SignedPeerRecord]
-  for item in iter:
+  trace "Querying providers from persistent store", cid = id, key = cidKey
+  var
+    providers: seq[SignedPeerRecord]
+
+  let
+    now = Moment.now()
+
+  for item in cidIter:
+    # TODO: =? doesn't support tuples
     if pair =? (await item) and pair.key.isSome:
-      let (key, data) = pair
+      let
+        (key, data) = (pair.key.get, pair.data)
 
-      if provider =? self.decode(data):
-        trace "Retrieved provider with", key = key.get()
-        providers.add(provider)
-        self.addCache(id, provider)
+      without peerId =? key.id.peerIdFromCidKey() and
+        provKey =? makeProviderKey(peerId), err:
+        trace "Error creating key from provider record", err = err.msg
+        continue
 
+      let
+        expired = Moment.init(uint64.fromBytesBE(data).int64, Microsecond)
+
+      trace "Querying provider key", key = provKey
+      without data =? (await self.store.get(provKey)):
+        trace "Error getting provider", key = provKey
+        continue
+
+      without provider =? self.decode(data), err:
+        trace "Unable to decode provider from store", err = err.msg
+        continue
+
+      trace "Retrieved provider with key", key = provKey
+      providers.add(provider)
+      self.addCache(id, provider)
+
+  trace "Retrieved providers from persistent store", cid = id, len = providers.len
   return success providers
 
 proc contains*(
@@ -219,7 +286,6 @@ proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
   return false
 
 proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
-
   if cid in self.providers:
     self.providers.del(cid)
 
@@ -241,12 +307,15 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
     for item in iter:
       if pair =? (await item) and pair.key.isSome:
         let key = pair.key.get()
-        if (
-          let res = (await self.store.delete(key));
-          res.isErr):
+        if (let res = (await self.store.delete(key)); res.isErr):
           trace "Error deleting record from persistent store", err = res.error.msg
           continue
 
+        without peerId =? key.id.peerIdFromCidKey, err:
+          trace "Unable to parse peer id from key", key
+          continue
+
+        self.removeCache(cid, peerId)
         trace "Deleted record from store", key
 
   return success()
@@ -296,9 +365,7 @@ proc remove*(
   cid: NodeId,
   peerId: PeerId): Future[?!void] {.async.} =
 
-  if cid in self.providers:
-    var addCache = self.providers.get(cid).get
-    addCache.del(peerId)
+  self.removeCache(cid, peerId)
 
   without cidKey =? makeCidKey(cid, peerId), err:
     trace "Error creating key from content id", err = err.msg
