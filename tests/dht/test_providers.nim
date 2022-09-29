@@ -99,7 +99,7 @@ suite "Providers Tests: node alone":
     debug "---- STARTING CHECKS ---"
     check (addedTo.len == 1)
     check (addedTo[0].id == node0.localNode.id)
-    check (node0.getProvidersLocal(targetId)[0].data.peerId == peerRec0.peerId)
+    check ((await node0.getProvidersLocal(targetId))[0].data.peerId == peerRec0.peerId)
 
   test "Node in isolation should retrieve":
 
@@ -224,7 +224,7 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retieve after bootnode dies":
+  test "20 nodes, retrieve after bootnodes dies":
     debug "---- KILLING BOOTSTRAP NODE ---"
     let (node0, _) = nodes[0]
     let (node18, _) = nodes[^2]
