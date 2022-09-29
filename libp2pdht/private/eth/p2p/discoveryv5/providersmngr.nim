@@ -180,11 +180,11 @@ proc add*(
   if bytes.len > 0:
     trace "Adding or updating provider record", cid, peerId
     if err =? (await self.store.put(provKey, bytes)).errorOption:
-      trace "Unable to store provider with key", key = provKey, err = err.error.msg
+      trace "Unable to store provider with key", key = provKey, err = err.msg
 
   trace "Adding or updating cid", cid, key = cidKey, ttl = expires.minutes
   if err =? (await self.store.put(cidKey, @ttl)).errorOption:
-    trace "Unable to store provider with key", key = cidKey, err = err.error.msg
+    trace "Unable to store provider with key", key = cidKey, err = err.msg
     return
 
   self.addCache(cid, provider)
@@ -302,7 +302,7 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
       if pair =? (await item) and pair.key.isSome:
         let key = pair.key.get()
         if err =? (await self.store.delete(key)).errorOption:
-          trace "Error deleting record from persistent store", err = err.error.msg
+          trace "Error deleting record from persistent store", err = err.msg
           continue
 
         without peerId =? key.id.peerIdFromCidKey, err:
@@ -336,7 +336,7 @@ proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
           key = pair.key.get()
 
         if err =? (await self.store.delete(key)).errorOption:
-            trace "Error deleting record from persistent store", err = res.error.msg
+            trace "Error deleting record from persistent store", err = err.msg
             continue
 
         trace "Deleted record from store", key
