@@ -179,12 +179,12 @@ proc add*(
 
   if bytes.len > 0:
     trace "Adding or updating provider record", cid, peerId
-    if (let res = (await self.store.put(provKey, bytes)); res.isErr):
-      trace "Unable to store provider with key", key = provKey
+    if err =? (await self.store.put(provKey, bytes)).errorOption:
+      trace "Unable to store provider with key", key = provKey, err = err.error.msg
 
   trace "Adding or updating cid", cid, key = cidKey, ttl = expires.minutes
-  if (let res = (await self.store.put(cidKey, @ttl)); res.isErr):
-    trace "Unable to store provider with key", key = cidKey
+  if err =? (await self.store.put(cidKey, @ttl)).errorOption:
+    trace "Unable to store provider with key", key = cidKey, err = err.error.msg
     return
 
   self.addCache(cid, provider)
@@ -215,9 +215,6 @@ proc get*(
   trace "Querying providers from persistent store", cid = id, key = cidKey
   var
     providers: seq[SignedPeerRecord]
-
-  let
-    now = Moment.now()
 
   for item in cidIter:
     # TODO: =? doesn't support tuples
@@ -304,8 +301,8 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
     for item in iter:
       if pair =? (await item) and pair.key.isSome:
         let key = pair.key.get()
-        if (let res = (await self.store.delete(key)); res.isErr):
-          trace "Error deleting record from persistent store", err = res.error.msg
+        if err =? (await self.store.delete(key)).errorOption:
+          trace "Error deleting record from persistent store", err = err.error.msg
           continue
 
         without peerId =? key.id.peerIdFromCidKey, err:
@@ -338,9 +335,7 @@ proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
         let
           key = pair.key.get()
 
-        if (
-          let res = (await self.store.delete(key));
-          res.isErr):
+        if err =? (await self.store.delete(key)).errorOption:
             trace "Error deleting record from persistent store", err = res.error.msg
             continue
 
