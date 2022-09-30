@@ -293,7 +293,7 @@ suite "Discovery v5 Tests":
 
     let bootNode =
       initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20301))
-    bootNode.start()
+    await bootNode.start()
 
     var nodes = newSeqOfCap[discv5_protocol.Protocol](nodeCount)
     nodes.add(bootNode)
@@ -312,7 +312,7 @@ suite "Discovery v5 Tests":
           # check (await n.ping(t.localNode)).isOk()
 
     for i in 1 ..< nodeCount:
-      nodes[i].start()
+      await nodes[i].start()
 
     for i in 0..<nodeCount-1:
       let target = nodes[i]

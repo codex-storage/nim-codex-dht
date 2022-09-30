@@ -197,8 +197,7 @@ suite "Test Provider Maintenance":
     manager: ProvidersManager
 
   setupAll:
-    # ds = SQLiteDatastore.new(Memory).tryGet()
-    ds = SQLiteDatastore.new("/Users/dryajov/personal/projects/status/nim-dagger/dht").tryGet()
+    ds = SQLiteDatastore.new(Memory).tryGet()
     manager = ProvidersManager.new(ds, disableCache = true)
 
     for id in nodeIds:
