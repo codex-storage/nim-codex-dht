@@ -8,8 +8,9 @@ import pkg/libp2p
 
 import libp2pdht/dht
 import libp2pdht/private/eth/p2p/discoveryv5/spr
-import libp2pdht/private/eth/p2p/discoveryv5/providersmngr
+import libp2pdht/private/eth/p2p/discoveryv5/providers
 import libp2pdht/discv5/node
+import libp2pdht/private/eth/p2p/discoveryv5/lru
 import ./test_helper
 
 suite "Test Providers Manager simple":
@@ -154,13 +155,13 @@ suite "Test providers with cache":
     (await (manager.remove(nodeIds[99]))).tryGet
 
     check:
-      nodeIds[0] notin manager.providers
+      nodeIds[0] notin manager.cache.cache
       not (await manager.contains(nodeIds[0]))
 
-      nodeIds[49] notin manager.providers
+      nodeIds[49] notin manager.cache.cache
       not (await manager.contains(nodeIds[49]))
 
-      nodeIds[99] notin manager.providers
+      nodeIds[99] notin manager.cache.cache
       not (await manager.contains(nodeIds[99]))
 
   test "Should remove by PeerId":
@@ -170,16 +171,59 @@ suite "Test providers with cache":
 
     for id in nodeIds:
       check:
-        providers[0].data.peerId notin manager.providers.get(id).get
+        providers[0].data.peerId notin manager.cache.cache.get(id).get
         not (await manager.contains(id, providers[0].data.peerId))
 
-        providers[5].data.peerId notin manager.providers.get(id).get
+        providers[5].data.peerId notin manager.cache.cache.get(id).get
         not (await manager.contains(id, providers[5].data.peerId))
 
-        providers[9].data.peerId notin manager.providers.get(id).get
+        providers[9].data.peerId notin manager.cache.cache.get(id).get
         not (await manager.contains(id, providers[9].data.peerId))
 
     check:
       not (await manager.contains(providers[0].data.peerId))
       not (await manager.contains(providers[5].data.peerId))
       not (await manager.contains(providers[9].data.peerId))
+
+suite "Test Provider Maintenance":
+  let
+    rng = newRng()
+    privKeys = (0..<10).mapIt( PrivateKey.example(rng) )
+    providers = privKeys.mapIt( it.toSignedPeerRecord() )
+    nodeIds = (0..<100).mapIt( NodeId.example(rng) )
+
+  var
+    ds: SQLiteDatastore
+    manager: ProvidersManager
+
+  setupAll:
+    ds = SQLiteDatastore.new(Memory).tryGet()
+    manager = ProvidersManager.new(ds, disableCache = true)
+
+    for id in nodeIds:
+      for p in providers:
+        (await manager.add(id, p, ttl = 1.millis)).tryGet
+
+  teardownAll:
+    (await ds.close()).tryGet()
+    ds = nil
+    manager = nil
+
+  test "Should cleanup expired":
+    for id in nodeIds:
+      check: (await manager.get(id)).tryGet.len == 10
+
+    await sleepAsync(500.millis)
+    await manager.store.cleanupExpired()
+
+    for id in nodeIds:
+      check: (await manager.get(id)).tryGet.len == 0
+
+  test "Should cleanup orphaned":
+    for id in nodeIds:
+      check: (await manager.get(id)).tryGet.len == 0
+
+    await manager.store.cleanupOrphaned()
+
+    for p in providers:
+      check: not (await manager.contains(p.data.peerId))

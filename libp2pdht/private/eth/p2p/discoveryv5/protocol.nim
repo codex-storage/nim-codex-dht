@@ -75,17 +75,30 @@
 
 import
   std/[tables, sets, options, math, sequtils, algorithm, strutils],
-  stew/shims/net as stewNet, json_serialization/std/net,
-  stew/[base64, endians2, results], chronicles, chronicles/chronos_tools, chronos, chronos/timer, stint, bearssl,
-  metrics,
-  libp2p/[crypto/crypto, routing_record],
-  transport, messages, messages_encoding, node,
-  routing_table, spr, random2, ip_vote, nodes_verification,
-  providersmngr
+  stew/shims/net as stewNet,
+  json_serialization/std/net,
+  stew/[base64, endians2, results],
+  pkg/[chronicles, chronicles/chronos_tools],
+  pkg/chronos,
+  pkg/stint,
+  pkg/bearssl,
+  pkg/metrics
+
+import "."/[
+  messages,
+  messages_encoding,
+  node,
+  routing_table,
+  spr,
+  random2,
+  ip_vote,
+  nodes_verification,
+  providers,
+  transport]
 
 import nimcrypto except toHex
 
-export options, results, node, spr, providersmngr
+export options, results, node, spr, providers
 
 declareCounter discovery_message_requests_outgoing,
   "Discovery protocol outgoing message requests", labels = ["response"]
@@ -710,7 +723,7 @@ proc sendGetProviders(d: Protocol, toNode: Node,
     resp = await d.waitMessage(toNode, reqId)
 
   if resp.isSome():
-    if resp.get().kind == providers:
+    if resp.get().kind == MessageKind.providers:
       d.routingTable.setJustSeen(toNode)
       return ok(resp.get().provs)
     else:
@@ -740,7 +753,7 @@ proc getProviders*(
     d: Protocol,
     cId: NodeId,
     maxitems: int = 5,
-    timeout: timer.Duration = chronos.milliseconds(5000)
+    timeout: Duration = 5000.milliseconds
   ): Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
 
   # What providers do we know about?
@@ -1121,23 +1134,12 @@ proc open*(d: Protocol) {.raises: [Defect, CatchableError].} =
 
   d.seedTable()
 
-proc start*(d: Protocol) =
+proc start*(d: Protocol) {.async.} =
   d.refreshLoop = refreshLoop(d)
   d.revalidateLoop = revalidateLoop(d)
   d.ipMajorityLoop = ipMajorityLoop(d)
 
-proc close*(d: Protocol) =
-  doAssert(not d.transport.closed)
-
-  debug "Closing discovery node", node = d.localNode
-  if not d.revalidateLoop.isNil:
-    d.revalidateLoop.cancel()
-  if not d.refreshLoop.isNil:
-    d.refreshLoop.cancel()
-  if not d.ipMajorityLoop.isNil:
-    d.ipMajorityLoop.cancel()
-
-  d.transport.close()
+  await d.providers.start()
 
 proc closeWait*(d: Protocol) {.async.} =
   doAssert(not d.transport.closed)

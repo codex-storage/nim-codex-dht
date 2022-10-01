@@ -35,7 +35,7 @@ proc bootstrapNodes(
   for i in 0..<nodecount:
     let privKey = PrivateKey.example(rng)
     let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
-    node.start()
+    await node.start()
     result.add((node, privKey))
     if delay > 0:
       await sleepAsync(chronos.milliseconds(delay))
