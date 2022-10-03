@@ -213,32 +213,38 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
   block:
     without iter =? (await self.store.query(q)), err:
       trace "Unable to obtain record for key", key = cidKey
-      return failure(err.msg)
+      return failure err
 
     defer:
       if not isNil(iter):
         trace "Cleaning up query iterator"
         discard (await iter.dispose())
 
+    var
+      keys: seq[Key]
+
     for item in iter:
       if pair =? (await item) and pair.key.isSome:
-        let key = pair.key.get()
-        if err =? (await self.store.delete(key)).errorOption:
-          trace "Error deleting record from persistent store", err = err.msg
-          continue
+        let
+          key = pair.key.get()
 
+        keys.add(key)
         without pairs =? key.fromCidKey, err:
           trace "Unable to parse peer id from key", key
-          continue
+          return failure err
 
         self.cache.remove(cid, pairs.peerId)
         trace "Deleted record from store", key
+
+    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+      trace "Error deleting record from persistent store", err = err.msg
+      return failure err
 
   return success()
 
 proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
   without cidKey =? (CidKey / "*" / $peerId), err:
-    return failure(err.msg)
+    return failure err
 
   let
     q = Query.init(cidKey)
@@ -246,31 +252,36 @@ proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
   block:
     without iter =? (await self.store.query(q)), err:
       trace "Unable to obtain record for key", key = cidKey
-      return failure(err.msg)
+      return failure err
 
     defer:
       if not isNil(iter):
         trace "Cleaning up query iterator"
         discard (await iter.dispose())
 
+    var
+      keys: seq[Key]
+
     for item in iter:
       if pair =? (await item) and pair.key.isSome:
         let
           key = pair.key.get()
 
-        if err =? (await self.store.delete(key)).errorOption:
-            trace "Error deleting record from persistent store", err = err.msg
-            continue
-
-        trace "Deleted record from store", key
+        keys.add(key)
 
         let
           parts = key.id.split(datastore.Separator)
 
         self.cache.remove(NodeId.fromHex(parts[2]), peerId)
 
+    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+      trace "Error deleting record from persistent store", err = err.msg
+      return failure err
+
+    trace "Deleted records from store"
+
   without provKey =? makeProviderKey(peerId), err:
-    return failure(err.msg)
+    return failure err
 
   trace "Removing provider record", key = provKey
   return (await self.store.delete(provKey))

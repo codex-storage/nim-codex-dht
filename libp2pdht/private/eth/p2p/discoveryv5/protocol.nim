@@ -700,7 +700,7 @@ proc addProvider*(
 
   var res = await d.lookup(cId)
   trace "lookup returned:", res
-  # TODO: lookup is sepcified as not returning local, even if that is the closest. Is this OK?
+  # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
       res.add(d.localNode)
   for toNode in res:
@@ -710,7 +710,6 @@ proc addProvider*(
       asyncSpawn d.addProviderLocal(cId, pr)
 
   return res
-
 
 proc sendGetProviders(d: Protocol, toNode: Node,
                        cId: NodeId): Future[DiscResult[ProvidersMessage]]
@@ -749,6 +748,16 @@ proc getProvidersLocal*(
 
   return provs.get
 
+proc removeProvidersLocal*(
+    d: Protocol,
+    peerId: PeerId) {.async.} =
+
+  trace "Removing local provider", peerId
+  if(
+    let res = await d.providers.remove(peerId);
+    res.isErr):
+    trace "Error removing provider", err = res.error.msg
+
 proc getProviders*(
     d: Protocol,
     cId: NodeId,
@@ -785,7 +794,8 @@ proc getProviders*(
       error "Sending of GetProviders message failed", error = providersMsgRes.error
       # TODO: should we consider this as an error result if all GetProviders
       # requests fail??
-  trace "getProviders collected: ", res=res.mapIt(it.data)
+
+  trace "getProviders collected: ", res = res.mapIt(it.data)
 
   return ok res
 
@@ -1026,7 +1036,9 @@ proc newProtocol*(
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
     rng = newRng(),
-    providers: ProvidersManager = nil):
+    providers = ProvidersManager.new(
+      SQLiteDatastore.new(Memory)
+      .expect("Should not fail!"))):
     Protocol =
   # TODO: Tried adding bindPort = udpPort as parameter but that gave
   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
@@ -1070,13 +1082,6 @@ proc newProtocol*(
       config.tableIpLimits,
       rng)
 
-    providers =
-      if providers.isNil:
-        # TODO: There should be a passthrough datastore
-        ProvidersManager.new(SQLiteDatastore.new(Memory).expect("Should not fail!"))
-      else:
-        providers
-
   result = Protocol(
     privateKey: privKey,
     localNode: node,
@@ -1097,21 +1102,15 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     config = defaultDiscoveryConfig,
     rng = newRng(),
-    providers: ProvidersManager = nil):
+    providers = ProvidersManager.new(
+      SQLiteDatastore.new(Memory)
+      .expect("Should not fail!"))):
     Protocol =
   info "Discovery SPR initialized", seqNum = record.seqNum, uri = toURI(record)
   let node = newNode(record).expect("Properly initialized record")
 
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
-
-  let
-    providers =
-      if providers.isNil:
-        # TODO: There should be a passthrough datastore
-        ProvidersManager.new(SQLiteDatastore.new(Memory).expect("Should not fail!"))
-      else:
-        providers
 
   result = Protocol(
     privateKey: privKey,
