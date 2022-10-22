@@ -54,11 +54,11 @@
 ## The result is that in an implementation which just stores buckets per
 ## logarithmic distance, it simply needs to return the right bucket. In our
 ## split-bucket implementation, this cannot be done as such and thus the closest
-## neighbours search is still done. And to do this, a reverse calculation of an
+## neighbors search is still done. And to do this, a reverse calculation of an
 ## id at given logarithmic distance is needed (which is why there is the
 ## `idAtDistance` proc). Next, nodes with invalid distances need to be filtered
 ## out to be compliant to the specification. This can most likely get further
-## optimised, but it sounds likely better to switch away from the split-bucket
+## optimized, but it sounds likely better to switch away from the split-bucket
 ## approach. I believe that the main benefit it has is improved lookups
 ## (due to no unbalanced branches), and it looks like this will be negated by
 ## limiting the returned nodes to only the ones of the requested logarithmic
@@ -81,7 +81,7 @@ import
   pkg/[chronicles, chronicles/chronos_tools],
   pkg/chronos,
   pkg/stint,
-  pkg/bearssl,
+  pkg/bearssl/rand,
   pkg/metrics
 
 import "."/[
