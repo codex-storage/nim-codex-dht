@@ -46,6 +46,21 @@ proc toNodeId*(pk: PublicKey): Result[NodeId, cstring] =
   let pid = ? PeerId.init(pk)
   ok pid.toNodeId
 
+func newNode*(
+  ip: IpAddress,
+  port: Port,
+  pk: PublicKey,
+  record: SignedPeerRecord): Result[Node, cstring] =
+
+  let
+    node = Node(
+      id: ? pk.toNodeId(),
+      pubkey: pk,
+      record: record,
+      address: Address(ip: ValidIpAddress.init(ip), port: port).some)
+
+  ok node
+
 func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
   ## Create a new `Node` from a `SignedPeerRecord`.
   # TODO: Handle IPv6
@@ -59,17 +74,22 @@ func newNode*(r: SignedPeerRecord): Result[Node, cstring] =
   # Also this can not fail for a properly created record as id is checked upon
   # deserialization.
   let
-    tr = ? r.toTypedRecord()
     nodeId = ? pk.get().toNodeId()
 
-  if tr.ip.isSome() and tr.udp.isSome():
-    let a = Address(ip: ipv4(tr.ip.get()), port: Port(tr.udp.get()))
+  if r.ip.isSome() and r.udp.isSome():
+    let a = Address(ip: ipv4(r.ip.get()), port: Port(r.udp.get()))
 
-    ok(Node(id: nodeId, pubkey: pk.get() , record: r,
-       address: some(a)))
+    ok(Node(
+      id: nodeId,
+      pubkey: pk.get(),
+      record: r,
+      address: some(a)))
   else:
-    ok(Node(id: nodeId, pubkey: pk.get(), record: r,
-       address: none(Address)))
+    ok(Node(
+      id: nodeId,
+      pubkey: pk.get(),
+      record: r,
+      address: none(Address)))
 
 proc update*(n: Node, pk: PrivateKey, ip: Option[ValidIpAddress],
     tcpPort, udpPort: Option[Port] = none[Port]()): Result[void, cstring] =
