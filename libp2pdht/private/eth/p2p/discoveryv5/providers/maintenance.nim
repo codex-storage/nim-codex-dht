@@ -32,7 +32,7 @@ proc cleanupExpired*(
     now = Moment.now()
 
   let
-    q = Query.init(CidKey)
+    q = Query.init(CidKey, limit = batchSize)
 
   block:
     without iter =? (await store.query(q)), err:
@@ -74,7 +74,7 @@ proc cleanupOrphaned*(
   trace "Cleaning up orphaned records"
 
   let
-    providersQuery = Query.init(ProvidersKey)
+    providersQuery = Query.init(ProvidersKey, limit = batchSize)
 
   block:
     without iter =? (await store.query(providersQuery)), err:
