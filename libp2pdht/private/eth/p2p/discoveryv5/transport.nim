@@ -197,13 +197,12 @@ proc closeWait*(t: Transport) {.async.} =
   await t.transp.closeWait
 
 proc newTransport*[T](
-    client: T,
-    privKey: PrivateKey,
-    localNode: Node,
-    bindPort: Port,
-    bindIp = IPv4_any(),
-    rng = newRng()):
-    Transport[T]=
+  client: T,
+  privKey: PrivateKey,
+  localNode: Node,
+  bindPort: Port,
+  bindIp = IPv4_any(),
+  rng = newRng()): Transport[T]=
 
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
@@ -211,6 +210,8 @@ proc newTransport*[T](
   Transport[T](
     client: client,
     bindAddress: Address(ip: ValidIpAddress.init(bindIp), port: bindPort),
-    codec: Codec(localNode: localNode, privKey: privKey,
+    codec: Codec(
+      localNode: localNode,
+      privKey: privKey,
       sessions: Sessions.init(256)),
     rng: rng)

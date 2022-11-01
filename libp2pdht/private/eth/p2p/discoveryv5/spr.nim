@@ -184,16 +184,16 @@ proc ip*(r: SignedPeerRecord): Option[array[4, byte]] =
 #     err("MultiAddress must be wire address (tcp, udp or unix)")
 
 proc udp*(r: SignedPeerRecord): Option[int] =
-    for address in r.data.addresses:
-      let ma = address.address
+  for address in r.data.addresses:
+    let ma = address.address
 
-      let code = ma[1].get.protoCode()
-      if code.isOk and code.get == multiCodec("udp"):
-        var pbuf: array[2, byte]
-        let res = ma[1].get.protoArgument(pbuf)
-        if res.isOk:
-          let p = fromBytesBE(uint16, pbuf)
-          return some(p.int)
+    let code = ma[1].get.protoCode()
+    if code.isOk and code.get == multiCodec("udp"):
+      var pbuf: array[2, byte]
+      let res = ma[1].get.protoArgument(pbuf)
+      if res.isOk:
+        let p = fromBytesBE(uint16, pbuf)
+        return some(p.int)
 
 proc fromBase64*(r: var SignedPeerRecord, s: string): bool =
   ## Loads SPR from base64-encoded protobuf-encoded bytes, and validates the

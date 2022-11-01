@@ -36,7 +36,8 @@ proc initDiscoveryNode*(
   let protocol = newProtocol(
     privKey,
     some(address.ip),
-    some(address.port), some(address.port),
+    some(address.port),
+    some(address.port),
     bindPort = address.port,
     bootstrapRecords = bootstrapRecords,
     localEnrFields = localEnrFields,
@@ -54,6 +55,7 @@ proc nodeIdInNodes*(id: NodeId, nodes: openArray[Node]): bool =
 
 proc generateNode*(privKey: PrivateKey, port: int = 20302,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
+
   let
     port = Port(port)
     spr = SignedPeerRecord.init(1, privKey, some(ip), some(port), some(port))
