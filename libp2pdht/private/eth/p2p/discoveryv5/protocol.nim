@@ -170,7 +170,6 @@ type
     ipVote: IpVote
     enrAutoUpdate: bool
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
-    # overkill here, use sequence
     rng*: ref BrHmacDrbgContext
     providers: ProvidersManager
 
@@ -1102,12 +1101,19 @@ proc newProtocol*(
     bindIp = IPv4_any(),
     config = defaultDiscoveryConfig,
     rng = newRng(),
-    providers = ProvidersManager.new(
-      SQLiteDatastore.new(Memory)
-      .expect("Should not fail!"))):
-    Protocol =
+    providers = ProvidersManager.new(SQLiteDatastore.new(Memory)
+      .expect("Should not fail!"))): Protocol =
+  ## Initialize DHT protocol
+  ##
+
   info "Discovery SPR initialized", seqNum = record.seqNum, uri = toURI(record)
-  let node = newNode(record).expect("Properly initialized record")
+
+  let
+    node = newNode(
+      bindIp,
+      bindPort,
+      privKey.getPublicKey.expect("Should get public key"),
+      record).expect("Properly initialized record")
 
   # TODO Consider whether this should be a Defect
   doAssert rng != nil, "RNG initialization failed"
@@ -1124,7 +1130,6 @@ proc newProtocol*(
     providers: providers)
 
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
-
 
 proc open*(d: Protocol) {.raises: [Defect, CatchableError].} =
   info "Starting discovery node", node = d.localNode
