@@ -3,7 +3,7 @@
 import
   std/[options, sequtils, tables],
   asynctest/unittest2,
-  bearssl,
+  bearssl/rand,
   chronos,
   libp2p/crypto/secp,
   libp2pdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions],
@@ -480,7 +480,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encrypt / Decrypt header":
     var nonce: AESGCMNonce
-    brHmacDrbgGenerate(rng[], nonce)
+    hmacDrbgGenerate(rng[], nonce)
     let
       nodeId = NodeId.example(rng)
       authdata = newSeq[byte](32)
@@ -489,7 +489,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       header = staticHeader & authdata
 
     var iv: array[128 div 8, byte]
-    brHmacDrbgGenerate(rng[], iv)
+    hmacDrbgGenerate(rng[], iv)
 
     let
       encrypted = encryptHeader(nodeId, iv, header)
@@ -538,7 +538,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Whoareyou Packet":
     var requestNonce: AESGCMNonce
-    brHmacDrbgGenerate(rng[], requestNonce)
+    hmacDrbgGenerate(rng[], requestNonce)
     let recordSeq = 0'u64
 
     let data = encodeWhoareyouPacket(rng[], codecA, nodeB.id,
@@ -559,7 +559,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Handshake Message Packet":
     var requestNonce: AESGCMNonce
-    brHmacDrbgGenerate(rng[], requestNonce)
+    hmacDrbgGenerate(rng[], requestNonce)
     let
       recordSeq = 1'u64
       m = PingMessage(sprSeq: 0)
@@ -595,7 +595,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Handshake Message Packet with SPR":
     var requestNonce: AESGCMNonce
-    brHmacDrbgGenerate(rng[], requestNonce)
+    hmacDrbgGenerate(rng[], requestNonce)
     let
       recordSeq = 0'u64
       m = PingMessage(sprSeq: 0)
