@@ -170,13 +170,13 @@ proc contains*(
   without key =? makeCidKey(id, peerId), err:
     return false
 
-  return (await self.store.contains(key)) |? false
+  return (await self.store.has(key)) |? false
 
 proc contains*(self: ProvidersManager, peerId: PeerId): Future[bool] {.async.} =
   without provKey =? makeProviderKey(peerId), err:
     return false
 
-  return (await self.store.contains(provKey)) |? false
+  return (await self.store.has(provKey)) |? false
 
 proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
   without cidKey =? (CidKey / $cid), err:
