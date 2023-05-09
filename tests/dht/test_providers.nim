@@ -179,7 +179,7 @@ suite "Providers Tests: two nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-suite "Providers Tests: 20 nodes":
+suite "Providers Tests: many nodes":
 
   var
     rng: ref HmacDrbgContext
@@ -192,7 +192,7 @@ suite "Providers Tests: 20 nodes":
 
   setupAll:
     rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=20)
+    nodes = await bootstrapNetwork(nodecount=1000)
     targetId = NodeId.example(rng)
     (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
