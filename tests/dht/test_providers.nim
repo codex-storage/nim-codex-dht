@@ -198,7 +198,7 @@ suite "Providers Tests: many nodes":
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
-    await sleepAsync(chronos.seconds(15))
+    await sleepAsync(chronos.seconds(90))
 
   teardownAll:
     for (n, _) in nodes: # if last test is enabled, we need nodes[1..^1] here
