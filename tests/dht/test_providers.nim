@@ -33,12 +33,16 @@ proc bootstrapNodes(
 
   debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
-    let privKey = PrivateKey.example(rng)
-    let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
-    await node.start()
-    result.add((node, privKey))
-    if delay > 0:
-      await sleepAsync(chronos.milliseconds(delay))
+    try:
+      let privKey = PrivateKey.example(rng)
+      let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
+      await node.start()
+      result.add((node, privKey))
+      if delay > 0:
+        await sleepAsync(chronos.milliseconds(delay))
+    except TransportOsError as e:
+      echo "skipping node ",i ,":", e.msg
+
 
 
   #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
