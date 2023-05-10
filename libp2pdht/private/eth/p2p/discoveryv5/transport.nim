@@ -29,7 +29,7 @@ when(true): #enable network emulator
     DatagramTransport = ref object
       udata*: pointer                 # User-driven pointer
       local: TransportAddress         # Local address
-      function: DatagramCallback      # Receive data callback
+      callback: DatagramCallback      # Receive data callback
       ingress: Deque[seq[byte]]
 
   var network = initTable[Port, DatagramTransport]()
@@ -74,7 +74,7 @@ when(true): #enable network emulator
     GC_ref(udata)
     result.udata = cast[pointer](udata)
     result.local = local
-    result.function = cbproc
+    result.callback = cbproc
     {.gcsafe.}:
       network[local.port] = result
 
