@@ -37,14 +37,19 @@ when(true): #enable network emulator
   proc `$`*(transp: DatagramTransport): string =
     $transp.local
 
+  proc recvFrom[T](transp: DatagramTransport, remote: TransportAddress,
+              msg: sink seq[T], msglen = -1) =
+    #echo "recv from ", remote
+    {.gcsafe.}:
+      transp.ingress.addLast(msg)
+      # call the callback on remote
+      asyncCheck transp.callback(transp, remote)
+
   proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) {.async.} =
     #echo "sending to ", remote
     {.gcsafe.}:
-      network[remote.port].ingress.addLast(msg)
-      # call the callback on remote
-      asyncCheck network[remote.port].function(network[remote.port], transp.local)
-
+      network[remote.port].recvFrom(transp.local, msg)
 
   proc getMessage*(t: DatagramTransport,): seq[byte] {.
       raises: [Defect, CatchableError].} =
