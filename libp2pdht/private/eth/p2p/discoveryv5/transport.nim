@@ -29,7 +29,7 @@ type
     udata*: pointer                 # User-driven pointer
     local: TransportAddress         # Local address
 
-var network = initTable[TransportAddress, DatagramTransport]()
+var network = initTable[Port, DatagramTransport]()
 
 proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
              msg: sink seq[T], msglen = -1) {.async.} =
@@ -63,7 +63,7 @@ proc newDatagramTransport*[T](cbproc: DatagramCallback,
   result.udata = cast[pointer](udata)
   result.local = local
   {.gcsafe.}:
-    network[local] = result
+    network[local.port] = result
 
 
 type
