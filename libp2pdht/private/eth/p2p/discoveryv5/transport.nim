@@ -21,6 +21,46 @@ const
   ## call
 
 type
+  DatagramCallback* = proc(transp: DatagramTransport,
+                           remote: TransportAddress): Future[void] {.
+                      gcsafe, raises: [Defect].}
+
+  DatagramTransport = ref object
+      udata*: pointer                 # User-driven pointer
+
+proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
+             msg: sink seq[T], msglen = -1) {.async.} =
+  echo "sending to ", remote
+
+proc getMessage*(t: DatagramTransport,): seq[byte] {.
+    raises: [Defect, CatchableError].} =
+  echo "getMessage "
+
+proc close*(transp: DatagramTransport) =
+  echo "close"
+
+proc closed*(transp: DatagramTransport): bool {.inline.} =
+  result = false
+
+proc closeWait*(transp: DatagramTransport) {.async.} =
+  echo "closeWait "
+
+proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
+  ## Obtain user data stored in ``transp`` object.
+  result = cast[T](transp.udata)
+
+proc newFakeDatagramTransport*[T](cbproc: DatagramCallback,
+                           udata: ref T,
+                           local: TransportAddress = AnyAddress,
+                           ): DatagramTransport {.
+    raises: [Defect, CatchableError].} =
+  echo "new"
+  result = DatagramTransport()
+  GC_ref(udata)
+  result.udata = cast[pointer](udata)
+
+
+type
   Transport* [Client] = ref object
     client: Client
     bindAddress: Address ## UDP binding address
@@ -186,7 +226,7 @@ proc open*[T](t: Transport[T]) {.raises: [Defect, CatchableError].} =
 
   # TODO allow binding to specific IP / IPv6 / etc
   let ta = initTAddress(t.bindAddress.ip, t.bindAddress.port)
-  t.transp = newDatagramTransport(processClient[T], udata = t, local = ta)
+  t.transp = newFakeDatagramTransport(processClient[T], udata = t, local = ta)
 
 proc close*(t: Transport) =
   t.transp.close
