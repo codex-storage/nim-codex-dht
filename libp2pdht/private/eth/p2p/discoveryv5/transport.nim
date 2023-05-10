@@ -20,62 +20,63 @@ const
   responseTimeout* = 4.seconds ## timeout for the response of a request-response
   ## call
 
-type
-  DatagramCallback* = proc(transp: DatagramTransport,
-                           remote: TransportAddress): Future[void] {.
-                      gcsafe, raises: [Defect].}
+when(true): #enable network emulator
+  type
+    DatagramCallback* = proc(transp: DatagramTransport,
+                            remote: TransportAddress): Future[void] {.
+                        gcsafe, raises: [Defect].}
 
-  DatagramTransport = ref object
-    udata*: pointer                 # User-driven pointer
-    local: TransportAddress         # Local address
-    function: DatagramCallback      # Receive data callback
-    ingress: Deque[seq[byte]]
+    DatagramTransport = ref object
+      udata*: pointer                 # User-driven pointer
+      local: TransportAddress         # Local address
+      function: DatagramCallback      # Receive data callback
+      ingress: Deque[seq[byte]]
 
-var network = initTable[Port, DatagramTransport]()
+  var network = initTable[Port, DatagramTransport]()
 
-proc `$`*(transp: DatagramTransport): string =
-  $transp.local
+  proc `$`*(transp: DatagramTransport): string =
+    $transp.local
 
-proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
-             msg: sink seq[T], msglen = -1) {.async.} =
-  echo "sending to ", remote
-  {.gcsafe.}:
-    network[remote.port].ingress.addLast(msg)
-    # call the callback on remote
-    asyncCheck network[remote.port].function(network[remote.port], transp.local)
+  proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
+              msg: sink seq[T], msglen = -1) {.async.} =
+    #echo "sending to ", remote
+    {.gcsafe.}:
+      network[remote.port].ingress.addLast(msg)
+      # call the callback on remote
+      asyncCheck network[remote.port].function(network[remote.port], transp.local)
 
 
-proc getMessage*(t: DatagramTransport,): seq[byte] {.
-    raises: [Defect, CatchableError].} =
-  echo "getMessage "
-  t.ingress.popFirst()
+  proc getMessage*(t: DatagramTransport,): seq[byte] {.
+      raises: [Defect, CatchableError].} =
+    #echo "getMessage "
+    t.ingress.popFirst()
 
-proc close*(transp: DatagramTransport) =
-  echo "close"
+  proc close*(transp: DatagramTransport) =
+    echo "close"
 
-proc closed*(transp: DatagramTransport): bool {.inline.} =
-  result = false
+  proc closed*(transp: DatagramTransport): bool {.inline.} =
+    result = false
 
-proc closeWait*(transp: DatagramTransport) {.async.} =
-  echo "closeWait "
+  proc closeWait*(transp: DatagramTransport) {.async.} =
+    echo "closeWait "
 
-proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
-  ## Obtain user data stored in ``transp`` object.
-  result = cast[T](transp.udata)
+  proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
+    ## Obtain user data stored in ``transp`` object.
+    result = cast[T](transp.udata)
 
-proc newDatagramTransport*[T](cbproc: DatagramCallback,
-                           udata: ref T,
-                           local: TransportAddress = AnyAddress,
-                           ): DatagramTransport {.
-    raises: [Defect, CatchableError].} =
-  echo "new"
-  result = DatagramTransport()
-  GC_ref(udata)
-  result.udata = cast[pointer](udata)
-  result.local = local
-  result.function = cbproc
-  {.gcsafe.}:
-    network[local.port] = result
+  proc newDatagramTransport*[T](cbproc: DatagramCallback,
+                            udata: ref T,
+                            local: TransportAddress = AnyAddress,
+                            ): DatagramTransport {.
+      raises: [Defect, CatchableError].} =
+    echo "new"
+    result = DatagramTransport()
+    GC_ref(udata)
+    result.udata = cast[pointer](udata)
+    result.local = local
+    result.function = cbproc
+    {.gcsafe.}:
+      network[local.port] = result
 
 
 type
