@@ -52,7 +52,7 @@ proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
   ## Obtain user data stored in ``transp`` object.
   result = cast[T](transp.udata)
 
-proc newFakeDatagramTransport*[T](cbproc: DatagramCallback,
+proc newDatagramTransport*[T](cbproc: DatagramCallback,
                            udata: ref T,
                            local: TransportAddress = AnyAddress,
                            ): DatagramTransport {.
@@ -232,7 +232,7 @@ proc open*[T](t: Transport[T]) {.raises: [Defect, CatchableError].} =
 
   # TODO allow binding to specific IP / IPv6 / etc
   let ta = initTAddress(t.bindAddress.ip, t.bindAddress.port)
-  t.transp = newFakeDatagramTransport(processClient[T], udata = t, local = ta)
+  t.transp = newDatagramTransport(processClient[T], udata = t, local = ta)
 
 proc close*(t: Transport) =
   t.transp.close
