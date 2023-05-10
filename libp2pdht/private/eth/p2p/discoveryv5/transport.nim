@@ -31,18 +31,9 @@ type
     function: DatagramCallback      # Receive data callback
     ingress: Deque[seq[byte]]
 
-var network = initTable[Port, DatagramTransport]()
-
 proc `$`*(transp: DatagramTransport): string =
   $transp.local
 
-proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
-             msg: sink seq[T], msglen = -1) {.async.} =
-  echo "sending to ", remote
-  {.gcsafe.}:
-    network[remote.port].ingress.addLast(msg)
-    # call the callback on remote
-    asyncCheck network[remote.port].function(network[remote.port], transp.local)
 
 
 proc getMessage*(t: DatagramTransport,): seq[byte] {.
@@ -74,8 +65,6 @@ proc newDatagramTransport*[T](cbproc: DatagramCallback,
   result.udata = cast[pointer](udata)
   result.local = local
   result.function = cbproc
-  {.gcsafe.}:
-    network[local.port] = result
 
 
 type
@@ -86,15 +75,23 @@ type
     pendingRequests: Table[AESGCMNonce, PendingRequest]
     codec*: Codec
     rng: ref HmacDrbgContext
+    network: Table[Port, DatagramTransport]
 
   PendingRequest = object
     node: Node
     message: seq[byte]
 
+proc sendTo*[T](t: Transport, remote: TransportAddress,
+             msg: sink seq[T], msglen = -1) {.async.} =
+  echo "sending to ", remote
+  t.network[remote.port].ingress.addLast(msg)
+  # call the callback on remote
+  asyncCheck t.network[remote.port].function(t.network[remote.port], t.transp.local)
+
 proc sendToA(t: Transport, a: Address, data: seq[byte]) =
   trace "Send packet", myport = t.bindAddress.port, address = a
   let ta = initTAddress(a.ip, a.port)
-  let f = t.transp.sendTo(ta, data)
+  let f = t.sendTo(ta, data)
   f.callback = proc(data: pointer) {.gcsafe.} =
     if f.failed:
       # Could be `TransportUseClosedError` in case the transport is already
@@ -245,6 +242,7 @@ proc open*[T](t: Transport[T]) {.raises: [Defect, CatchableError].} =
   # TODO allow binding to specific IP / IPv6 / etc
   let ta = initTAddress(t.bindAddress.ip, t.bindAddress.port)
   t.transp = newDatagramTransport(processClient[T], udata = t, local = ta)
+  t.network[t.bindAddress.port] = t.transp
 
 proc close*(t: Transport) =
   t.transp.close
@@ -273,4 +271,5 @@ proc newTransport*[T](
       localNode: localNode,
       privKey: privKey,
       sessions: Sessions.init(256)),
-    rng: rng)
+    rng: rng,
+    network: initTable[Port, DatagramTransport]())
