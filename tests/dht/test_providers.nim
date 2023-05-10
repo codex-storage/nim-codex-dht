@@ -192,7 +192,7 @@ suite "Providers Tests: many nodes":
 
   setupAll:
     rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=1000)
+    nodes = await bootstrapNetwork(nodecount=1000, delay=10)
     targetId = NodeId.example(rng)
     (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
