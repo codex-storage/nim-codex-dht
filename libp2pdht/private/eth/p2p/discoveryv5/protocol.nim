@@ -1163,7 +1163,7 @@ proc newProtocol*(
     bootstrapRecords: openArray[SignedPeerRecord] = [],
     previousRecord = none[SignedPeerRecord](),
     bindPort: Port,
-    bindIp = IPv4_any(),
+    bindIp = IPv4_loopback(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
     rng = newRng(),
@@ -1230,7 +1230,7 @@ proc newProtocol*(
     bindPort: Port,
     record: SignedPeerRecord,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
-    bindIp = IPv4_any(),
+    bindIp = IPv4_loopback(),
     config = defaultDiscoveryConfig,
     rng = newRng(),
     providers = ProvidersManager.new(SQLiteDatastore.new(Memory)
