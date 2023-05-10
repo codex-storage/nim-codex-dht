@@ -181,6 +181,11 @@ suite "Providers Tests: two nodes":
 
 suite "Providers Tests: many nodes":
 
+  let
+    nodecount = 1000
+    delay_pernode = 10 # in millisec
+    delay_init = 15*1000 # in millisec
+
   var
     rng: ref HmacDrbgContext
     nodes: seq[(discv5_protocol.Protocol, PrivateKey)]
@@ -192,19 +197,19 @@ suite "Providers Tests: many nodes":
 
   setupAll:
     rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=1000, delay=10)
+    nodes = await bootstrapNetwork(nodecount=nodecount, delay=delay_pernode)
     targetId = NodeId.example(rng)
     (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
-    await sleepAsync(chronos.seconds(90))
+    await sleepAsync(chronos.milliseconds(delay_init))
 
   teardownAll:
     for (n, _) in nodes: # if last test is enabled, we need nodes[1..^1] here
       await n.closeWait()
 
-  test "20 nodes, store and retrieve from same":
+  test $nodecount & " nodes, store and retrieve from same":
 
     debug "---- ADDING PROVIDERS ---"
     let addedTo = await node0.addProvider(targetId, signedPeerRec0)
@@ -218,7 +223,7 @@ suite "Providers Tests: many nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retrieve from other":
+  test $nodecount & " nodes, retrieve from other":
     debug "---- STARTING PROVIDERS LOOKUP ---"
     let (node19, _) = nodes[^2]
     let providersRes = await node19.getProviders(targetId)
@@ -228,7 +233,7 @@ suite "Providers Tests: many nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retrieve after bootnodes dies":
+  test $nodecount & " nodes, retrieve after bootnodes dies":
     debug "---- KILLING BOOTSTRAP NODE ---"
     let (node0, _) = nodes[0]
     let (node18, _) = nodes[^2]
