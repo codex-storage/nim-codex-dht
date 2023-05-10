@@ -45,10 +45,13 @@ when(true): #enable network emulator
       # call the callback on remote
       asyncCheck transp.callback(transp, remote)
 
+  proc getLatency(src: TransportAddress, dst: TransportAddress) : Duration =
+    50.milliseconds
+
   proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) {.async.} =
     #echo "sending to ", remote
-    await sleepAsync(50.milliseconds)
+    await sleepAsync(getLatency(transp.local, remote))
     {.gcsafe.}:
       network[remote.port].recvFrom(transp.local, msg)
 
