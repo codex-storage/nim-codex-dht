@@ -52,13 +52,13 @@ when(true): #enable network emulator
     t.ingress.popFirst()
 
   proc close*(transp: DatagramTransport) =
-    echo "close"
+    debug "close"
 
   proc closed*(transp: DatagramTransport): bool {.inline.} =
     result = false
 
   proc closeWait*(transp: DatagramTransport) {.async.} =
-    echo "closeWait "
+    debug "closeWait "
 
   proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
     ## Obtain user data stored in ``transp`` object.
@@ -69,7 +69,7 @@ when(true): #enable network emulator
                             local: TransportAddress = AnyAddress,
                             ): DatagramTransport {.
       raises: [Defect, CatchableError].} =
-    echo "new"
+    debug "new"
     result = DatagramTransport()
     GC_ref(udata)
     result.udata = cast[pointer](udata)
