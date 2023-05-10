@@ -205,7 +205,7 @@ proc newTransport*[T](
   privKey: PrivateKey,
   localNode: Node,
   bindPort: Port,
-  bindIp = IPv4_any(),
+  bindIp = IPv4_loopback(), ## we could use 127.0.0.1 here for local tests
   rng = newRng()): Transport[T]=
 
   # TODO Consider whether this should be a Defect
