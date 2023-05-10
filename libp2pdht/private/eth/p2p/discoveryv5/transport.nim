@@ -29,6 +29,8 @@ type
     udata*: pointer                 # User-driven pointer
     local: TransportAddress         # Local address
 
+var network = initTable[TransportAddress, DatagramTransport]()
+
 proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
              msg: sink seq[T], msglen = -1) {.async.} =
   echo "sending to ", remote
@@ -60,6 +62,7 @@ proc newFakeDatagramTransport*[T](cbproc: DatagramCallback,
   GC_ref(udata)
   result.udata = cast[pointer](udata)
   result.local = local
+  network[local] = result
 
 
 type
