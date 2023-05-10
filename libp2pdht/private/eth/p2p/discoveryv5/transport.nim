@@ -6,7 +6,7 @@
 
 # Everything below the handling of ordinary messages
 import
-  std/[tables, options],
+  std/[tables, options, deques],
   bearssl/rand,
   chronos,
   chronicles,
@@ -28,16 +28,27 @@ type
   DatagramTransport = ref object
     udata*: pointer                 # User-driven pointer
     local: TransportAddress         # Local address
+    function: DatagramCallback      # Receive data callback
+    ingress: Deque[seq[byte]]
 
 var network = initTable[Port, DatagramTransport]()
+
+proc `$`*(transp: DatagramTransport): string =
+  $transp.local
 
 proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
              msg: sink seq[T], msglen = -1) {.async.} =
   echo "sending to ", remote
+  {.gcsafe.}:
+    network[remote.port].ingress.addLast(msg)
+    # call the callback on remote
+    asyncCheck network[remote.port].function(network[remote.port], transp.local)
+
 
 proc getMessage*(t: DatagramTransport,): seq[byte] {.
     raises: [Defect, CatchableError].} =
   echo "getMessage "
+  t.ingress.popFirst()
 
 proc close*(transp: DatagramTransport) =
   echo "close"
@@ -62,6 +73,7 @@ proc newDatagramTransport*[T](cbproc: DatagramCallback,
   GC_ref(udata)
   result.udata = cast[pointer](udata)
   result.local = local
+  result.function = cbproc
   {.gcsafe.}:
     network[local.port] = result
 
