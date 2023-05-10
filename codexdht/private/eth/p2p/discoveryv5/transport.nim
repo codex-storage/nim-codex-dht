@@ -34,6 +34,7 @@ type
     message: seq[byte]
 
 proc sendToA(t: Transport, a: Address, data: seq[byte]) =
+  trace "Send packet", myport = t.bindAddress.port, address = a
   let ta = initTAddress(a.ip, a.port)
   let f = t.transp.sendTo(ta, data)
   f.callback = proc(data: pointer) {.gcsafe.} =
@@ -109,17 +110,17 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
     of OrdinaryMessage:
       if packet.messageOpt.isSome():
         let message = packet.messageOpt.get()
-        trace "Received message packet", srcId = packet.srcId, address = a,
+        trace "Received message packet", myport = t.bindAddress.port, srcId = packet.srcId, address = a,
           kind = message.kind, p = $packet
         t.client.handleMessage(packet.srcId, a, message)
       else:
-        trace "Not decryptable message packet received",
+        trace "Not decryptable message packet received", myport = t.bindAddress.port,
           srcId = packet.srcId, address = a
         t.sendWhoareyou(packet.srcId, a, packet.requestNonce,
           t.client.getNode(packet.srcId))
 
     of Flag.Whoareyou:
-      trace "Received whoareyou packet", address = a
+      trace "Received whoareyou packet", myport = t.bindAddress.port, address = a
       var pr: PendingRequest
       if t.pendingRequests.take(packet.whoareyou.requestNonce, pr):
         let toNode = pr.node
@@ -141,7 +142,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
       else:
         debug "Timed out or unrequested whoareyou packet", address = a
     of HandshakeMessage:
-      trace "Received handshake message packet", srcId = packet.srcIdHs,
+      trace "Received handshake message packet", myport = t.bindAddress.port, srcId = packet.srcIdHs,
         address = a, kind = packet.message.kind
       t.client.handleMessage(packet.srcIdHs, a, packet.message)
       # For a handshake message it is possible that we received an newer SPR.
@@ -157,9 +158,9 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
           # sending the 'whoareyou' message to. In that case, we can set 'seen'
           node.seen = true
           if t.client.addNode(node):
-            trace "Added new node to routing table after handshake", node
+            trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
   else:
-    trace "Packet decoding error", error = decoded.error, address = a
+    trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
 proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
     Future[void] {.async.} =
