@@ -452,6 +452,28 @@ proc replaceNode(d: Protocol, n: Node) =
     # peers in the routing table.
     debug "Message request to bootstrap node failed", src=d.localNode, dst=n
 
+proc sendRequest*[T: SomeMessage](d: Protocol, toId: NodeId, toAddr: Address, m: T,
+    reqId: RequestId) =
+  let
+    message = encodeMessage(m, reqId)
+
+  trace "Send message packet", dstId = toId, toAddr, kind = messageKind(T)
+  discovery_message_requests_outgoing.inc()
+
+  d.transport.sendMessage(toId, toAddr, message)
+
+proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
+    reqId: RequestId) =
+  doAssert(toNode.address.isSome())
+  let
+    message = encodeMessage(m, reqId)
+
+  trace "Send message packet", dstId = toNode.id,
+    address = toNode.address, kind = messageKind(T)
+  discovery_message_requests_outgoing.inc()
+
+  d.transport.sendMessage(toNode, message)
+
 proc waitResponse*[T: SomeMessage](d: Protocol, node: Node, msg: T):
     Future[Option[Message]] =
   let reqId = RequestId.init(d.rng[])
@@ -502,28 +524,6 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
   else:
     discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Nodes message not received in time")
-
-proc sendRequest*[T: SomeMessage](d: Protocol, toId: NodeId, toAddr: Address, m: T,
-    reqId: RequestId) =
-  let
-    message = encodeMessage(m, reqId)
-
-  trace "Send message packet", dstId = toId, toAddr, kind = messageKind(T)
-  discovery_message_requests_outgoing.inc()
-
-  d.transport.sendMessage(toId, toAddr, message)
-
-proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
-    reqId: RequestId) =
-  doAssert(toNode.address.isSome())
-  let
-    message = encodeMessage(m, reqId)
-
-  trace "Send message packet", dstId = toNode.id,
-    address = toNode.address, kind = messageKind(T)
-  discovery_message_requests_outgoing.inc()
-
-  d.transport.sendMessage(toNode, message)
 
 proc ping*(d: Protocol, toNode: Node):
     Future[DiscResult[PongMessage]] {.async.} =
