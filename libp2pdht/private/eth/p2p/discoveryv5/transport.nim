@@ -62,7 +62,8 @@ proc newFakeDatagramTransport*[T](cbproc: DatagramCallback,
   GC_ref(udata)
   result.udata = cast[pointer](udata)
   result.local = local
-  network[local] = result
+  {.gcsafe.}:
+    network[local] = result
 
 
 type
