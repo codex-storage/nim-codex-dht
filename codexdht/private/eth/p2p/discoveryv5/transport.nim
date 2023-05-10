@@ -206,7 +206,6 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
           node.seen = true
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
-          discard t.sendPending(node)
   else:
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
