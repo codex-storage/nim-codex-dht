@@ -48,6 +48,7 @@ when(true): #enable network emulator
   proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) {.async.} =
     #echo "sending to ", remote
+    await sleepAsync(50.milliseconds)
     {.gcsafe.}:
       network[remote.port].recvFrom(transp.local, msg)
 
