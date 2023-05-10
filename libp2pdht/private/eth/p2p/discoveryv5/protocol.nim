@@ -937,7 +937,7 @@ proc revalidateLoop(d: Protocol) {.async.} =
   ## message.
   try:
     while true:
-      await sleepAsync(milliseconds(d.rng[].rand(RevalidateMax)))
+      await sleepAsync(milliseconds(RevalidateMax div 2 + d.rng[].rand(RevalidateMax div 2)))
       echo d.localNode.address.get().port, ": ", d.nodesDiscovered()
       let n = d.routingTable.nodeToRevalidate()
       if not n.isNil:
