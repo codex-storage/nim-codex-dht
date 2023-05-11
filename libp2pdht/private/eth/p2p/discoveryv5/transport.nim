@@ -8,7 +8,7 @@
 import
   std/[tables, options, deques],
   bearssl/rand,
-  chronos,
+  chronosim,
   chronicles,
   libp2p/crypto/crypto,
   stew/shims/net,
@@ -19,83 +19,6 @@ const
   ## whoareyou message
   responseTimeout* = 4.seconds ## timeout for the response of a request-response
   ## call
-
-when(true): #enable network emulator
-  type
-    DatagramCallback* = proc(transp: DatagramTransport,
-                            remote: TransportAddress): Future[void] {.
-                        gcsafe, raises: [Defect].}
-
-    DatagramTransport = ref object
-      udata*: pointer                 # User-driven pointer
-      local: TransportAddress         # Local address
-      callback: DatagramCallback      # Receive data callback
-      ingress: Deque[seq[byte]]
-      egress: Deque[(TransportAddress, seq[byte])]  # simple FIFO for now
-
-  var network = initTable[Port, DatagramTransport]()
-
-  proc `$`*(transp: DatagramTransport): string =
-    $transp.local
-
-  proc recvFrom[T](transp: DatagramTransport, remote: TransportAddress,
-              msg: sink seq[T], msglen = -1) =
-    #echo "recv from ", remote
-    {.gcsafe.}:
-      transp.ingress.addLast(msg)
-      # call the callback on remote
-      asyncCheck transp.callback(transp, remote)
-
-  proc getLatency(src: TransportAddress, dst: TransportAddress) : Duration =
-    50.milliseconds
-
-  proc getLineTime(transp: DatagramTransport, msg: seq[byte]) : Duration =
-    # let bandwith = transp.bandwidth
-    let bandwidth = 100 # Bytes/ms = KB/sec
-    (msg.len div bandwidth).milliseconds
-
-  proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
-              msg: sink seq[T], msglen = -1) {.async.} =
-
-    #transp.egress.addLast(remote, msg)
-    #await sleepAsync(getLineTime(transp, msg))
-
-    await sleepAsync(getLatency(transp.local, remote))
-    {.gcsafe.}:
-      network[remote.port].recvFrom(transp.local, msg)
-
-  proc getMessage*(t: DatagramTransport,): seq[byte] {.
-      raises: [Defect, CatchableError].} =
-    #echo "getMessage "
-    t.ingress.popFirst()
-
-  proc close*(transp: DatagramTransport) =
-    debug "close"
-
-  proc closed*(transp: DatagramTransport): bool {.inline.} =
-    result = false
-
-  proc closeWait*(transp: DatagramTransport) {.async.} =
-    debug "closeWait "
-
-  proc getUserData*[T](transp: DatagramTransport): T {.inline.} =
-    ## Obtain user data stored in ``transp`` object.
-    result = cast[T](transp.udata)
-
-  proc newDatagramTransport*[T](cbproc: DatagramCallback,
-                            udata: ref T,
-                            local: TransportAddress = AnyAddress,
-                            ): DatagramTransport {.
-      raises: [Defect, CatchableError].} =
-    debug "new"
-    result = DatagramTransport()
-    GC_ref(udata)
-    result.udata = cast[pointer](udata)
-    result.local = local
-    result.callback = cbproc
-    {.gcsafe.}:
-      network[local.port] = result
-
 
 type
   Transport* [Client] = ref object
