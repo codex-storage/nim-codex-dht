@@ -15,7 +15,15 @@ logScope:
   topics = "ChronoSim"
 
 const
+  timeWarp = 1
   emulateDatagram = true
+
+# chronos uses SomeIntegerI64. We shoudl be more specific here to override
+proc milliseconds*(v: int): Duration {.inline.} =
+  chronos.milliseconds(v * timeWarp)
+
+proc seconds*(v: int): Duration {.inline.} =
+  chronos.seconds(v * timeWarp)
 
 when(emulateDatagram): #enable network emulator
   type
