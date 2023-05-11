@@ -14,7 +14,10 @@ import
 logScope:
   topics = "ChronoSim"
 
-when(true): #enable network emulator
+const
+  emulateDatagram = true
+
+when(emulateDatagram): #enable network emulator
   type
     DatagramCallback* = proc(transp: DatagramTransport,
                             remote: TransportAddress): Future[void] {.
