@@ -31,6 +31,7 @@ when(true): #enable network emulator
       local: TransportAddress         # Local address
       callback: DatagramCallback      # Receive data callback
       ingress: Deque[seq[byte]]
+      egress: Deque[(TransportAddress, seq[byte])]  # simple FIFO for now
 
   var network = initTable[Port, DatagramTransport]()
 
@@ -48,9 +49,17 @@ when(true): #enable network emulator
   proc getLatency(src: TransportAddress, dst: TransportAddress) : Duration =
     50.milliseconds
 
+  proc getLineTime(transp: DatagramTransport, msg: seq[byte]) : Duration =
+    # let bandwith = transp.bandwidth
+    let bandwidth = 100 # Bytes/ms = KB/sec
+    (msg.len div bandwidth).milliseconds
+
   proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) {.async.} =
-    #echo "sending to ", remote
+
+    #transp.egress.addLast(remote, msg)
+    #await sleepAsync(getLineTime(transp, msg))
+
     await sleepAsync(getLatency(transp.local, remote))
     {.gcsafe.}:
       network[remote.port].recvFrom(transp.local, msg)
