@@ -11,6 +11,9 @@ import
   chronos,
   chronicles
 
+logScope:
+  topics = "ChronoSim"
+
 when(true): #enable network emulator
   type
     DatagramCallback* = proc(transp: DatagramTransport,
