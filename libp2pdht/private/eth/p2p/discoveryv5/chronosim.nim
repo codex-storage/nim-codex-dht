@@ -7,7 +7,7 @@
 # ChronoSim: simulation/emulation wrapper around Chronos
 
 import
-  std/[tables, deques],
+  std/[tables, deques, random],
   chronos,
   chronicles
 
@@ -54,6 +54,8 @@ when(emulateDatagram): #enable network emulator
   proc getLatency(src: TransportAddress, dst: TransportAddress) : Duration =
     50.milliseconds
 
+  proc getLoss(src: TransportAddress, dst: TransportAddress) : float =
+    0.0
   proc getLineTime(transp: DatagramTransport, msg: seq[byte]) : Duration =
     # let bandwith = transp.bandwidth
     let bandwidth = 100 # Bytes/ms = KB/sec
@@ -64,6 +66,9 @@ when(emulateDatagram): #enable network emulator
 
     #transp.egress.addLast(remote, msg)
     #await sleepAsync(getLineTime(transp, msg))
+
+    if rand(1.0) < getLoss(transp.local, remote):
+      return
 
     await sleepAsync(getLatency(transp.local, remote))
     {.gcsafe.}:
