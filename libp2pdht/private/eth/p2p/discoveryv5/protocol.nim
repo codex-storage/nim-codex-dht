@@ -937,7 +937,9 @@ proc revalidateLoop(d: Protocol) {.async.} =
   ## message.
   try:
     while true:
-      await sleepAsync(milliseconds(d.rng[].rand(RevalidateMax)))
+      let revalidateMin = RevalidateMax div 2
+      let revalidateTimeout = revalidateMin + d.rng[].rand(RevalidateMax - revalidateMin)
+      await sleepAsync(milliseconds(revalidateTimeout))
       let n = d.routingTable.nodeToRevalidate()
       if not n.isNil:
         traceAsyncErrors d.revalidateNode(n)
