@@ -478,12 +478,12 @@ proc waitResponse*[T: SomeMessage](d: Protocol, node: Node, msg: T):
   result = d.waitMessage(node, reqId)
   sendRequest(d, node, msg, reqId)
 
-proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
+proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId, timeout = ResponseTimeout):
     Future[Option[Message]] =
   result = newFuture[Option[Message]]("waitMessage")
   let res = result
   let key = (fromNode.id, reqId)
-  sleepAsync(ResponseTimeout).addCallback() do(data: pointer):
+  sleepAsync(timeout).addCallback() do(data: pointer):
     d.awaitedMessages.del(key)
     if not res.finished:
       res.complete(none(Message))
