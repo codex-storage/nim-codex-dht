@@ -214,6 +214,7 @@ proc remove(k: KBucket, n: Node): bool =
     if k.nodes[i].seen:
       routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
+    trace "removed node:", node = n
     true
   else:
     false

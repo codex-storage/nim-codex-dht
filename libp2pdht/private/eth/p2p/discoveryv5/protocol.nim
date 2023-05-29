@@ -192,8 +192,10 @@ proc addNode*(d: Protocol, node: Node): bool =
   ## Returns true only when `Node` was added as a new entry to a bucket in the
   ## routing table.
   if d.routingTable.addNode(node) == Added:
+    trace "added new node:", n = node
     return true
   else:
+    trace "failed to add node :O", n = node
     return false
 
 proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
@@ -690,6 +692,7 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
           closestNodes.del(closestNodes.high())
 
   d.lastLookup = now(chronos.Moment)
+  trace "Closest nodes", nodes = closestNodes.len
   return closestNodes
 
 proc addProvider*(
@@ -871,22 +874,28 @@ proc resolve*(d: Protocol, id: NodeId): Future[Option[Node]] {.async.} =
   ## does not reply, a lookup is done to see if it can find a (newer) record of
   ## the node on the network.
   if id == d.localNode.id:
+    trace "resolved local"
     return some(d.localNode)
 
   let node = d.getNode(id)
   if node.isSome():
+    trace "resolve found requested node in local cache. Still calling find to look for update...", n = node.get()
     let request = await d.findNode(node.get(), @[0'u16])
 
     # TODO: Handle failures better. E.g. stop on different failures than timeout
     if request.isOk() and request[].len > 0:
+      trace "resolve (with local node found) to response to request and is returning:", r = (request[][0])
       return some(request[][0])
 
+  trace "resolve (not local) is calling lookup"
   let discovered = await d.lookup(id)
   for n in discovered:
     if n.id == id:
       if node.isSome() and node.get().record.seqNum >= n.record.seqNum:
+        trace "resolve (lookup) found node, but local one has greater or equal seqNum"
         return node
       else:
+        trace "resolve (lookup) found new node with equal or greater seqNum", n = n
         return some(n)
 
   return node
@@ -943,6 +952,7 @@ proc revalidateLoop(d: Protocol) {.async.} =
         traceAsyncErrors d.revalidateNode(n)
   except CancelledError:
     trace "revalidateLoop canceled"
+  trace "revalidator loop exited!"
 
 proc refreshLoop(d: Protocol) {.async.} =
   ## Loop that refreshes the routing table by starting a random query in case
@@ -961,6 +971,7 @@ proc refreshLoop(d: Protocol) {.async.} =
       await sleepAsync(RefreshInterval)
   except CancelledError:
     trace "refreshLoop canceled"
+  trace "refreshloop exited!"
 
 proc ipMajorityLoop(d: Protocol) {.async.} =
   #TODO this should be handled by libp2p, not the DHT
@@ -1009,6 +1020,7 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
       await sleepAsync(IpMajorityInterval)
   except CancelledError:
     trace "ipMajorityLoop canceled"
+  trace "ipMajorityLoop exited!"
 
 func init*(
     T: type DiscoveryConfig,
@@ -1023,75 +1035,75 @@ func init*(
     bitsPerHop: bitsPerHop
   )
 
-proc newProtocol*(
-    privKey: PrivateKey,
-    enrIp: Option[ValidIpAddress],
-    enrTcpPort, enrUdpPort: Option[Port],
-    localEnrFields: openArray[(string, seq[byte])] = [],
-    bootstrapRecords: openArray[SignedPeerRecord] = [],
-    previousRecord = none[SignedPeerRecord](),
-    bindPort: Port,
-    bindIp = IPv4_any(),
-    enrAutoUpdate = false,
-    config = defaultDiscoveryConfig,
-    rng = newRng(),
-    providers = ProvidersManager.new(
-      SQLiteDatastore.new(Memory)
-      .expect("Should not fail!"))):
-    Protocol =
-  # TODO: Tried adding bindPort = udpPort as parameter but that gave
-  # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
-  # Anyhow, nim-beacon-chain would also require some changes to support port
-  # remapping through NAT and this API is also subject to change once we
-  # introduce support for ipv4 + ipv6 binding/listening.
+# proc newProtocol*(
+#     privKey: PrivateKey,
+#     enrIp: Option[ValidIpAddress],
+#     enrTcpPort, enrUdpPort: Option[Port],
+#     localEnrFields: openArray[(string, seq[byte])] = [],
+#     bootstrapRecords: openArray[SignedPeerRecord] = [],
+#     previousRecord = none[SignedPeerRecord](),
+#     bindPort: Port,
+#     bindIp = IPv4_any(),
+#     enrAutoUpdate = false,
+#     config = defaultDiscoveryConfig,
+#     rng = newRng(),
+#     providers = ProvidersManager.new(
+#       SQLiteDatastore.new(Memory)
+#       .expect("Should not fail!"))):
+#     Protocol =
+#   # TODO: Tried adding bindPort = udpPort as parameter but that gave
+#   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
+#   # Anyhow, nim-beacon-chain would also require some changes to support port
+#   # remapping through NAT and this API is also subject to change once we
+#   # introduce support for ipv4 + ipv6 binding/listening.
 
-  # TODO: Implement SignedPeerRecord custom fields?
-  # let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
+#   # TODO: Implement SignedPeerRecord custom fields?
+#   # let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
 
-  # TODO:
-  # - Defect as is now or return a result for spr errors?
-  # - In case incorrect key, allow for new spr based on new key (new node id)?
-  var record: SignedPeerRecord
-  if previousRecord.isSome():
-    record = previousRecord.get()
-    record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
-            .expect("SignedPeerRecord within size limits and correct key")
-  else:
-    record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
-               .expect("SignedPeerRecord within size limits")
+#   # TODO:
+#   # - Defect as is now or return a result for spr errors?
+#   # - In case incorrect key, allow for new spr based on new key (new node id)?
+#   var record: SignedPeerRecord
+#   if previousRecord.isSome():
+#     record = previousRecord.get()
+#     record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
+#             .expect("SignedPeerRecord within size limits and correct key")
+#   else:
+#     record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
+#                .expect("SignedPeerRecord within size limits")
 
-  info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
-    seqNum = record.seqNum, uri = toURI(record)
-  if enrIp.isNone():
-    if enrAutoUpdate:
-      notice "No external IP provided for the SPR, this node will not be " &
-        "discoverable until the SPR is updated with the discovered external IP address"
-    else:
-      warn "No external IP provided for the SPR, this node will not be discoverable"
+#   info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
+#     seqNum = record.seqNum, uri = toURI(record)
+#   if enrIp.isNone():
+#     if enrAutoUpdate:
+#       notice "No external IP provided for the SPR, this node will not be " &
+#         "discoverable until the SPR is updated with the discovered external IP address"
+#     else:
+#       warn "No external IP provided for the SPR, this node will not be discoverable"
 
-  let node = newNode(record).expect("Properly initialized record")
+#   let node = newNode(record).expect("Properly initialized record")
 
-  # TODO Consider whether this should be a Defect
-  doAssert rng != nil, "RNG initialization failed"
+#   # TODO Consider whether this should be a Defect
+#   doAssert rng != nil, "RNG initialization failed"
 
-  let
-    routingTable = RoutingTable.init(
-      node,
-      config.bitsPerHop,
-      config.tableIpLimits,
-      rng)
+#   let
+#     routingTable = RoutingTable.init(
+#       node,
+#       config.bitsPerHop,
+#       config.tableIpLimits,
+#       rng)
 
-  result = Protocol(
-    privateKey: privKey,
-    localNode: node,
-    bootstrapRecords: @bootstrapRecords,
-    ipVote: IpVote.init(),
-    enrAutoUpdate: enrAutoUpdate,
-    routingTable: routingTable,
-    rng: rng,
-    providers: providers)
+#   result = Protocol(
+#     privateKey: privKey,
+#     localNode: node,
+#     bootstrapRecords: @bootstrapRecords,
+#     ipVote: IpVote.init(),
+#     enrAutoUpdate: enrAutoUpdate,
+#     routingTable: routingTable,
+#     rng: rng,
+#     providers: providers)
 
-  result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
+#   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
 proc newProtocol*(
     privKey: PrivateKey,
