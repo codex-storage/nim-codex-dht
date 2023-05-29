@@ -317,12 +317,15 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       # gets moved to the tail.
       if k.replacementCache[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, k, n):
+          trace "replace: ip limit reached"
           return IpLimitReached
         ipLimitDec(r, k, k.replacementCache[nodeIdx])
       k.replacementCache.delete(nodeIdx)
       k.replacementCache.add(n)
+    trace "replace: already existed"
     return ReplacementExisting
   elif not ipLimitInc(r, k, n):
+    trace "replace: ip limit reached (2)"
     return IpLimitReached
   else:
     doAssert(k.replacementCache.len <= REPLACEMENT_CACHE_SIZE)
@@ -333,6 +336,7 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       k.replacementCache.delete(0)
 
     k.replacementCache.add(n)
+    trace "replace: added"
     return ReplacementAdded
 
 proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
@@ -352,10 +356,13 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # Don't allow nodes without an address field in the SPR to be added.
   # This could also be reworked by having another Node type that always has an
   # address.
+  trace "routing table adding node..."
   if n.address.isNone():
+    trace "node address is none!"
     return NoAddress
 
   if n == r.localNode:
+    trace "node address is local!"
     return LocalNode
 
   let bucket = r.bucketForNode(n.id)
@@ -368,6 +375,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       # In case of a newer record, it gets replaced.
       if bucket.nodes[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, bucket, n):
+          trace "node already existed and IP limit reached."
           return IpLimitReached
         ipLimitDec(r, bucket, bucket.nodes[nodeIdx])
       # Copy over the seen status, we trust here that after the SPR update the
@@ -375,6 +383,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       n.seen = bucket.nodes[nodeIdx].seen
       bucket.nodes[nodeIdx] = n
 
+    trace "node already existed"
     return Existing
 
   # If the bucket has fewer than `BUCKET_SIZE` entries, it is inserted as the
@@ -394,6 +403,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # immediately add nodes to the most recently seen spot.
   if bucket.len < BUCKET_SIZE:
     if not ipLimitInc(r, bucket, n):
+      trace "node ip limit already reached (2)"
       return IpLimitReached
 
     bucket.add(n)
@@ -408,9 +418,11 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
     if bucket.inRange(r.localNode) or
         (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
       r.splitBucket(r.buckets.find(bucket))
+      trace "retrying to add node..."
       return r.addNode(n) # retry adding
     else:
       # When bucket doesn't get split the node is added to the replacement cache
+      trace "trying to replace node..."
       return r.addReplacement(bucket, n)
 
 proc removeNode*(r: var RoutingTable, n: Node) =

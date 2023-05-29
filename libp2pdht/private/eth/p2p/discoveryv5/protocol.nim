@@ -203,9 +203,14 @@ proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
   ##
   ## Returns false only if no valid `Node` can be created from the `SignedPeerRecord` or
   ## on the conditions of `addNode` from a `Node`.
+  trace "adding from SPR:", spr = r
   let node = newNode(r)
   if node.isOk():
+    trace "converted to node"
     return d.addNode(node[])
+  else:
+    trace "unable to convert to node"
+    return false
 
 proc addNode*(d: Protocol, spr: SprUri): bool =
   ## Add `Node` from a SPR URI to discovery routing table.
@@ -213,6 +218,7 @@ proc addNode*(d: Protocol, spr: SprUri): bool =
   ## Returns false if no valid SPR URI, or on the conditions of `addNode` from
   ## an `SignedPeerRecord`.
   try:
+    trace "adding from SPR-URI"
     var r: SignedPeerRecord
     let res = r.fromURI(spr)
     if res:
@@ -902,6 +908,7 @@ proc resolve*(d: Protocol, id: NodeId): Future[Option[Node]] {.async.} =
 
 proc seedTable*(d: Protocol) =
   ## Seed the table with known nodes.
+  trace "Seeding routing table..."
   for record in d.bootstrapRecords:
     if d.addNode(record):
       debug "Added bootstrap node", uri = toURI(record)
