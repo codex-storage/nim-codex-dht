@@ -1148,16 +1148,20 @@ proc newProtocol*(
     rng: rng,
     providers: providers)
 
+  trace "newProtocol initiated."
   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
 proc open*(d: Protocol) {.raises: [Defect, CatchableError].} =
   info "Starting discovery node", node = d.localNode
 
   d.transport.open()
+  trace "Transport open."
 
   d.seedTable()
+  trace "Routing table seeded."
 
 proc start*(d: Protocol) {.async.} =
+  trace "Protocol start..."
   d.refreshLoop = refreshLoop(d)
   d.revalidateLoop = revalidateLoop(d)
   d.ipMajorityLoop = ipMajorityLoop(d)
