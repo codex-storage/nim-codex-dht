@@ -448,11 +448,14 @@ proc replaceNode*(r: var RoutingTable, n: Node) =
 
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
-  ## If no node with provided node id can be found,`none` is returned .
+  ## If no node with provided node id can be found,`none` is returned.
+  trace "routingTable.getNode"
   let b = r.bucketForNode(id)
   for n in b.nodes:
     if n.id == id:
+      trace "routingTable.getNode found some"
       return some(n)
+  trace "routingTable.getNode failed to find"
 
 proc contains*(r: RoutingTable, n: Node): bool = n in r.bucketForNode(n.id)
   # Check if the routing table contains node `n`.

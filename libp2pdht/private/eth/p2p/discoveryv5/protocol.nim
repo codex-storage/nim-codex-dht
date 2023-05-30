@@ -552,14 +552,18 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   ##
   ## Returns the received nodes or an error.
   ## Received SPRs are already validated and converted to `Node`.
+  trace "findNode..."
   let reqId = d.sendRequest(toNode, FindNodeMessage(distances: distances))
   let nodes = await d.waitNodes(toNode, reqId)
+  trace "findNode: got nodes"
 
   if nodes.isOk:
+    trace "findNode nodes.isOk"
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
     d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
+    trace "findNode !nodes.isOK"
     d.replaceNode(toNode)
     return err(nodes.error)
 
@@ -904,6 +908,7 @@ proc resolve*(d: Protocol, id: NodeId): Future[Option[Node]] {.async.} =
         trace "resolve (lookup) found new node with equal or greater seqNum", n = n
         return some(n)
 
+  trace "resolve (default return)"
   return node
 
 proc seedTable*(d: Protocol) =
