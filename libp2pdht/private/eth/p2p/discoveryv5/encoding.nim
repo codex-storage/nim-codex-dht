@@ -39,6 +39,9 @@ declareCounter discovery_session_decrypt_failures, "Session decrypt failures"
 logScope:
   topics = "discv5"
 
+type
+  cipher = aes128
+
 const
   version: uint16 = 1
   idSignatureText  = "discovery v5 identity proof"
@@ -161,7 +164,7 @@ proc deriveKeys*(n1, n2: NodeId, priv: PrivateKey, pub: PublicKey,
   ok secrets
 
 proc encryptGCM*(key: AesKey, nonce, pt, authData: openArray[byte]): seq[byte] =
-  var ectx: GCM[aes128]
+  var ectx: GCM[cipher]
   ectx.init(key, nonce, authData)
   result = newSeq[byte](pt.len + gcmTagSize)
   ectx.encrypt(pt, result)
@@ -174,7 +177,7 @@ proc decryptGCM*(key: AesKey, nonce, ct, authData: openArray[byte]):
     debug "cipher is missing tag", len = ct.len
     return
 
-  var dctx: GCM[aes128]
+  var dctx: GCM[cipher]
   dctx.init(key, nonce, authData)
   var res = newSeq[byte](ct.len - gcmTagSize)
   var tag: array[gcmTagSize, byte]
@@ -188,7 +191,7 @@ proc decryptGCM*(key: AesKey, nonce, ct, authData: openArray[byte]):
   return some(res)
 
 proc encryptHeader*(id: NodeId, iv, header: openArray[byte]): seq[byte] =
-  var ectx: CTR[aes128]
+  var ectx: CTR[cipher]
   ectx.init(id.toByteArrayBE().toOpenArray(0, 15), iv)
   result = newSeq[byte](header.len)
   ectx.encrypt(header, result)
@@ -370,7 +373,7 @@ proc decodeHeader*(id: NodeId, iv, maskedHeader: openArray[byte]):
     DecodeResult[(StaticHeader, seq[byte])] =
   # No need to check staticHeader size as that is included in minimum packet
   # size check in decodePacket
-  var ectx: CTR[aes128]
+  var ectx: CTR[cipher]
   ectx.init(id.toByteArrayBE().toOpenArray(0, aesKeySize - 1), iv)
   # Decrypt static-header part of the header
   var staticHeader = newSeq[byte](staticHeaderSize)
