@@ -10,7 +10,7 @@ skipDirs      = @["tests"]
 # Dependencies
 requires "nim >= 1.2.0",
          "nimcrypto >= 0.5.4 & < 0.6.0",
-         "bearssl#head",
+         "bearssl#f4c4233de453cb7eac0ce3f3ffad6496295f83ab",
          "chronicles >= 0.10.2 & < 0.11.0",
          "chronos >= 3.0.11 & < 3.1.0",
          "libp2p#unstable",
