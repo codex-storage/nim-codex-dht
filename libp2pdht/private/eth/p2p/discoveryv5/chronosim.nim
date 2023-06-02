@@ -45,7 +45,7 @@ when(emulateDatagram): #enable network emulator
 
   proc recvFrom[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) =
-    info "recv from ", remote
+    trace "recv:",  src = remote, dst = transp.local
     {.gcsafe.}:
       transp.ingress.addLast(msg)
       # call the callback on remote
@@ -63,6 +63,7 @@ when(emulateDatagram): #enable network emulator
 
   proc sendTo*[T](transp: DatagramTransport, remote: TransportAddress,
               msg: sink seq[T], msglen = -1) {.async.} =
+    trace "send:", src = transp.local, dst = remote
 
     #transp.egress.addLast(remote, msg)
     #await sleepAsync(getLineTime(transp, msg))
