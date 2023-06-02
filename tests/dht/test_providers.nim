@@ -247,3 +247,39 @@ suite "Providers Tests: many nodes":
     let providers = providersRes.get
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
+
+  test $nodecount & " nodes, lookup each other":
+    debug "---- STARTING NODE LOOKUP ---"
+    var
+      tested = 0
+      passed = 0
+    for (n, _) in nodes[1..^1]:
+      for (target, _) in nodes[1..^1]:
+        if n != target: # TODO: fix self-lookup
+          info "Start lookup", src = n.localNode, dst = target.localNode
+          let startTime = Moment.now()
+          let discovered = await n.lookup(target.localNode.id, fast = true)
+          let pass = (discovered[0] == target.localNode)
+          info "Lookup", pass, src = n.localNode, dst = target.localNode, time = Moment.now() - startTime
+          check pass
+          tested += 1
+          passed += int(pass)
+      info "Lookup ratio", passed, tested
+
+  test $nodecount & " nodes, lookup random":
+    debug "---- STARTING NODE LOOKUP ---"
+    var
+      tested = 0
+      passed = 0
+    for (n, _) in nodes[1..^1]:
+      for (target, _) in nodes[1..^1]:
+        if n != target: # TODO: fix self-lookup
+          info "Start lookup", src = n.localNode, dst = target.localNode
+          let startTime = Moment.now()
+          let discovered = await n.lookup(target.localNode.id, fast = true)
+          let pass = (discovered[0] == target.localNode)
+          info "Lookup", pass, src = n.localNode, dst = target.localNode, time = Moment.now() - startTime
+          check pass
+          tested += 1
+          passed += int(pass)
+      info "Lookup ratio", passed, tested, ratio = passed/tested
