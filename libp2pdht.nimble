@@ -21,7 +21,8 @@ requires "nim >= 1.2.0",
          "stint",
          "asynctest >= 0.3.1 & < 0.4.0",
          "https://github.com/status-im/nim-datastore#head",
-         "questionable"
+         "questionable",
+         "datastore"
 
 task coverage, "generates code coverage report":
   var (output, exitCode) = gorgeEx("which lcov")
