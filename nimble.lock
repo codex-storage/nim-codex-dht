@@ -13,12 +13,12 @@
     },
     "stew": {
       "version": "0.1.0",
-      "vcsRevision": "6ad35b876fb6ebe0dfee0f697af173acc47906ee",
+      "vcsRevision": "e18f5a62af2ade7a1fd1d39635d4e04d944def08",
       "url": "https://github.com/status-im/nim-stew.git",
       "downloadMethod": "git",
       "dependencies": [],
       "checksums": {
-        "sha1": "46d58c4feb457f3241e3347778334e325dce5268"
+        "sha1": "2a80972f66597bf87d820dca8164d89d3bb24c6d"
       }
     },
     "bearssl": {
@@ -183,7 +183,7 @@
     },
     "websock": {
       "version": "0.1.0",
-      "vcsRevision": "73edde4417f7b45003113b7a34212c3ccd95b9fd",
+      "vcsRevision": "7b2ed397d6e4c37ea4df08ae82aeac7ff04cd180",
       "url": "https://github.com/status-im/nim-websock",
       "downloadMethod": "git",
       "dependencies": [
@@ -197,7 +197,7 @@
         "zlib"
       ],
       "checksums": {
-        "sha1": "ec2b137543f280298ca48de9ed4461a033ba88d3"
+        "sha1": "d27f126527be59f5a0dc35303cb37b82d4e2770b"
       }
     },
     "dnsclient": {
@@ -224,8 +224,8 @@
       }
     },
     "libp2p": {
-      "version": "0.0.2",
-      "vcsRevision": "c7504d2446717a48a79c8b15e0f21bbfc84957ba",
+      "version": "1.0.0",
+      "vcsRevision": "a3e9d1ed80c048cd5abc839cbe0863cefcedc702",
       "url": "https://github.com/status-im/nim-libp2p",
       "downloadMethod": "git",
       "dependencies": [
@@ -240,7 +240,7 @@
         "websock"
       ],
       "checksums": {
-        "sha1": "ba1aed8860c8771ef23ae7600bbfd459d5651a2c"
+        "sha1": "65e473566f19f7f9a3529745e7181fb58d30b5ef"
       }
     },
     "protobuf_serialization": {
@@ -268,6 +268,50 @@
       ],
       "checksums": {
         "sha1": "0f187a2115315ca898e5f9a30c5e506cf6057062"
+      }
+    },
+    "datastore": {
+      "version": "0.0.1",
+      "vcsRevision": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa",
+      "url": "https://github.com/status-im/nim-datastore",
+      "downloadMethod": "git",
+      "dependencies": [
+      ],
+      "checksums": {
+        "sha1": "2c03bb47de97962d2a64be1ed0a8161cd9d65159"
+      }
+    },
+    "questionable": {
+      "version": "0.10.6",
+      "vcsRevision": "30e4184a99c8c1ba329925912d2c5d4b09acf8cc",
+      "url": "https://github.com/status-im/questionable",
+      "downloadMethod": "git",
+      "dependencies": [
+      ],
+      "checksums": {
+        "sha1": "ca2d1e2e0be6566b4bf13261b29645721d01673d"
+      }
+    },
+    "upraises": {
+      "version": "0.1.0",
+      "vcsRevision": "ff4f8108e44fba9b35cac535ab63d3927e8fd3c2",
+      "url": "https://github.com/markspanbroek/upraises",
+      "downloadMethod": "git",
+      "dependencies": [
+      ],
+      "checksums": {
+        "sha1": "a0243c8039e12d547dbb2e9c73789c16bb8bc956"
+      }
+    },
+    "sqlite3-abi": {
+      "version": "3.34.0",
+      "vcsRevision": "fda455cfea2df707dde052034411ce63de218453",
+      "url": "https://github.com/arnetheduck/nim-sqlite3-abi",
+      "downloadMethod": "git",
+      "dependencies": [
+      ],
+      "checksums": {
+        "sha1": "720aaffb34259c1a9dd2239c77ee1fbcc2a41346"
       }
     }
   }
