@@ -10,11 +10,11 @@
 import std/sequtils
 import std/strutils
 
-import pkg/chronos
-import pkg/libp2p
-import pkg/datastore
-import pkg/questionable
-import pkg/questionable/results
+import chronos
+import libp2p
+import datastore
+import questionable
+import questionable/results
 
 import ../node
 

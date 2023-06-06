@@ -33,12 +33,16 @@ proc bootstrapNodes(
 
   debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
-    let privKey = PrivateKey.example(rng)
-    let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
-    await node.start()
-    result.add((node, privKey))
-    if delay > 0:
-      await sleepAsync(chronos.milliseconds(delay))
+    try:
+      let privKey = PrivateKey.example(rng)
+      let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
+      await node.start()
+      result.add((node, privKey))
+      if delay > 0:
+        await sleepAsync(chronos.milliseconds(delay))
+    except TransportOsError as e:
+      echo "skipping node ",i ,":", e.msg
+
 
 
   #await allFutures(result.mapIt(it.bootstrap())) # this waits for bootstrap based on bootENode, which includes bonding with all its ping pongs
@@ -175,7 +179,12 @@ suite "Providers Tests: two nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-suite "Providers Tests: 20 nodes":
+suite "Providers Tests: many nodes":
+
+  let
+    nodecount = 1000
+    delay_pernode = 10 # in millisec
+    delay_init = 15*1000 # in millisec
 
   var
     rng: ref HmacDrbgContext
@@ -188,19 +197,19 @@ suite "Providers Tests: 20 nodes":
 
   setupAll:
     rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=20)
+    nodes = await bootstrapNetwork(nodecount=nodecount, delay=delay_pernode)
     targetId = NodeId.example(rng)
     (node0, privKey0) = nodes[0]
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
-    await sleepAsync(chronos.seconds(15))
+    await sleepAsync(chronos.milliseconds(delay_init))
 
   teardownAll:
     for (n, _) in nodes: # if last test is enabled, we need nodes[1..^1] here
       await n.closeWait()
 
-  test "20 nodes, store and retrieve from same":
+  test $nodecount & " nodes, store and retrieve from same":
 
     debug "---- ADDING PROVIDERS ---"
     let addedTo = await node0.addProvider(targetId, signedPeerRec0)
@@ -214,7 +223,7 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retrieve from other":
+  test $nodecount & " nodes, retrieve from other":
     debug "---- STARTING PROVIDERS LOOKUP ---"
     let (node19, _) = nodes[^2]
     let providersRes = await node19.getProviders(targetId)
@@ -224,7 +233,7 @@ suite "Providers Tests: 20 nodes":
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
 
-  test "20 nodes, retrieve after bootnodes dies":
+  test $nodecount & " nodes, retrieve after bootnodes dies":
     debug "---- KILLING BOOTSTRAP NODE ---"
     let (node0, _) = nodes[0]
     let (node18, _) = nodes[^2]
@@ -238,3 +247,56 @@ suite "Providers Tests: 20 nodes":
     let providers = providersRes.get
     debug "Providers:", providers
     check (providers.len == 1 and providers[0].data.peerId == peerRec0.peerId)
+
+  test $nodecount & " nodes, lookup each other":
+    debug "---- STARTING NODE LOOKUP ---"
+    var
+      tested = 0
+      passed = 0
+    for (n, _) in nodes[1..^1]:
+      for (target, _) in nodes[1..^1]:
+        if n != target: # TODO: fix self-lookup
+          info "Start lookup", src = n.localNode, dst = target.localNode
+          let startTime = Moment.now()
+          let discovered = await n.lookup(target.localNode.id, fast = true)
+          let pass = (discovered[0] == target.localNode)
+          info "Lookup", pass, src = n.localNode, dst = target.localNode, time = Moment.now() - startTime
+          check pass
+          tested += 1
+          passed += int(pass)
+      info "Lookup ratio", passed, tested
+
+  test $nodecount & " nodes, lookup random":
+    debug "---- STARTING NODE LOOKUP ---"
+    var
+      tested = 0
+      passed = 0
+    for (n, _) in nodes[1..^1]:
+      for (target, _) in nodes[1..^1]:
+        if n != target: # TODO: fix self-lookup
+          info "Start lookup", src = n.localNode, dst = target.localNode
+          let startTime = Moment.now()
+          let discovered = await n.lookup(target.localNode.id, fast = true)
+          let pass = (discovered[0] == target.localNode)
+          info "Lookup", pass, src = n.localNode, dst = target.localNode, time = Moment.now() - startTime
+          check pass
+          tested += 1
+          passed += int(pass)
+      info "Lookup ratio", passed, tested, ratio = passed/tested
+
+  test $nodecount & " nodes, addValue and getValue":
+    let
+      key = NodeId.example(rng)
+      v = @[byte 1,2,3]
+
+    debug "---- ADDING VALUE ---"
+    let addedTo = await node0.addValue(key, v)
+    debug "Value added to: ", addedTo
+
+    debug "---- STARTING VALUE LOOKUP ---"
+    let res = await node0.getValue(key)
+
+    debug "---- STARTING CHECKS ---"
+    let v2 = res.get
+    debug "Value:", v2
+    check (v2 == v)

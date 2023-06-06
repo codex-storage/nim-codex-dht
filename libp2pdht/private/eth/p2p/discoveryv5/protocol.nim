@@ -162,6 +162,8 @@ type
     transport*: Transport[Protocol] # exported for tests
     routingTable*: RoutingTable
     awaitedMessages: Table[(NodeId, RequestId), Future[Option[Message]]]
+    # awaitedNodesMessages: Table[(NodeId, RequestId), (Future[DiscResult[seq[SignedPeerRecord]]], int, seq[SignedPeerRecord])] # for some reason DiscResult is not compiling here, needs to be expanded
+    awaitedNodesMessages: Table[(NodeId, RequestId), (Future[Result[seq[SignedPeerRecord],cstring]], uint32, seq[SignedPeerRecord])]
     refreshLoop: Future[void]
     revalidateLoop: Future[void]
     ipMajorityLoop: Future[void]
@@ -172,6 +174,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     rng*: ref HmacDrbgContext
     providers: ProvidersManager
+    valueStore: Table[NodeId, seq[byte]]
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -397,6 +400,38 @@ proc handleGetProviders(
   let response = ProvidersMessage(total: 1, provs: provs.get)
   d.sendResponse(fromId, fromAddr, response, reqId)
 
+proc addValueLocal(p: Protocol, cId: NodeId, value: seq[byte]) {.async.} =
+  trace "adding value to local db", n = p.localNode, cId, value
+
+  p.valueStore[cId] = value
+
+proc handleAddValue(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  addValue: AddValueMessage,
+  reqId: RequestId) =
+  asyncSpawn d.addValueLocal(addValue.cId, addValue.value)
+
+proc handleGetValue(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  getValue: GetValueMessage,
+  reqId: RequestId) {.async.} =
+
+  try:
+    let value = d.valueStore[getValue.cId]
+    trace "retrieved value from local db", n = d.localNode, cID = getValue.cId, value
+    ##TODO: handle multiple messages?
+    let response = ValueMessage(value: value)
+    d.sendResponse(fromId, fromAddr, response, reqId)
+
+  except KeyError:
+    # should we respond here? I would say so
+    trace "no value in local db", n = d.localNode, cID = getValue.cId
+    # TODO: add noValue response
+
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
   case message.kind
@@ -419,11 +454,38 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
   of getProviders:
     discovery_message_requests_incoming.inc()
     asyncSpawn d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
+  of addValue:
+    discovery_message_requests_incoming.inc()
+    #discovery_message_requests_incoming.inc(labelValues = ["no_response"])
+    d.handleAddValue(srcId, fromAddr, message.addValue, message.reqId)
+  of getValue:
+    discovery_message_requests_incoming.inc()
+    asyncSpawn d.handleGetValue(srcId, fromAddr, message.getValue, message.reqId)
   of regTopic, topicQuery:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
     trace "Received unimplemented message kind", kind = message.kind,
       origin = fromAddr
+  of nodes:
+    trace "node-response message received"
+
+    var sprs = message.nodes.sprs
+    let total = message.nodes.total
+    trace "waiting for more nodes messages", me=d.localNode, srcId, total
+    try:
+      var (waiter, cnt, s) = d.awaitedNodesMessages[(srcId, message.reqId)]
+      cnt += 1
+      s.add(sprs)
+      d.awaitedNodesMessages[(srcId, message.reqId)] = (waiter, cnt, s)
+      trace "nodes collected", me=d.localNode, srcId, cnt, s
+      if cnt == total:
+        d.awaitedNodesMessages.del((srcId, message.reqId))
+        trace "all nodes responses received", me=d.localNode, srcId
+        waiter.complete(DiscResult[seq[SignedPeerRecord]].ok(s))
+    except KeyError:
+      discovery_unsolicited_messages.inc()
+      warn "Timed out or unrequested message", kind = message.kind,
+        origin = fromAddr
   else:
     var waiter: Future[Option[Message]]
     if d.awaitedMessages.take((srcId, message.reqId), waiter):
@@ -450,63 +512,20 @@ proc replaceNode(d: Protocol, n: Node) =
     # peers in the routing table.
     debug "Message request to bootstrap node failed", src=d.localNode, dst=n
 
-
-proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId):
-    Future[Option[Message]] =
-  result = newFuture[Option[Message]]("waitMessage")
-  let res = result
-  let key = (fromNode.id, reqId)
-  sleepAsync(ResponseTimeout).addCallback() do(data: pointer):
-    d.awaitedMessages.del(key)
-    if not res.finished:
-      res.complete(none(Message))
-  d.awaitedMessages[key] = result
-
-proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
-    Future[DiscResult[seq[SignedPeerRecord]]] {.async.} =
-  ## Wait for one or more nodes replies.
-  ##
-  ## The first reply will hold the total number of replies expected, and based
-  ## on that, more replies will be awaited.
-  ## If one reply is lost here (timed out), others are ignored too.
-  ## Same counts for out of order receival.
-  var op = await d.waitMessage(fromNode, reqId)
-  if op.isSome:
-    if op.get.kind == MessageKind.nodes:
-      var res = op.get.nodes.sprs
-      let total = op.get.nodes.total
-      for i in 1 ..< total:
-        op = await d.waitMessage(fromNode, reqId)
-        if op.isSome and op.get.kind == MessageKind.nodes:
-          res.add(op.get.nodes.sprs)
-        else:
-          # No error on this as we received some nodes.
-          break
-      return ok(res)
-    else:
-      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
-      return err("Invalid response to find node message")
-  else:
-    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
-    return err("Nodes message not received in time")
-
-proc sendRequest*[T: SomeMessage](d: Protocol, toId: NodeId, toAddr: Address, m: T):
-    RequestId =
+proc sendRequest*[T: SomeMessage](d: Protocol, toId: NodeId, toAddr: Address, m: T,
+    reqId: RequestId) =
   let
-    reqId = RequestId.init(d.rng[])
     message = encodeMessage(m, reqId)
 
   trace "Send message packet", dstId = toId, toAddr, kind = messageKind(T)
   discovery_message_requests_outgoing.inc()
 
   d.transport.sendMessage(toId, toAddr, message)
-  return reqId
 
-proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T):
-    RequestId =
+proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
+    reqId: RequestId) =
   doAssert(toNode.address.isSome())
   let
-    reqId = RequestId.init(d.rng[])
     message = encodeMessage(m, reqId)
 
   trace "Send message packet", dstId = toNode.id,
@@ -514,16 +533,57 @@ proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T):
   discovery_message_requests_outgoing.inc()
 
   d.transport.sendMessage(toNode, message)
-  return reqId
+
+proc waitResponse*[T: SomeMessage](d: Protocol, node: Node, msg: T):
+    Future[Option[Message]] =
+  let reqId = RequestId.init(d.rng[])
+  result = d.waitMessage(node, reqId)
+  sendRequest(d, node, msg, reqId)
+
+proc waitMessage(d: Protocol, fromNode: Node, reqId: RequestId, timeout = ResponseTimeout):
+    Future[Option[Message]] =
+  result = newFuture[Option[Message]]("waitMessage")
+  let res = result
+  let key = (fromNode.id, reqId)
+  sleepAsync(timeout).addCallback() do(data: pointer):
+    d.awaitedMessages.del(key)
+    if not res.finished:
+      res.complete(none(Message))
+  d.awaitedMessages[key] = result
+
+proc waitNodeResponses*[T: SomeMessage](d: Protocol, node: Node, msg: T):
+    Future[DiscResult[seq[SignedPeerRecord]]] =
+  let reqId = RequestId.init(d.rng[])
+  result = d.waitNodes(node, reqId)
+  sendRequest(d, node, msg, reqId)
+
+proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId, timeout = ResponseTimeout):
+    Future[DiscResult[seq[SignedPeerRecord]]] =
+  ## Wait for one or more nodes replies.
+  ##
+  ## The first reply will hold the total number of replies expected, and based
+  ## on that, more replies will be awaited.
+  ## If one reply is lost here (timed out), others are ignored too.
+  ## Same counts for out of order receival.
+  ## TODO: these are VERY optimistic assumptions here. We need a short timeout if we collect
+
+  result = newFuture[DiscResult[seq[SignedPeerRecord]]]("waitNodesMessages")
+  let res = result
+  let key = (fromNode.id, reqId)
+  sleepAsync(timeout).addCallback() do(data: pointer):
+    d.awaitedNodesMessages.del(key)
+    if not res.finished:
+      res.complete(DiscResult[seq[SignedPeerRecord]].err("waitNodeMessages timed out"))
+  d.awaitedNodesMessages[key] = (result, 0.uint32, newSeq[SignedPeerRecord]())
 
 proc ping*(d: Protocol, toNode: Node):
     Future[DiscResult[PongMessage]] {.async.} =
   ## Send a discovery ping message.
   ##
   ## Returns the received pong message or an error.
-  let reqId = d.sendRequest(toNode,
-    PingMessage(sprSeq: d.localNode.record.seqNum))
-  let resp = await d.waitMessage(toNode, reqId)
+  let
+    msg = PingMessage(sprSeq: d.localNode.record.seqNum)
+    resp = await d.waitResponse(toNode, msg)
 
   if resp.isSome():
     if resp.get().kind == pong:
@@ -544,8 +604,9 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   ##
   ## Returns the received nodes or an error.
   ## Received SPRs are already validated and converted to `Node`.
-  let reqId = d.sendRequest(toNode, FindNodeMessage(distances: distances))
-  let nodes = await d.waitNodes(toNode, reqId)
+  let
+    msg = FindNodeMessage(distances: distances)
+    nodes = await d.waitNodeResponses(toNode, msg)
 
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
@@ -561,8 +622,9 @@ proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
   ##
   ## Returns the received nodes or an error.
   ## Received SPRs are already validated and converted to `Node`.
-  let reqId = d.sendRequest(toNode, FindNodeFastMessage(target: target))
-  let nodes = await d.waitNodes(toNode, reqId)
+  let
+    msg = FindNodeFastMessage(target: target)
+    nodes = await d.waitNodeResponses(toNode, msg)
 
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit)
@@ -578,9 +640,9 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
   ## Send a discovery talkreq message.
   ##
   ## Returns the received talkresp message or an error.
-  let reqId = d.sendRequest(toNode,
-    TalkReqMessage(protocol: protocol, request: request))
-  let resp = await d.waitMessage(toNode, reqId)
+  let
+    msg = TalkReqMessage(protocol: protocol, request: request)
+    resp = await d.waitResponse(toNode, msg)
 
   if resp.isSome():
     if resp.get().kind == talkResp:
@@ -704,7 +766,8 @@ proc addProvider*(
       res.add(d.localNode)
   for toNode in res:
     if toNode != d.localNode:
-      discard d.sendRequest(toNode, AddProviderMessage(cId: cId, prov: pr))
+      let reqId = RequestId.init(d.rng[])
+      d.sendRequest(toNode, AddProviderMessage(cId: cId, prov: pr), reqId)
     else:
       asyncSpawn d.addProviderLocal(cId, pr)
 
@@ -717,8 +780,7 @@ proc sendGetProviders(d: Protocol, toNode: Node,
   trace "sendGetProviders", toNode, msg
 
   let
-    reqId = d.sendRequest(toNode, msg)
-    resp = await d.waitMessage(toNode, reqId)
+    resp = await d.waitResponse(toNode, msg)
 
   if resp.isSome():
     if resp.get().kind == MessageKind.providers:
@@ -797,6 +859,92 @@ proc getProviders*(
   trace "getProviders collected: ", res = res.mapIt(it.data)
 
   return ok res
+
+proc addValue*(
+    d: Protocol,
+    cId: NodeId,
+    value: seq[byte]): Future[seq[Node]] {.async.} =
+
+  var res = await d.lookup(cId)
+  trace "lookup returned:", res
+  # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
+  if res.len == 0:
+      res.add(d.localNode)
+  for toNode in res:
+    if toNode != d.localNode:
+      let reqId = RequestId.init(d.rng[])
+      d.sendRequest(toNode, AddValueMessage(cId: cId, value: value), reqId)
+    else:
+      asyncSpawn d.addValueLocal(cId, value)
+
+  return res
+
+proc sendGetValue(d: Protocol, toNode: Node,
+                       cId: NodeId): Future[DiscResult[ValueMessage]]
+                       {.async.} =
+  let msg = GetValueMessage(cId: cId)
+  trace "sendGetValue", toNode, msg
+
+  let
+    resp = await d.waitResponse(toNode, msg)
+
+  if resp.isSome():
+    if resp.get().kind == MessageKind.respValue:
+      d.routingTable.setJustSeen(toNode)
+      return ok(resp.get().value)
+    else:
+      # TODO: do we need to do something when there is an invalid response?
+      d.replaceNode(toNode)
+      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      return err("Invalid response to GetValue message")
+  else:
+    # TODO: do we need to do something when there is no response?
+    d.replaceNode(toNode)
+    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    return err("GetValue response message not received in time")
+
+proc getValue*(
+    d: Protocol,
+    cId: NodeId,
+    timeout: Duration = 5000.milliseconds # TODO: not used?
+  ): Future[DiscResult[seq[byte]]] {.async.} =
+
+  # # What value do we know about?
+  # var res = await d.getProvidersLocal(cId, maxitems)
+  # trace "local providers:", prov = res.mapIt(it)
+
+  let nodesNearby = await d.lookup(cId)
+  trace "nearby:", nodesNearby
+  var providersFut: seq[Future[DiscResult[ValueMessage]]]
+  for n in nodesNearby:
+    if n != d.localNode:
+      providersFut.add(d.sendGetValue(n, cId))
+
+  while providersFut.len > 0:
+    let providersMsg = await one(providersFut)
+    # trace "Got providers response", providersMsg
+
+    let index = providersFut.find(providersMsg)
+    if index != -1:
+      providersFut.del(index)
+
+    let providersMsg2 = await providersMsg
+
+    let providersMsgRes = providersMsg.read
+    if providersMsgRes.isOk:
+      let value = providersMsgRes.get.value
+      var res = value
+      # TODO: validate result before accepting as the right one
+      # TODO: cancel pending futures!
+      return ok res
+    else:
+      error "Sending of GetValue message failed", error = providersMsgRes.error
+      # TODO: should we consider this as an error result if all GetProviders
+      # requests fail??
+
+  trace "getValue returned no result", cId
+
+  return err "getValue failed"
 
 proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
     {.async.} =
@@ -937,7 +1085,8 @@ proc revalidateLoop(d: Protocol) {.async.} =
   ## message.
   try:
     while true:
-      await sleepAsync(milliseconds(d.rng[].rand(RevalidateMax)))
+      await sleepAsync(milliseconds(RevalidateMax div 2 + d.rng[].rand(RevalidateMax div 2)))
+      #echo d.localNode.address.get().port, ": ", d.nodesDiscovered()
       let n = d.routingTable.nodeToRevalidate()
       if not n.isNil:
         traceAsyncErrors d.revalidateNode(n)
@@ -1031,7 +1180,7 @@ proc newProtocol*(
     bootstrapRecords: openArray[SignedPeerRecord] = [],
     previousRecord = none[SignedPeerRecord](),
     bindPort: Port,
-    bindIp = IPv4_any(),
+    bindIp = IPv4_loopback(),
     enrAutoUpdate = false,
     config = defaultDiscoveryConfig,
     rng = newRng(),
@@ -1098,7 +1247,7 @@ proc newProtocol*(
     bindPort: Port,
     record: SignedPeerRecord,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
-    bindIp = IPv4_any(),
+    bindIp = IPv4_loopback(),
     config = defaultDiscoveryConfig,
     rng = newRng(),
     providers = ProvidersManager.new(SQLiteDatastore.new(Memory)
