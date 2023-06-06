@@ -17,9 +17,11 @@ import
   bearssl/rand,
   ./spr,
   ./node,
-  ../../../../dht/providers_messages
+  ../../../../dht/providers_messages,
+  ../../../../dht/value_messages
 
 export providers_messages
+export value_messages
 
 type
   MessageKind* {.pure.} = enum
@@ -41,6 +43,9 @@ type
     addProvider = 0x0B
     getProviders = 0x0C
     providers = 0x0D
+    addValue = 0x0E
+    getValue = 0x0F
+    respValue = 0x10
     findNodeFast = 0x83
 
   RequestId* = object
@@ -79,7 +84,8 @@ type
 
   SomeMessage* = PingMessage or PongMessage or FindNodeMessage or NodesMessage or
     TalkReqMessage or TalkRespMessage or AddProviderMessage or GetProvidersMessage or
-    ProvidersMessage or FindNodeFastMessage
+    ProvidersMessage or FindNodeFastMessage or
+    AddValueMessage or GetValueMessage or ValueMessage
 
   Message* = object
     reqId*: RequestId
@@ -112,6 +118,12 @@ type
       getProviders*: GetProvidersMessage
     of providers:
       provs*: ProvidersMessage
+    of addValue:
+      addValue*: AddValueMessage
+    of getValue:
+      getValue*: GetValueMessage
+    of respValue:
+      value*: ValueMessage
     else:
       discard
 
@@ -126,6 +138,9 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
   elif T is AddProviderMessage: MessageKind.addProvider
   elif T is GetProvidersMessage: MessageKind.getProviders
   elif T is ProvidersMessage: MessageKind.providers
+  elif T is AddValueMessage: MessageKind.addValue
+  elif T is GetValueMessage: MessageKind.getValue
+  elif T is ValueMessage: MessageKind.respValue
 
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)

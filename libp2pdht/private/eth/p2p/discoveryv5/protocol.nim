@@ -174,6 +174,7 @@ type
     talkProtocols*: Table[seq[byte], TalkProtocol] # TODO: Table is a bit of
     rng*: ref HmacDrbgContext
     providers: ProvidersManager
+    valueStore: Table[NodeId, seq[byte]]
 
   TalkProtocolHandler* = proc(p: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
     {.gcsafe, raises: [Defect].}
@@ -399,6 +400,38 @@ proc handleGetProviders(
   let response = ProvidersMessage(total: 1, provs: provs.get)
   d.sendResponse(fromId, fromAddr, response, reqId)
 
+proc addValueLocal(p: Protocol, cId: NodeId, value: seq[byte]) {.async.} =
+  trace "adding value to local db", n = p.localNode, cId, value
+
+  p.valueStore[cId] = value
+
+proc handleAddValue(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  addValue: AddValueMessage,
+  reqId: RequestId) =
+  asyncSpawn d.addValueLocal(addValue.cId, addValue.value)
+
+proc handleGetValue(
+  d: Protocol,
+  fromId: NodeId,
+  fromAddr: Address,
+  getValue: GetValueMessage,
+  reqId: RequestId) {.async.} =
+
+  try:
+    let value = d.valueStore[getValue.cId]
+    trace "retrieved value from local db", n = d.localNode, cID = getValue.cId, value
+    ##TODO: handle multiple messages?
+    let response = ValueMessage(value: value)
+    d.sendResponse(fromId, fromAddr, response, reqId)
+
+  except KeyError:
+    # should we respond here? I would say so
+    trace "no value in local db", n = d.localNode, cID = getValue.cId
+    # TODO: add noValue response
+
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
   case message.kind
@@ -421,6 +454,13 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
   of getProviders:
     discovery_message_requests_incoming.inc()
     asyncSpawn d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
+  of addValue:
+    discovery_message_requests_incoming.inc()
+    #discovery_message_requests_incoming.inc(labelValues = ["no_response"])
+    d.handleAddValue(srcId, fromAddr, message.addValue, message.reqId)
+  of getValue:
+    discovery_message_requests_incoming.inc()
+    asyncSpawn d.handleGetValue(srcId, fromAddr, message.getValue, message.reqId)
   of regTopic, topicQuery:
     discovery_message_requests_incoming.inc()
     discovery_message_requests_incoming.inc(labelValues = ["no_response"])
@@ -819,6 +859,92 @@ proc getProviders*(
   trace "getProviders collected: ", res = res.mapIt(it.data)
 
   return ok res
+
+proc addValue*(
+    d: Protocol,
+    cId: NodeId,
+    value: seq[byte]): Future[seq[Node]] {.async.} =
+
+  var res = await d.lookup(cId)
+  trace "lookup returned:", res
+  # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
+  if res.len == 0:
+      res.add(d.localNode)
+  for toNode in res:
+    if toNode != d.localNode:
+      let reqId = RequestId.init(d.rng[])
+      d.sendRequest(toNode, AddValueMessage(cId: cId, value: value), reqId)
+    else:
+      asyncSpawn d.addValueLocal(cId, value)
+
+  return res
+
+proc sendGetValue(d: Protocol, toNode: Node,
+                       cId: NodeId): Future[DiscResult[ValueMessage]]
+                       {.async.} =
+  let msg = GetValueMessage(cId: cId)
+  trace "sendGetValue", toNode, msg
+
+  let
+    resp = await d.waitResponse(toNode, msg)
+
+  if resp.isSome():
+    if resp.get().kind == MessageKind.respValue:
+      d.routingTable.setJustSeen(toNode)
+      return ok(resp.get().value)
+    else:
+      # TODO: do we need to do something when there is an invalid response?
+      d.replaceNode(toNode)
+      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      return err("Invalid response to GetValue message")
+  else:
+    # TODO: do we need to do something when there is no response?
+    d.replaceNode(toNode)
+    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    return err("GetValue response message not received in time")
+
+proc getValue*(
+    d: Protocol,
+    cId: NodeId,
+    timeout: Duration = 5000.milliseconds # TODO: not used?
+  ): Future[DiscResult[seq[byte]]] {.async.} =
+
+  # # What value do we know about?
+  # var res = await d.getProvidersLocal(cId, maxitems)
+  # trace "local providers:", prov = res.mapIt(it)
+
+  let nodesNearby = await d.lookup(cId)
+  trace "nearby:", nodesNearby
+  var providersFut: seq[Future[DiscResult[ValueMessage]]]
+  for n in nodesNearby:
+    if n != d.localNode:
+      providersFut.add(d.sendGetValue(n, cId))
+
+  while providersFut.len > 0:
+    let providersMsg = await one(providersFut)
+    # trace "Got providers response", providersMsg
+
+    let index = providersFut.find(providersMsg)
+    if index != -1:
+      providersFut.del(index)
+
+    let providersMsg2 = await providersMsg
+
+    let providersMsgRes = providersMsg.read
+    if providersMsgRes.isOk:
+      let value = providersMsgRes.get.value
+      var res = value
+      # TODO: validate result before accepting as the right one
+      # TODO: cancel pending futures!
+      return ok res
+    else:
+      error "Sending of GetValue message failed", error = providersMsgRes.error
+      # TODO: should we consider this as an error result if all GetProviders
+      # requests fail??
+
+  trace "getValue returned no result", cId
+
+  return err "getValue failed"
 
 proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
     {.async.} =
