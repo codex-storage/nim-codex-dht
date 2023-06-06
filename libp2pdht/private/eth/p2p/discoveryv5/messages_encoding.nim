@@ -14,7 +14,8 @@ import
   libp2p/routing_record,
   libp2p/signed_envelope,
   "."/[messages, spr, node],
-  ../../../../dht/providers_encoding
+  ../../../../dht/providers_encoding,
+  ../../../../dht/value_encoding
 
 from stew/objects import checkedEnumAssign
 
@@ -433,6 +434,30 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
       return ok(message)
     else:
       return err("Unable to decode ProvidersMessage")
+
+  of addValue:
+    let res = AddValueMessage.decode(encoded)
+    if res.isOk:
+      message.addValue = res.get
+      return ok(message)
+    else:
+      return err "Unable to decode AddValueMessage"
+
+  of getValue:
+    let res = GetValueMessage.decode(encoded)
+    if res.isOk:
+      message.getValue = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode GetValueMessage")
+
+  of respValue:
+    let res = ValueMessage.decode(encoded)
+    if res.isOk:
+      message.value = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode ValueMessage")
 
   of regTopic, ticket, regConfirmation, topicQuery:
     # We just pass the empty type of this message without attempting to
