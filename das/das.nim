@@ -1,5 +1,5 @@
 import
-  std/[options, sequtils],
+  std/[options, sequtils, random],
   asynctest,
   bearssl/rand,
   chronicles,
@@ -66,6 +66,21 @@ proc segmentData(s: int, segmentsize: int) : seq[byte] =
   result = newSeq[byte](segmentsize)
   result[0] = byte(s mod 256)
 
+proc sample(s: Slice[int], len: int): seq[int] =
+    # random sample without replacement
+    # TODO: not the best for small len
+  assert s.a <= s.b
+  var all = s.b - s.a + 1
+  var count = len
+  var generated = newSeq[bool](all) # Initialized to false.
+  while count != 0:
+    let n = rand(s)
+    if not generated[n - s.a]:
+      generated[n - s.a] = true
+      result.add n
+      dec count
+
+
 when isMainModule:
   proc main() {.async.} =
     let
@@ -112,7 +127,8 @@ when isMainModule:
       let startTime = Moment.now()
       var futs = newSeq[Future[DiscResult[seq[byte]]]]()
 
-      for s in 0 ..< blocksize:
+      let sample = sample(0 ..< blocksize, samplesize)
+      for s in sample:
         let fut = nodes[n][0].getValue(segmentIDs[s])
         futs.add(fut)
 
