@@ -90,6 +90,7 @@ when isMainModule:
       blocksize = 16
       segmentsize = 10
       samplesize = 3
+      upload_timeout = 5.seconds
       sampling_timeout = 5.seconds
 
     var
@@ -112,6 +113,9 @@ when isMainModule:
     await sleepAsync(chronos.milliseconds(delay_init))
 
     # generate block and push data
+    info "starting upload to DHT"
+    let startTime = Moment.now()
+    var futs = newSeq[Future[seq[Node]]]()
     for s in 0 ..< blocksize:
       let
         segment = segmentData(s, segmentsize)
@@ -119,8 +123,10 @@ when isMainModule:
 
       segmentIDs[s] = key
 
-      let addedTo = await node0.addValue(key, segment)
-      debug "Value added to: ", addedTo
+      futs.add(node0.addValue(key, segment))
+
+    let pass = await allFutures(futs).withTimeout(upload_timeout)
+    info "uploaded to DHT", by = 0, pass, time = Moment.now() - startTime
 
     # sample
     for n in 1 ..< nodecount:
