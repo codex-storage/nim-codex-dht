@@ -162,6 +162,7 @@ type
     transport*: Transport[Protocol] # exported for tests
     routingTable*: RoutingTable
     awaitedMessages: Table[(NodeId, RequestId), Future[Option[Message]]]
+    # awaitedNodesMessages: Table[(NodeId, RequestId), (Future[DiscResult[seq[SignedPeerRecord]]], int, seq[SignedPeerRecord])] # for some reason DiscResult is not compiling here, needs to be expanded
     awaitedNodesMessages: Table[(NodeId, RequestId), (Future[Result[seq[SignedPeerRecord],cstring]], uint32, seq[SignedPeerRecord])]
     refreshLoop: Future[void]
     revalidateLoop: Future[void]
