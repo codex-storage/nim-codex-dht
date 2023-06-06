@@ -75,6 +75,7 @@ when isMainModule:
       blocksize = 16
       segmentsize = 10
       samplesize = 3
+      sampling_timeout = 5.seconds
 
     var
       rng: ref HmacDrbgContext
@@ -108,11 +109,21 @@ when isMainModule:
 
     # sample
     for n in 1 ..< nodecount:
+      let startTime = Moment.now()
+      var futs = newSeq[Future[DiscResult[seq[byte]]]]()
+
       for s in 0 ..< blocksize:
-        let startTime = Moment.now()
-        let res = await nodes[n][0].getValue(segmentIDs[s])
-        let pass = res.isOk()
-        info "sample", pass, by = n, sample = s, time = Moment.now() - startTime
+        let fut = nodes[n][0].getValue(segmentIDs[s])
+        futs.add(fut)
+
+      # test is passed if all segments are retrieved in time
+      let pass = await allFutures(futs).withTimeout(sampling_timeout)
+      var passcount: int
+      for f in futs:
+        if f.finished():
+          passcount += 1
+
+      info "sample", by = n, pass, cnt = passcount, time = Moment.now() - startTime
 
   waitfor main()
 
