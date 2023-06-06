@@ -283,3 +283,20 @@ suite "Providers Tests: many nodes":
           tested += 1
           passed += int(pass)
       info "Lookup ratio", passed, tested, ratio = passed/tested
+
+  test $nodecount & " nodes, addValue and getValue":
+    let
+      key = NodeId.example(rng)
+      v = @[byte 1,2,3]
+
+    debug "---- ADDING VALUE ---"
+    let addedTo = await node0.addValue(key, v)
+    debug "Value added to: ", addedTo
+
+    debug "---- STARTING VALUE LOOKUP ---"
+    let res = await node0.getValue(key)
+
+    debug "---- STARTING CHECKS ---"
+    let v2 = res.get
+    debug "Value:", v2
+    check (v2 == v)
