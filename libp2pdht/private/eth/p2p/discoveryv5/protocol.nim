@@ -192,10 +192,8 @@ proc addNode*(d: Protocol, node: Node): bool =
   ## Returns true only when `Node` was added as a new entry to a bucket in the
   ## routing table.
   if d.routingTable.addNode(node) == Added:
-    trace "added new node:", n = node
     return true
   else:
-    trace "failed to add node :O", n = node
     return false
 
 proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
@@ -203,13 +201,10 @@ proc addNode*(d: Protocol, r: SignedPeerRecord): bool =
   ##
   ## Returns false only if no valid `Node` can be created from the `SignedPeerRecord` or
   ## on the conditions of `addNode` from a `Node`.
-  trace "adding from SPR:", spr = r
   let node = newNode(r)
   if node.isOk():
-    trace "converted to node"
     return d.addNode(node[])
   else:
-    trace "unable to convert to node"
     return false
 
 proc addNode*(d: Protocol, spr: SprUri): bool =
@@ -218,7 +213,6 @@ proc addNode*(d: Protocol, spr: SprUri): bool =
   ## Returns false if no valid SPR URI, or on the conditions of `addNode` from
   ## an `SignedPeerRecord`.
   try:
-    trace "adding from SPR-URI"
     var r: SignedPeerRecord
     let res = r.fromURI(spr)
     if res:
@@ -373,8 +367,6 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
   d.sendResponse(fromId, fromAddr, talkresp, reqId)
 
 proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) {.async.} =
-  trace "adding provider to local db", n = p.localNode, cId, prov
-
   if (let res = (await p.providers.add(cid, prov)); res.isErr):
     trace "Unable to add provider", cid, peerId = prov.data.peerId
 
@@ -552,18 +544,15 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
   ##
   ## Returns the received nodes or an error.
   ## Received SPRs are already validated and converted to `Node`.
-  trace "findNode..."
   let reqId = d.sendRequest(toNode, FindNodeMessage(distances: distances))
   let nodes = await d.waitNodes(toNode, reqId)
-  trace "findNode: got nodes"
 
   if nodes.isOk:
-    trace "findNode nodes.isOk"
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
     d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
-    trace "findNode !nodes.isOK"
+    trace "findNode nodes not OK."
     d.replaceNode(toNode)
     return err(nodes.error)
 
@@ -711,7 +700,6 @@ proc addProvider*(
     pr: SignedPeerRecord): Future[seq[Node]] {.async.} =
 
   var res = await d.lookup(cId)
-  trace "lookup returned:", res
   # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
       res.add(d.localNode)
@@ -727,7 +715,6 @@ proc sendGetProviders(d: Protocol, toNode: Node,
                        cId: NodeId): Future[DiscResult[ProvidersMessage]]
                        {.async.} =
   let msg = GetProvidersMessage(cId: cId)
-  trace "sendGetProviders", toNode, msg
 
   let
     reqId = d.sendRequest(toNode, msg)
@@ -790,7 +777,6 @@ proc getProviders*(
 
   while providersFut.len > 0:
     let providersMsg = await one(providersFut)
-    # trace "Got providers response", providersMsg
 
     let index = providersFut.find(providersMsg)
     if index != -1:
@@ -884,20 +870,17 @@ proc resolve*(d: Protocol, id: NodeId): Future[Option[Node]] {.async.} =
   ## does not reply, a lookup is done to see if it can find a (newer) record of
   ## the node on the network.
   if id == d.localNode.id:
-    trace "resolved local"
     return some(d.localNode)
 
   let node = d.getNode(id)
   if node.isSome():
-    trace "resolve found requested node in local cache. Still calling find to look for update...", n = node.get()
     let request = await d.findNode(node.get(), @[0'u16])
 
     # TODO: Handle failures better. E.g. stop on different failures than timeout
     if request.isOk() and request[].len > 0:
-      trace "resolve (with local node found) to response to request and is returning:", r = (request[][0])
+      trace "resolve (with local node found) is returning:", r = (request[][0])
       return some(request[][0])
 
-  trace "resolve (not local) is calling lookup"
   let discovered = await d.lookup(id)
   for n in discovered:
     if n.id == id:
@@ -908,12 +891,10 @@ proc resolve*(d: Protocol, id: NodeId): Future[Option[Node]] {.async.} =
         trace "resolve (lookup) found new node with equal or greater seqNum", n = n
         return some(n)
 
-  trace "resolve (default return)"
   return node
 
 proc seedTable*(d: Protocol) =
   ## Seed the table with known nodes.
-  trace "Seeding routing table..."
   for record in d.bootstrapRecords:
     if d.addNode(record):
       debug "Added bootstrap node", uri = toURI(record)
@@ -1046,76 +1027,6 @@ func init*(
       bucketIpLimit: bucketIpLimit),
     bitsPerHop: bitsPerHop
   )
-
-# proc newProtocol*(
-#     privKey: PrivateKey,
-#     enrIp: Option[ValidIpAddress],
-#     enrTcpPort, enrUdpPort: Option[Port],
-#     localEnrFields: openArray[(string, seq[byte])] = [],
-#     bootstrapRecords: openArray[SignedPeerRecord] = [],
-#     previousRecord = none[SignedPeerRecord](),
-#     bindPort: Port,
-#     bindIp = IPv4_any(),
-#     enrAutoUpdate = false,
-#     config = defaultDiscoveryConfig,
-#     rng = newRng(),
-#     providers = ProvidersManager.new(
-#       SQLiteDatastore.new(Memory)
-#       .expect("Should not fail!"))):
-#     Protocol =
-#   # TODO: Tried adding bindPort = udpPort as parameter but that gave
-#   # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
-#   # Anyhow, nim-beacon-chain would also require some changes to support port
-#   # remapping through NAT and this API is also subject to change once we
-#   # introduce support for ipv4 + ipv6 binding/listening.
-
-#   # TODO: Implement SignedPeerRecord custom fields?
-#   # let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
-
-#   # TODO:
-#   # - Defect as is now or return a result for spr errors?
-#   # - In case incorrect key, allow for new spr based on new key (new node id)?
-#   var record: SignedPeerRecord
-#   if previousRecord.isSome():
-#     record = previousRecord.get()
-#     record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
-#             .expect("SignedPeerRecord within size limits and correct key")
-#   else:
-#     record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
-#                .expect("SignedPeerRecord within size limits")
-
-#   info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
-#     seqNum = record.seqNum, uri = toURI(record)
-#   if enrIp.isNone():
-#     if enrAutoUpdate:
-#       notice "No external IP provided for the SPR, this node will not be " &
-#         "discoverable until the SPR is updated with the discovered external IP address"
-#     else:
-#       warn "No external IP provided for the SPR, this node will not be discoverable"
-
-#   let node = newNode(record).expect("Properly initialized record")
-
-#   # TODO Consider whether this should be a Defect
-#   doAssert rng != nil, "RNG initialization failed"
-
-#   let
-#     routingTable = RoutingTable.init(
-#       node,
-#       config.bitsPerHop,
-#       config.tableIpLimits,
-#       rng)
-
-#   result = Protocol(
-#     privateKey: privKey,
-#     localNode: node,
-#     bootstrapRecords: @bootstrapRecords,
-#     ipVote: IpVote.init(),
-#     enrAutoUpdate: enrAutoUpdate,
-#     routingTable: routingTable,
-#     rng: rng,
-#     providers: providers)
-
-#   result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
 
 proc newProtocol*(
     privKey: PrivateKey,

@@ -356,13 +356,10 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # Don't allow nodes without an address field in the SPR to be added.
   # This could also be reworked by having another Node type that always has an
   # address.
-  trace "routing table adding node..."
   if n.address.isNone():
-    trace "node address is none!"
     return NoAddress
 
   if n == r.localNode:
-    trace "node address is local!"
     return LocalNode
 
   let bucket = r.bucketForNode(n.id)
@@ -375,7 +372,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       # In case of a newer record, it gets replaced.
       if bucket.nodes[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, bucket, n):
-          trace "node already existed and IP limit reached."
+          trace "Cannot add node. IP limit reached. (1)"
           return IpLimitReached
         ipLimitDec(r, bucket, bucket.nodes[nodeIdx])
       # Copy over the seen status, we trust here that after the SPR update the
@@ -383,7 +380,6 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       n.seen = bucket.nodes[nodeIdx].seen
       bucket.nodes[nodeIdx] = n
 
-    trace "node already existed"
     return Existing
 
   # If the bucket has fewer than `BUCKET_SIZE` entries, it is inserted as the
@@ -403,7 +399,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # immediately add nodes to the most recently seen spot.
   if bucket.len < BUCKET_SIZE:
     if not ipLimitInc(r, bucket, n):
-      trace "node ip limit already reached (2)"
+      trace "Cannot add node. IP limit reached. (2)"
       return IpLimitReached
 
     bucket.add(n)
@@ -418,11 +414,9 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
     if bucket.inRange(r.localNode) or
         (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
       r.splitBucket(r.buckets.find(bucket))
-      trace "retrying to add node..."
       return r.addNode(n) # retry adding
     else:
       # When bucket doesn't get split the node is added to the replacement cache
-      trace "trying to replace node..."
       return r.addReplacement(bucket, n)
 
 proc removeNode*(r: var RoutingTable, n: Node) =
@@ -449,11 +443,9 @@ proc replaceNode*(r: var RoutingTable, n: Node) =
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
   ## If no node with provided node id can be found,`none` is returned.
-  trace "routingTable.getNode"
   let b = r.bucketForNode(id)
   for n in b.nodes:
     if n.id == id:
-      trace "routingTable.getNode found some"
       return some(n)
   trace "routingTable.getNode failed to find"
 
