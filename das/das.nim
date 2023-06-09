@@ -72,13 +72,20 @@ proc sample(s: Slice[int], len: int): seq[int] =
   assert s.a <= s.b
   var all = s.b - s.a + 1
   var count = len
-  var generated = newSeq[bool](all) # Initialized to false.
-  while count != 0:
-    let n = rand(s)
-    if not generated[n - s.a]:
-      generated[n - s.a] = true
-      result.add n
-      dec count
+  if len >= all div 10: # add better algo selector
+    var generated = newSeq[bool](all) # Initialized to false.
+    while count != 0:
+      let n = rand(s)
+      if not generated[n - s.a]:
+        generated[n - s.a] = true
+        result.add n
+        dec count
+  else:
+    while count != 0:
+      let n = rand(s)
+      if not (n in result):
+        result.add n
+        dec count
 
 
 when isMainModule:
