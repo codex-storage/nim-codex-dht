@@ -214,6 +214,7 @@ proc remove(k: KBucket, n: Node): bool =
     if k.nodes[i].seen:
       routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
+    trace "removed node:", node = n
     true
   else:
     false
@@ -316,12 +317,15 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       # gets moved to the tail.
       if k.replacementCache[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, k, n):
+          trace "replace: ip limit reached"
           return IpLimitReached
         ipLimitDec(r, k, k.replacementCache[nodeIdx])
       k.replacementCache.delete(nodeIdx)
       k.replacementCache.add(n)
+    trace "replace: already existed"
     return ReplacementExisting
   elif not ipLimitInc(r, k, n):
+    trace "replace: ip limit reached (2)"
     return IpLimitReached
   else:
     doAssert(k.replacementCache.len <= REPLACEMENT_CACHE_SIZE)
@@ -332,6 +336,7 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       k.replacementCache.delete(0)
 
     k.replacementCache.add(n)
+    trace "replace: added"
     return ReplacementAdded
 
 proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
@@ -367,6 +372,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       # In case of a newer record, it gets replaced.
       if bucket.nodes[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, bucket, n):
+          trace "Cannot add node. IP limit reached. (1)"
           return IpLimitReached
         ipLimitDec(r, bucket, bucket.nodes[nodeIdx])
       # Copy over the seen status, we trust here that after the SPR update the
@@ -393,6 +399,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
   # immediately add nodes to the most recently seen spot.
   if bucket.len < BUCKET_SIZE:
     if not ipLimitInc(r, bucket, n):
+      trace "Cannot add node. IP limit reached. (2)"
       return IpLimitReached
 
     bucket.add(n)
@@ -435,11 +442,12 @@ proc replaceNode*(r: var RoutingTable, n: Node) =
 
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
-  ## If no node with provided node id can be found,`none` is returned .
+  ## If no node with provided node id can be found,`none` is returned.
   let b = r.bucketForNode(id)
   for n in b.nodes:
     if n.id == id:
       return some(n)
+  trace "routingTable.getNode failed to find"
 
 proc contains*(r: RoutingTable, n: Node): bool = n in r.bucketForNode(n.id)
   # Check if the routing table contains node `n`.
