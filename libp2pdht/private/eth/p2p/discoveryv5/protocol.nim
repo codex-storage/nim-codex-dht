@@ -121,7 +121,8 @@ const
   MaxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
   RefreshInterval = 5.minutes ## Interval of launching a random query to
   ## refresh the routing table.
-  RevalidateMax = 10000 ## Revalidation of a peer is done between 0 and this
+  RevalidateMin = 5000
+  RevalidateMax = 10000 ## Revalidation of a peer is done between min and max milliseconds.
   ## value in milliseconds
   IpMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
   ## majority and updating this when SPR auto update is set.
@@ -937,8 +938,7 @@ proc revalidateLoop(d: Protocol) {.async.} =
   ## message.
   try:
     while true:
-      let revalidateMin = RevalidateMax div 2
-      let revalidateTimeout = revalidateMin + d.rng[].rand(RevalidateMax - revalidateMin)
+      let revalidateTimeout = RevalidateMin + d.rng[].rand(RevalidateMax - RevalidateMin)
       await sleepAsync(milliseconds(revalidateTimeout))
       let n = d.routingTable.nodeToRevalidate()
       if not n.isNil:
