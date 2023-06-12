@@ -109,20 +109,12 @@ when isMainModule:
     assert(log2(blocksize.float).ceil.int <= segmentsize * 8 )
 
     var
-      rng: ref HmacDrbgContext
-      nodes: seq[(discv5_protocol.Protocol, PrivateKey)]
-      node0: discv5_protocol.Protocol
-      privKey0: PrivateKey
-      signedPeerRec0: SignedPeerRecord
-      peerRec0: PeerRecord
       segmentIDs = newSeq[NodeId](blocksize)
 
     # start network
-    rng = newRng()
-    nodes = await bootstrapNetwork(nodecount=nodecount, delay=delay_pernode)
-    (node0, privKey0) = nodes[0]
-    signedPeerRec0 = privKey0.toSignedPeerRecord
-    peerRec0 = signedPeerRec0.data
+    let
+      rng = newRng()
+      nodes = await bootstrapNetwork(nodecount=nodecount, delay=delay_pernode)
 
     # wait for network to settle
     await sleepAsync(chronos.milliseconds(delay_init))
@@ -138,7 +130,7 @@ when isMainModule:
 
       segmentIDs[s] = key
 
-      futs.add(node0.addValue(key, segment))
+      futs.add(nodes[0][0].addValue(key, segment))
 
     let pass = await allFutures(futs).withTimeout(upload_timeout)
     info "uploaded to DHT", by = 0, pass, time = Moment.now() - startTime
