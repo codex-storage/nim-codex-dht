@@ -155,9 +155,10 @@ when isMainModule:
         futs.add(fut)
       return futs
 
-    for n in 1 ..< nodecount:
+    proc sample(n: discv5_protocol.Protocol): Future[(bool, int, Duration)] {.async.} =
+      ## Sample and return detailed results of sampling
       let startTime = Moment.now()
-      var futs = startSampling(nodes[n][0])
+      var futs = startSampling(n)
 
       # test is passed if all segments are retrieved in time
       let pass = await allFutures(futs).withTimeout(sampling_timeout)
@@ -166,7 +167,12 @@ when isMainModule:
         if f.finished():
           passcount += 1
 
-      info "sample", by = n, pass, cnt = passcount, time = Moment.now() - startTime
+      let time = Moment.now() - startTime
+      info "sample", by = n.localNode, pass, cnt = passcount, time
+      return (pass, passcount, time)
+
+    for n in 1 ..< nodecount:
+      discard await sample(nodes[n][0])
 
   waitfor main()
 
