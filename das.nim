@@ -5,7 +5,7 @@ import
   libp2pdht/dht,
   libp2pdht/discv5/crypto as dhtcrypto,
   libp2pdht/discv5/protocol as discv5_protocol,
-  tests/dht/test_helper
+  test_helper
 
 logScope:
   topics = "DAS emulator"

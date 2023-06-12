@@ -6,6 +6,7 @@ description   = "DHT based on the libp2p Kademlia spec"
 license       = "MIT"
 skipDirs      = @["tests"]
 
+bin = @["das"]
 
 # Dependencies
 requires "nim >= 1.2.0",
