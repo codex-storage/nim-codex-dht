@@ -144,14 +144,20 @@ when isMainModule:
     info "uploaded to DHT", by = 0, pass, time = Moment.now() - startTime
 
     # sample
-    for n in 1 ..< nodecount:
-      let startTime = Moment.now()
+    proc startSampling(n: discv5_protocol.Protocol): seq[Future[DiscResult[seq[byte]]]] =
+      ## Generate random sample and start the sampling process
       var futs = newSeq[Future[DiscResult[seq[byte]]]]()
 
       let sample = sample(0 ..< blocksize, samplesize)
+      debug "starting sampling", by = n, sample
       for s in sample:
-        let fut = nodes[n][0].getValue(segmentIDs[s])
+        let fut = n.getValue(segmentIDs[s])
         futs.add(fut)
+      return futs
+
+    for n in 1 ..< nodecount:
+      let startTime = Moment.now()
+      var futs = startSampling(nodes[n][0])
 
       # test is passed if all segments are retrieved in time
       let pass = await allFutures(futs).withTimeout(sampling_timeout)
