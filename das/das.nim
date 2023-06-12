@@ -1,5 +1,5 @@
 import
-  std/[options, sequtils, random],
+  std/[options, sequtils, random, math],
   asynctest,
   bearssl/rand,
   chronicles,
@@ -64,7 +64,14 @@ proc toNodeId(data: openArray[byte]): NodeId =
 
 proc segmentData(s: int, segmentsize: int) : seq[byte] =
   result = newSeq[byte](segmentsize)
-  result[0] = byte(s mod 256)
+  var
+    r = s
+    i = 0
+  while r > 0:
+    assert(i<segmentsize)
+    result[i] = byte(r mod 256)
+    r = r div 256
+    i+=1
 
 proc sample(s: Slice[int], len: int): seq[int] =
     # random sample without replacement
@@ -99,6 +106,7 @@ when isMainModule:
       samplesize = 3
       upload_timeout = 5.seconds
       sampling_timeout = 5.seconds
+    assert(log2(blocksize.float).ceil.int <= segmentsize * 8 )
 
     var
       rng: ref HmacDrbgContext
