@@ -92,11 +92,11 @@ proc sample(s: Slice[int], len: int): seq[int] =
 when isMainModule:
   proc main() {.async.} =
     let
-      nodecount = 5
+      nodecount = 100
       delay_pernode = 10 # in millisec
-      delay_init = 2*1000 # in millisec
-      blocksize = 16
-      segmentsize = 10
+      delay_init = 15*1000 # in millisec
+      blocksize = 256
+      segmentsize = 2
       samplesize = 3
       upload_timeout = 5.seconds
       sampling_timeout = 5.seconds
