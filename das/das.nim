@@ -101,6 +101,7 @@ when isMainModule:
       upload_timeout = 5.seconds
       sampling_timeout = 5.seconds
     assert(log2(blocksize.float).ceil.int <= segmentsize * 8 )
+    assert(samplesize <= blocksize)
 
     var
       segmentIDs = newSeq[NodeId](blocksize)
