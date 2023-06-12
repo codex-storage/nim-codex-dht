@@ -173,7 +173,7 @@ when isMainModule:
         debug "sampleStats", pass, cnt = passcount, time
       else:
         error "This should not happen!"
-    info "sampleStats", passed, total = samplings.len
+    info "sampleStats", passed, total = samplings.len, ratio = passed/samplings.len
 
   waitfor main()
 
