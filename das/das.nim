@@ -1,16 +1,10 @@
 import
-  std/[options, sequtils, random, math],
-  asynctest,
-  bearssl/rand,
+  std/[random, math],
   chronicles,
   chronos,
-  nimcrypto,
-  libp2p/crypto/[crypto, secp],
-  libp2p/[multiaddress, multicodec, multihash, routing_record, signed_envelope],
   libp2pdht/dht,
   libp2pdht/discv5/crypto as dhtcrypto,
   libp2pdht/discv5/protocol as discv5_protocol,
-  stew/byteutils,
   tests/dht/test_helper
 
 logScope:
