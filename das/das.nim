@@ -171,8 +171,23 @@ when isMainModule:
       info "sample", by = n.localNode, pass, cnt = passcount, time
       return (pass, passcount, time)
 
+    # all nodes start sampling in parallel
+    var samplings = newSeq[Future[(bool, int, Duration)]]()
     for n in 1 ..< nodecount:
-      discard await sample(nodes[n][0])
+      samplings.add(sample(nodes[n][0]))
+    await allFutures(samplings)
+
+    # print statistics
+    var
+      passed = 0
+    for f in samplings:
+      if f.finished():
+        let (pass, passcount, time) = await f
+        passed += pass.int
+        debug "sampleStats", pass, cnt = passcount, time
+      else:
+        error "This should not happen!"
+    info "sampleStats", passed, total = samplings.len
 
   waitfor main()
 
