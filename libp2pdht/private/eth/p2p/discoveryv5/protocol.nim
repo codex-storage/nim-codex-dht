@@ -925,7 +925,7 @@ proc getValue*(
       # TODO: cancel pending futures!
       return ok res
     else:
-      error "Sending of GetValue message failed", error = providersMsgRes.error
+      debug "Sending of GetValue message failed", error = providersMsgRes.error
       # TODO: should we consider this as an error result if all GetProviders
       # requests fail??
 
