@@ -8,7 +8,7 @@
 import
   std/[tables, options, deques],
   bearssl/rand,
-  chronosim,
+  chronos,
   chronicles,
   libp2p/crypto/crypto,
   stew/shims/net,
