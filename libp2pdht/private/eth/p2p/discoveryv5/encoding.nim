@@ -24,7 +24,6 @@ import
   libp2p/signed_envelope,
   metrics,
   nimcrypto,
-  nop,
   "."/[messages, messages_encoding, node, spr, hkdf, sessions],
   "."/crypto
 
@@ -41,7 +40,7 @@ logScope:
   topics = "discv5"
 
 type
-  cipher = nop128
+  cipher = aes128
 
 const
   version: uint16 = 1
