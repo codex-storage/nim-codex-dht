@@ -182,6 +182,9 @@ type
 
   DiscResult*[T] = Result[T, cstring]
 
+func `$`*(p: Protocol): string =
+  $p.localNode.id
+
 const
   defaultDiscoveryConfig* = DiscoveryConfig(
     tableIpLimits: DefaultTableIpLimits,
