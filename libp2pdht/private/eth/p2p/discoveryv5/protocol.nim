@@ -129,6 +129,7 @@ const
   ResponseTimeout* = 4.seconds ## timeout for the response of a request-response
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
+  ValueReplication = 5 # store a value in this many nodes
   ## call
 
 func shortLog*(record: SignedPeerRecord): string =
@@ -848,7 +849,7 @@ proc addValue*(
   # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
       res.add(d.localNode)
-  for toNode in res:
+  for toNode in res[0 .. ValueReplication]:
     if toNode != d.localNode:
       let reqId = RequestId.init(d.rng[])
       d.sendRequest(toNode, AddValueMessage(cId: cId, value: value), reqId)
