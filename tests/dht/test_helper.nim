@@ -31,7 +31,7 @@ proc initDiscoveryNode*(
     previousRecord = none[SignedPeerRecord]()):
     discv5_protocol.Protocol =
   # set bucketIpLimit to allow bucket split
-  let config = DiscoveryConfig.init(1000, 24, 5)
+  let config = DiscoveryConfig.init(10000, 10000, 5)
 
   let protocol = newProtocol(
     privKey,
