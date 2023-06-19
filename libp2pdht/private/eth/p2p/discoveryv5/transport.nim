@@ -95,12 +95,15 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
     sleepAsync(handshakeTimeout).addCallback() do(data: pointer):
     # TODO: should we still provide cancellation in case handshake completes
     # correctly?
-      t.codec.handshakes.del(key)
+      if t.codec.hasHandshake(key):
+        debug "Handshake timeout", myport = t.bindAddress.port , dstId = toId, address = a
+        t.codec.handshakes.del(key)
 
     trace "Send whoareyou", dstId = toId, address = a
     t.sendToA(a, data)
   else:
-    debug "Node with this id already has ongoing handshake, ignoring packet"
+    # TODO: is this reasonable to drop it? Should we allow a mini-queue here?
+    debug "Node with this id already has ongoing handshake, ignoring packet", myport = t.bindAddress.port , dstId = toId, address = a
 
 proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
   let decoded = t.codec.decodePacket(a, packet)
