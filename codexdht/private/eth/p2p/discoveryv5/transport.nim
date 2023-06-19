@@ -124,8 +124,7 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
     t.sendToA(a, data)
   else:
     # TODO: is this reasonable to drop it? Should we allow a mini-queue here?
-    # Queue should be on sender side, as this is random encoded!
-    debug "Node with this id already has ongoing handshake, queuing packet", myport = t.bindAddress.port , dstId = toId, address = a
+    debug "Node with this id already has ongoing handshake, ignoring packet", myport = t.bindAddress.port , dstId = toId, address = a
 
 proc sendPending(t:Transport, toNode: Node):
       Future[void] {.async.} =
