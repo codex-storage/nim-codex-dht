@@ -130,6 +130,7 @@ const
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
   ValueReplication = 5 # store a value in this many nodes
+  ValueGetFrom = 5 # try to get value from this many nodes (naive lookup based implementation) 
   ## call
 
 func shortLog*(record: SignedPeerRecord): string =
@@ -904,7 +905,7 @@ proc getValue*(
   let nodesNearby = await d.lookup(cId)
   trace "nearby:", nodesNearby
   var providersFut: seq[Future[DiscResult[ValueMessage]]]
-  for n in nodesNearby:
+  for n in nodesNearby[0 .. ValueGetFrom]:
     if n != d.localNode:
       providersFut.add(d.sendGetValue(n, cId))
 
