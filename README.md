@@ -1,4 +1,4 @@
-# A DHT implementation for Dagger
+# A DHT implementation for Codex
 
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -6,15 +6,15 @@
 [![CI (GitHub Actions)](https://github.com/status-im/nim-libp2p-dht/workflows/CI/badge.svg?branch=main)](https://github.com/status-im/nim-libp2p-dht/actions?query=workflow%3ACI+branch%3Amain)
 [![codecov](https://codecov.io/gh/status-im/nim-libp2p-dht/branch/main/graph/badge.svg?token=tlmMJgU4l7)](https://codecov.io/gh/status-im/nim-libp2p-dht)
 
-This DHT implementation is aiming to provide a DHT for Dagger with the following properties
-* flexible transport usage with
+This DHT implementation is aiming to provide a DHT for Codex with the following properties
+* flexible secure transport usage with
   * fast UDP based operation
-  * fallback to TCP-based operation (maybe though libp2p)
-  * support operation on top of libp2p
+  * eventual fallback to TCP-based operation (maybe though libp2p)
+  * eventually support operation on top of libp2p
 * flexible message encoding that plays well with the above transports
 * provide node lookup, content storage/lookup, and provider storage/lookup operations
   * roughly follow the libp2p-dht specifications from https://github.com/libp2p/specs/tree/master/kad-dht
-  * provide compatibility mode with the above specs
+  * eventually provide compatibility mode with the above specs
 
 Current implementation is based on nim-eth's Discovery v5 implementation.
 
