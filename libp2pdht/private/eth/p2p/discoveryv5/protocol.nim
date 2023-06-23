@@ -71,7 +71,7 @@
 ## more requests will be needed for a lookup (adding bandwidth and latency).
 ## This might be a concern for mobile devices.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[tables, sets, options, math, sequtils, algorithm, strutils],

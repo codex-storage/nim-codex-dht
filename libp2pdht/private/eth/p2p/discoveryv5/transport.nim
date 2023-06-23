@@ -36,7 +36,7 @@ type
 proc sendToA(t: Transport, a: Address, data: seq[byte]) =
   let ta = initTAddress(a.ip, a.port)
   let f = t.transp.sendTo(ta, data)
-  f.callback = proc(data: pointer) {.gcsafe.} =
+  f.callback = proc(data: pointer) {.gcsafe, raises: [].} =
     if f.failed:
       # Could be `TransportUseClosedError` in case the transport is already
       # closed, or could be `TransportOsError` in case of a socket error.
