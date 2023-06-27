@@ -157,6 +157,7 @@ jobs:
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
           nim --version
+          nimble install "nimble>=0.14.2"
           nimble --version
           nimble install -y --depsOnly
           nimble test
