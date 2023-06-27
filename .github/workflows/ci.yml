@@ -147,12 +147,12 @@ jobs:
       uses: actions/cache@v3
       with:
         path: NimBinaries
-        key: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ inputs.nim_version }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
-        restore-keys: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ inputs.nim_version }}-cache-${{ env.cache_nonce }}
+        key: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
+        restore-keys: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
 
     - name: Set NIM_COMMIT
       shell: ${{ inputs.shell }} {0}
-      run: echo "NIM_COMMIT=${{ inputs.nim_version }}" >> ${GITHUB_ENV}
+      run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
 
       - name: Run tests
         run: |
