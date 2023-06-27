@@ -154,11 +154,12 @@ jobs:
       #   shell: ${{ matrix.shell }} {0}
       #   run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
 
+      # make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
       - name: Run tests
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          make -j${ncpu}  update
           make test -j${ncpu}
