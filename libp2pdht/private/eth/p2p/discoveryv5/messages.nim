@@ -46,6 +46,7 @@ type
     addValue = 0x0E
     getValue = 0x0F
     respValue = 0x10
+    findValue = 0x11
     findNodeFast = 0x83
 
   RequestId* = object
@@ -85,7 +86,7 @@ type
   SomeMessage* = PingMessage or PongMessage or FindNodeMessage or NodesMessage or
     TalkReqMessage or TalkRespMessage or AddProviderMessage or GetProvidersMessage or
     ProvidersMessage or FindNodeFastMessage or
-    AddValueMessage or GetValueMessage or ValueMessage
+    AddValueMessage or GetValueMessage or ValueMessage or FindValueMessage
 
   Message* = object
     reqId*: RequestId
@@ -124,6 +125,8 @@ type
       getValue*: GetValueMessage
     of respValue:
       value*: ValueMessage
+    of findValue:
+      findValue*: FindValueMessage
     else:
       discard
 
@@ -141,6 +144,7 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
   elif T is AddValueMessage: MessageKind.addValue
   elif T is GetValueMessage: MessageKind.getValue
   elif T is ValueMessage: MessageKind.respValue
+  elif T is FindValueMessage: MessageKind.findValue
 
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)
