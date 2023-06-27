@@ -142,23 +142,23 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-    - name: Restore Nim toolchain binaries from cache
-      id: nim-cache
-      uses: actions/cache@v3
-      with:
-        path: NimBinaries
-        key: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
-        restore-keys: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
+      - name: Restore Nim toolchain binaries from cache
+        id: nim-cache
+        uses: actions/cache@v3
+        with:
+          path: NimBinaries
+          key: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
+          restore-keys: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
 
-    - name: Set NIM_COMMIT
-      shell: ${{ inputs.shell }} {0}
-      run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
+      - name: Set NIM_COMMIT
+        shell: ${{ inputs.shell }} {0}
+        run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
 
-      - name: Run tests
-        run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
-          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
-          make test -j${ncpu}
+        - name: Run tests
+          run: |
+            if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+              # https://github.com/status-im/nimbus-eth2/issues/3121
+              export NIMFLAGS="-d:nimRawSetjmp"
+            fi
+            make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+            make test -j${ncpu}
