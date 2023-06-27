@@ -75,3 +75,23 @@ proc encode*(msg: ValueMessage): seq[byte] =
 
   pb.finish()
   pb.buffer
+
+proc decode*(
+  T: typedesc[FindValueMessage],
+  buffer: openArray[byte]): Result[FindValueMessage, ProtoError] =
+
+  let pb = initProtoBuffer(buffer)
+  var msg = FindValueMessage()
+
+  ? pb.getRequiredField(1, msg.cId)
+
+  ok(msg)
+
+proc encode*(msg: FindValueMessage): seq[byte] =
+  var pb = initProtoBuffer()
+
+  pb.write(1, msg.cId)
+
+  pb.finish()
+  pb.buffer
+
