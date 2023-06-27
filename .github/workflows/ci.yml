@@ -150,9 +150,9 @@ jobs:
           key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
           restore-keys: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
 
-      - name: Set NIM_COMMIT
-        shell: ${{ matrix.shell }} {0}
-        run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
+      # - name: Set NIM_COMMIT
+      #   shell: ${{ matrix.shell }} {0}
+      #   run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
 
       - name: Run tests
         run: |
