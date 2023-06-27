@@ -5,7 +5,7 @@ import pkg/asynctest
 
 import pkg/chronos
 import pkg/datastore
-import pkg/libp2p
+import pkg/libp2p except setup
 
 import libp2pdht/dht
 import libp2pdht/private/eth/p2p/discoveryv5/spr
@@ -23,7 +23,7 @@ suite "Test Providers Manager simple":
     provider = privKey.toSignedPeerRecord()
     nodeId = NodeId.example(rng)
 
-  teardownAllAsync:
+  teardownAll:
     (await ds.close()).tryGet()
 
   test "Should add provider":
@@ -71,7 +71,7 @@ suite "Test Providers Manager multiple":
     ds: SQLiteDatastore
     manager: ProvidersManager
 
-  setupAsync:
+  setup:
     ds = SQLiteDatastore.new(Memory).tryGet()
     manager = ProvidersManager.new(ds, disableCache = true)
 
@@ -79,7 +79,7 @@ suite "Test Providers Manager multiple":
       for p in providers:
         (await manager.add(id, p)).tryGet
 
-  teardownAsync:
+  teardown:
     (await ds.close()).tryGet()
     ds = nil
     manager = nil
@@ -129,7 +129,7 @@ suite "Test providers with cache":
     ds: SQLiteDatastore
     manager: ProvidersManager
 
-  setupAsync:
+  setup:
     ds = SQLiteDatastore.new(Memory).tryGet()
     manager = ProvidersManager.new(ds)
 
@@ -137,7 +137,7 @@ suite "Test providers with cache":
       for p in providers:
         (await manager.add(id, p)).tryGet
 
-  teardownAsync:
+  teardown:
     (await ds.close()).tryGet()
     ds = nil
     manager = nil
@@ -197,7 +197,7 @@ suite "Test Provider Maintenance":
     ds: SQLiteDatastore
     manager: ProvidersManager
 
-  setupAllAsync:
+  setupAll:
     ds = SQLiteDatastore.new(Memory).tryGet()
     manager = ProvidersManager.new(ds, disableCache = true)
 
@@ -205,7 +205,7 @@ suite "Test Provider Maintenance":
       for p in providers:
         (await manager.add(id, p, ttl = 1.millis)).tryGet
 
-  teardownAllAsync:
+  teardownAll:
     (await ds.close()).tryGet()
     ds = nil
     manager = nil

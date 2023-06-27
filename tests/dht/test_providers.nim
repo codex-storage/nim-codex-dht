@@ -77,7 +77,7 @@ suite "Providers Tests: node alone":
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
-  setupAllAsync:
+  setupAll:
     rng = newRng()
     nodes = await bootstrapNetwork(nodecount=1)
     targetId = NodeId.example(rng)
@@ -85,7 +85,7 @@ suite "Providers Tests: node alone":
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
-  teardownAllAsync:
+  teardownAll:
     for (n, _) in nodes:
       await n.closeWait()
     await sleepAsync(chronos.seconds(3))
@@ -137,7 +137,7 @@ suite "Providers Tests: two nodes":
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
-  setupAllAsync:
+  setupAll:
     rng = newRng()
     nodes = await bootstrapNetwork(nodecount=3)
     targetId = NodeId.example(rng)
@@ -145,7 +145,7 @@ suite "Providers Tests: two nodes":
     signedPeerRec0 = privKey0.toSignedPeerRecord
     peerRec0 = signedPeerRec0.data
 
-  teardownAllAsync:
+  teardownAll:
     for (n, _) in nodes:
       await n.closeWait()
     await sleepAsync(chronos.seconds(3))
@@ -186,7 +186,7 @@ suite "Providers Tests: 20 nodes":
     signedPeerRec0: SignedPeerRecord
     peerRec0: PeerRecord
 
-  setupAllAsync:
+  setupAll:
     rng = newRng()
     nodes = await bootstrapNetwork(nodecount=20)
     targetId = NodeId.example(rng)
@@ -196,7 +196,7 @@ suite "Providers Tests: 20 nodes":
 
     await sleepAsync(chronos.seconds(15))
 
-  teardownAllAsync:
+  teardownAll:
     for (n, _) in nodes: # if last test is enabled, we need nodes[1..^1] here
       await n.closeWait()
 
