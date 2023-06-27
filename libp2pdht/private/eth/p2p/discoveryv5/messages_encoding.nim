@@ -459,6 +459,14 @@ proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
     else:
       return err("Unable to decode ValueMessage")
 
+  of findValue:
+    let res = FindValueMessage.decode(encoded)
+    if res.isOk:
+      message.findValue = res.get
+      return ok(message)
+    else:
+      return err("Unable to decode FindValueMessage")
+
   of regTopic, ticket, regConfirmation, topicQuery:
     # We just pass the empty type of this message without attempting to
     # decode, so that the protocol knows what was received.

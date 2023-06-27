@@ -12,3 +12,6 @@ type
   ValueMessage* = object
     #total*: uint32
     value*: seq[byte]
+
+  FindValueMessage* = object
+    cId*: NodeId
