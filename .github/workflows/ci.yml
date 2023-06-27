@@ -142,13 +142,17 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      - name: Build Nim and Nimble
-        run: |
-          curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
-          env MAKE="${MAKE_CMD} -j${ncpu}" ARCH_OVERRIDE=${PLATFORM} NIM_COMMIT=${{ matrix.branch }} \
-            QUICK_AND_DIRTY_COMPILER=1 QUICK_AND_DIRTY_NIMBLE=1 CC=gcc \
-            bash build_nim.sh nim csources dist/nimble NimBinaries
-          echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
+    - name: Restore Nim toolchain binaries from cache
+      id: nim-cache
+      uses: actions/cache@v3
+      with:
+        path: NimBinaries
+        key: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ inputs.nim_version }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
+        restore-keys: ${{ inputs.os }}-${{ inputs.cpu }}-nim-${{ inputs.nim_version }}-cache-${{ env.cache_nonce }}
+
+    - name: Set NIM_COMMIT
+      shell: ${{ inputs.shell }} {0}
+      run: echo "NIM_COMMIT=${{ inputs.nim_version }}" >> ${GITHUB_ENV}
 
       - name: Run tests
         run: |
@@ -156,5 +160,5 @@ jobs:
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          make update
-          make test
+          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          make test -j${ncpu}
