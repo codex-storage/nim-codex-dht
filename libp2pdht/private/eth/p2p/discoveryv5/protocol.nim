@@ -126,7 +126,7 @@ const
   IpMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
   ## majority and updating this when SPR auto update is set.
   InitialLookups = 1 ## Amount of lookups done when populating the routing table
-  ResponseTimeout* = 4.seconds ## timeout for the response of a request-response
+  ResponseTimeout* = 500.milliseconds ## timeout for the response of a request-response
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
   ValueReplication = 5 # store a value in this many nodes
