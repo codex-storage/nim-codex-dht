@@ -15,9 +15,9 @@ import
   "."/[node, encoding, sessions]
 
 const
-  handshakeTimeout* = 2.seconds ## timeout for the reply on the
+  handshakeTimeout* = 500.milliseconds ## timeout for the reply on the
   ## whoareyou message
-  responseTimeout* = 4.seconds ## timeout for the response of a request-response
+  responseTimeout* = 1.seconds ## timeout for the response of a request-response
   ## call
 
 type
@@ -116,8 +116,7 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
     let data = encodeWhoareyouPacket(t.rng[], t.codec, toId, a, requestNonce,
       recordSeq, pubkey)
     sleepAsync(handshakeTimeout).addCallback() do(data: pointer):
-    # TODO: should we still provide cancellation in case handshake completes
-    # correctly?
+      # handshake key is popped in decodeHandshakePacket. if not yet popped by timeout:
       if t.codec.hasHandshake(key):
         debug "Handshake timeout", myport = t.bindAddress.port , dstId = toId, address = a
         t.codec.handshakes.del(key)
