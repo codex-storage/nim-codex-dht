@@ -117,6 +117,7 @@ const
   LookupRequestLimit = 3 ## Amount of distances requested in a single Findnode
   ## message for a lookup or query
   FindNodeResultLimit = 16 ## Maximum amount of SPRs in the total Nodes messages
+  FindNodeFastResultLimit = 6 ## Maximum amount of SPRs in response to findNodeFast
   ## that will be processed
   MaxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
   RefreshInterval = 5.minutes ## Interval of launching a random query to
@@ -350,7 +351,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
 proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
     fnf: FindNodeFastMessage, reqId: RequestId) =
   d.sendNodes(fromId, fromAddr, reqId,
-    d.routingTable.neighbours(fnf.target, seenOnly = true, k = FindNodeResultLimit))
+    d.routingTable.neighbours(fnf.target, seenOnly = true, k = FindNodeFastResultLimit))
   # TODO: if known, maybe we should add exact target even if not yet "seen"
 
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
@@ -634,7 +635,7 @@ proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
     nodes = await d.waitNodeResponses(toNode, msg)
 
   if nodes.isOk:
-    let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit)
+    let res = verifyNodesRecords(nodes.get(), toNode, FindNodeFastResultLimit)
     d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
