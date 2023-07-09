@@ -7,16 +7,17 @@ license       = "MIT"
 skipDirs      = @["tests"]
 
 
+# TODO: fix versions after tagging the version in the corresponding package
 # Dependencies
 requires "nim >= 1.2.0",
-         "nimcrypto >= 0.5.4 & < 0.6.0",
+         "secp256k1#b3f38e2795e805743b299dc5d96d332db375b520", # >= 0.5.2 & < 0.6.0
+         "protobufserialization#27b400fdf3bd8ce7120ca66fc1de39d3f1a5804a", # >= 0.2.0 & < 0.3.0
+         "nimcrypto == 0.5.4",
          "bearssl#head",
          "chronicles >= 0.10.2 & < 0.11.0",
-         "chronos >= 3.0.11 & < 3.1.0",
+         "chronos#1394c9e04957928afc1db33d2e0965cfb677a1e0", #  >= 3.0.11 & < 3.1.0
          "libp2p#unstable",
          "metrics",
-         "protobufserialization >= 0.2.0 & < 0.3.0",
-         "secp256k1 >= 0.5.2 & < 0.6.0",
          "stew#head",
          "stint",
          "asynctest >= 0.3.1 & < 0.4.0",
@@ -49,7 +50,7 @@ task coverage, "generates code coverage report":
     echo "  *****************************************************************"
     echo ""
 
-  exec("nimble --verbose test --opt:speed -d:debug --verbosity:0 --hints:off --lineDir:on -d:chronicles_log_level=INFO --nimcache:nimcache --passC:-fprofile-arcs --passC:-ftest-coverage --passL:-fprofile-arcs --passL:-ftest-coverage")
+  exec(nimbleExe & " --verbose test --opt:speed -d:debug --verbosity:0 --hints:off --lineDir:on -d:chronicles_log_level=INFO --nimcache:nimcache --passC:-fprofile-arcs --passC:-ftest-coverage --passL:-fprofile-arcs --passL:-ftest-coverage")
   exec("cd nimcache; rm *.c; cd ..")
   mkDir("coverage")
   exec("lcov --capture --directory nimcache --output-file coverage/coverage.info")
