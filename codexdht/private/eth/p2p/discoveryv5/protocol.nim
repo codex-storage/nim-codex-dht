@@ -622,25 +622,18 @@ proc lookupDistances*(target, dest: NodeId): seq[uint16] =
       result.add(td - uint16(i))
     inc i
 
-proc lookupWorker(d: Protocol, destNode: Node, target: NodeId):
+proc lookupWorker(d: Protocol, destNode: Node, target: NodeId, fast: bool):
     Future[seq[Node]] {.async.} =
-  let dists = lookupDistances(target, destNode.id)
 
-  # Instead of doing max `LookupRequestLimit` findNode requests, make use
-  # of the discv5.1 functionality to request nodes for multiple distances.
-  let r = await d.findNode(destNode, dists)
-  if r.isOk:
-    result.add(r[])
+  let r =
+    if fast:
+      await d.findNodeFast(destNode, target)
+    else:
+      # Instead of doing max `LookupRequestLimit` findNode requests, make use
+      # of the discv5.1 functionality to request nodes for multiple distances.
+      let dists = lookupDistances(target, destNode.id)
+      await d.findNode(destNode, dists)
 
-    # Attempt to add all nodes discovered
-    for n in result:
-      discard d.addNode(n)
-
-proc lookupWorkerFast(d: Protocol, destNode: Node, target: NodeId):
-    Future[seq[Node]] {.async.} =
-  ## use terget NodeId based find_node
-
-  let r = await d.findNodeFast(destNode, target)
   if r.isOk:
     result.add(r[])
 
@@ -671,10 +664,7 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
     while i < closestNodes.len and pendingQueries.len < Alpha:
       let n = closestNodes[i]
       if not asked.containsOrIncl(n.id):
-        if fast:
-          pendingQueries.add(d.lookupWorkerFast(n, target))
-        else:
-          pendingQueries.add(d.lookupWorker(n, target))
+        pendingQueries.add(d.lookupWorker(n, target, fast))
       inc i
 
     trace "discv5 pending queries", total = pendingQueries.len
@@ -835,7 +825,7 @@ proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
     while i < min(queryBuffer.len, k) and pendingQueries.len < Alpha:
       let n = queryBuffer[i]
       if not asked.containsOrIncl(n.id):
-        pendingQueries.add(d.lookupWorker(n, target))
+        pendingQueries.add(d.lookupWorker(n, target, false))
       inc i
 
     trace "discv5 pending queries", total = pendingQueries.len
