@@ -29,7 +29,7 @@ runs:
           CPU=${{ inputs.cpu }}
         fi
 
-        if [[ '${{ inputs.os }}' == 'macos' ]]; then
+        if [[ '${{ inputs.os }}' == 'macos-13' ]]; then
           OS=apple
         else
           OS='${{ inputs.os }}'
