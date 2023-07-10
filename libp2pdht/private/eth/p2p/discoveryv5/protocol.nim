@@ -1034,6 +1034,76 @@ func init*(
 
 proc newProtocol*(
     privKey: PrivateKey,
+    enrIp: Option[ValidIpAddress],
+    enrTcpPort, enrUdpPort: Option[Port],
+    localEnrFields: openArray[(string, seq[byte])] = [],
+    bootstrapRecords: openArray[SignedPeerRecord] = [],
+    previousRecord = none[SignedPeerRecord](),
+    bindPort: Port,
+    bindIp = IPv4_any(),
+    enrAutoUpdate = false,
+    config = defaultDiscoveryConfig,
+    rng = newRng(),
+    providers = ProvidersManager.new(
+      SQLiteDatastore.new(Memory)
+      .expect("Should not fail!"))
+): Protocol =
+  # TODO: Tried adding bindPort = udpPort as parameter but that gave
+  # "Error: internal error: environment misses: udpPort" in nim-beacon-chain.
+  # Anyhow, nim-beacon-chain would also require some changes to support port
+  # remapping through NAT and this API is also subject to change once we
+  # introduce support for ipv4 + ipv6 binding/listening.
+
+  # TODO: Implement SignedPeerRecord custom fields?
+  # let extraFields = mapIt(localEnrFields, toFieldPair(it[0], it[1]))
+
+  # TODO:
+  # - Defect as is now or return a result for spr errors?
+  # - In case incorrect key, allow for new spr based on new key (new node id)?
+  var record: SignedPeerRecord
+  if previousRecord.isSome():
+    record = previousRecord.get()
+    record.update(privKey, enrIp, enrTcpPort, enrUdpPort)
+            .expect("SignedPeerRecord within size limits and correct key")
+  else:
+    record = SignedPeerRecord.init(1, privKey, enrIp, enrTcpPort, enrUdpPort)
+               .expect("SignedPeerRecord within size limits")
+
+  info "SPR initialized", ip = enrIp, tcp = enrTcpPort, udp = enrUdpPort,
+    seqNum = record.seqNum, uri = toURI(record)
+  if enrIp.isNone():
+    if enrAutoUpdate:
+      notice "No external IP provided for the SPR, this node will not be " &
+        "discoverable until the SPR is updated with the discovered external IP address"
+    else:
+      warn "No external IP provided for the SPR, this node will not be discoverable"
+
+  let node = newNode(record).expect("Properly initialized record")
+
+  # TODO Consider whether this should be a Defect
+  doAssert rng != nil, "RNG initialization failed"
+
+  let
+    routingTable = RoutingTable.init(
+      node,
+      config.bitsPerHop,
+      config.tableIpLimits,
+      rng)
+
+  result = Protocol(
+    privateKey: privKey,
+    localNode: node,
+    bootstrapRecords: @bootstrapRecords,
+    ipVote: IpVote.init(),
+    enrAutoUpdate: enrAutoUpdate,
+    routingTable: routingTable,
+    rng: rng,
+    providers: providers)
+
+  result.transport = newTransport(result, privKey, node, bindPort, bindIp, rng)
+
+proc newProtocol*(
+    privKey: PrivateKey,
     bindPort: Port,
     record: SignedPeerRecord,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
@@ -1041,7 +1111,8 @@ proc newProtocol*(
     config = defaultDiscoveryConfig,
     rng = newRng(),
     providers = ProvidersManager.new(SQLiteDatastore.new(Memory)
-      .expect("Should not fail!"))): Protocol =
+                                .expect("Should not fail!"))
+): Protocol =
   ## Initialize DHT protocol
   ##
 
