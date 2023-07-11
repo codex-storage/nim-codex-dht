@@ -1,0 +1,139 @@
+{
+  "items": {
+    "nim-zlib": {
+      "dir": "vendor/nim-zlib",
+      "url": "https://github.com/status-im/nim-zlib",
+      "commit": "f34ca261efd90f118dc1647beefd2f7a69b05d93"
+    },
+    "nim-stew": {
+      "dir": "vendor/nim-stew",
+      "url": "https://github.com/status-im/nim-stew.git",
+      "commit": "e18f5a62af2ade7a1fd1d39635d4e04d944def08"
+    },
+    "nim-http-utils": {
+      "dir": "vendor/nim-http-utils",
+      "url": "https://github.com/status-im/nim-http-utils.git",
+      "commit": "3b491a40c60aad9e8d3407443f46f62511e63b18"
+    },
+    "nim-chronos": {
+      "dir": "vendor/nim-chronos",
+      "url": "https://github.com/status-im/nim-chronos.git",
+      "commit": "6525f4ce1d1a7eba146e5f1a53f6f105077ae686"
+    },
+    "upraises": {
+      "dir": "vendor/upraises",
+      "url": "https://github.com/markspanbroek/upraises.git",
+      "commit": "bc2628989b63854d980e92dadbd58f83e34b6f25"
+    },
+    "nim-sqlite3-abi": {
+      "dir": "vendor/nim-sqlite3-abi",
+      "url": "https://github.com/arnetheduck/nim-sqlite3-abi.git",
+      "commit": "362e1bd9f689ad9f5380d9d27f0705b3d4dfc7d3"
+    },
+    "questionable": {
+      "dir": "vendor/questionable",
+      "url": "https://github.com/status-im/questionable.git",
+      "commit": "0d7ce8efdedaf184680cb7268721fca0af947a74"
+    },
+    "nim-websock": {
+      "dir": "vendor/nim-websock",
+      "url": "https://github.com/status-im/nim-websock.git",
+      "commit": "2c3ae3137f3c9cb48134285bd4a47186fa51f0e8"
+    },
+    "nim-secp256k1": {
+      "dir": "vendor/nim-secp256k1",
+      "url": "https://github.com/status-im/nim-secp256k1.git",
+      "commit": "5340cf188168d6afcafc8023770d880f067c0b2f"
+    },
+    "nim-bearssl": {
+      "dir": "vendor/nim-bearssl",
+      "url": "https://github.com/status-im/nim-bearssl.git",
+      "commit": "f4c4233de453cb7eac0ce3f3ffad6496295f83ab"
+    },
+    "dnsclient.nim": {
+      "dir": "vendor/dnsclient.nim",
+      "url": "https://github.com/ba0f3/dnsclient.nim",
+      "commit": "23214235d4784d24aceed99bbfe153379ea557c8"
+    },
+    "nimcrypto": {
+      "dir": "vendor/nimcrypto",
+      "url": "https://github.com/status-im/nimcrypto.git",
+      "commit": "a5742a9a214ac33f91615f3862c7b099aec43b00"
+    },
+    "nim-json-serialization": {
+      "dir": "vendor/nim-json-serialization",
+      "url": "https://github.com/status-im/nim-json-serialization.git",
+      "commit": "e5b18fb710c3d0167ec79f3b892f5a7a1bc6d1a4"
+    },
+    "nim-testutils": {
+      "dir": "vendor/nim-testutils",
+      "url": "https://github.com/status-im/nim-testutils",
+      "commit": "b56a5953e37fc5117bd6ea6dfa18418c5e112815"
+    },
+    "nim-unittest2": {
+      "dir": "vendor/nim-unittest2",
+      "url": "https://github.com/status-im/nim-unittest2.git",
+      "commit": "b178f47527074964f76c395ad0dfc81cf118f379"
+    },
+    "npeg": {
+      "dir": "vendor/npeg",
+      "url": "https://github.com/zevv/npeg",
+      "commit": "b15a10e388b91b898c581dbbcb6a718d46b27d2f"
+    },
+    "nim-serialization": {
+      "dir": "vendor/nim-serialization",
+      "url": "https://github.com/status-im/nim-serialization.git",
+      "commit": "493d18b8292fc03aa4f835fd825dea1183f97466"
+    },
+    "nim-faststreams": {
+      "dir": "vendor/nim-faststreams",
+      "url": "https://github.com/status-im/nim-faststreams.git",
+      "commit": "1b561a9e71b6bdad1c1cdff753418906037e9d09"
+    },
+    "nim-datastore": {
+      "dir": "vendor/nim-datastore",
+      "url": "https://github.com/codex-storage/nim-datastore.git",
+      "commit": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa"
+    },
+    "asynctest": {
+      "dir": "vendor/asynctest",
+      "url": "https://github.com/markspanbroek/asynctest",
+      "commit": "a236a5f0f3031573ac2cb082b63dbf6e170e06e7"
+    },
+    "nim-stint": {
+      "dir": "vendor/nim-stint",
+      "url": "https://github.com/status-im/nim-stint.git",
+      "commit": "036c71d06a6b22f8f967ba9d54afd2189c3872ca"
+    },
+    "nim-metrics": {
+      "dir": "vendor/nim-metrics",
+      "url": "https://github.com/status-im/nim-metrics.git",
+      "commit": "743f81d4f6c6ebf0ac02389f2392ff8b4235bee5"
+    },
+    "nim-libp2p": {
+      "dir": "vendor/nim-libp2p",
+      "url": "https://github.com/status-im/nim-libp2p.git",
+      "commit": "a3e9d1ed80c048cd5abc839cbe0863cefcedc702"
+    },
+    "nim-chronicles": {
+      "dir": "vendor/nim-chronicles",
+      "url": "https://github.com/status-im/nim-chronicles.git",
+      "commit": "7631f7b2ee03398cb1512a79923264e8f9410af6"
+    },
+    "nim-protobuf-serialization": {
+      "dir": "vendor/nim-protobuf-serialization",
+      "url": "https://github.com/status-im/nim-protobuf-serialization",
+      "commit": "28214b3e40c755a9886d2ec8f261ec48fbb6bec6"
+    }
+  },
+  "nimcfg": "############# begin Atlas config section ##########\n--noNimblePath\n--path:\"vendor/nimcrypto\"\n--path:\"vendor/nim-bearssl\"\n--path:\"vendor/nim-chronicles\"\n--path:\"vendor/nim-chronos\"\n--path:\"vendor/nim-libp2p\"\n--path:\"vendor/nim-metrics\"\n--path:\"vendor/nim-protobuf-serialization\"\n--path:\"vendor/nim-secp256k1\"\n--path:\"vendor/nim-stew\"\n--path:\"vendor/nim-stint\"\n--path:\"vendor/asynctest\"\n--path:\"vendor/nim-datastore\"\n--path:\"vendor/questionable\"\n--path:\"vendor/nim-unittest2\"\n--path:\"vendor/nim-testutils\"\n--path:\"vendor/nim-json-serialization\"\n--path:\"vendor/nim-http-utils\"\n--path:\"vendor/dnsclient.nim/src\"\n--path:\"vendor/nim-websock\"\n--path:\"vendor/nim-faststreams\"\n--path:\"vendor/nim-serialization\"\n--path:\"vendor/npeg/src\"\n--path:\"vendor/nim-sqlite3-abi\"\n--path:\"vendor/upraises\"\n--path:\"vendor/nim-zlib\"\n############# end Atlas config section   ##########\n",
+  "nimbleFile": {
+    "filename": "nim-codex-dht-2.nimble",
+    "content": "# Package\n\nversion       = \"0.0.1\"\nauthor        = \"Status Research & Development GmbH\"\ndescription   = \"DHT based on the libp2p Kademlia spec\"\nlicense       = \"MIT\"\nskipDirs      = @[\"tests\"]\n\n\n# Dependencies\nrequires \"nim >= 1.2.0\"\nrequires \"secp256k1#b3f38e2795e805743b299dc5d96d332db375b520\" # >= 0.5.2 & < 0.6.0\nrequires \"protobuf_serialization#27b400fdf3bd8ce7120ca66fc1de39d3f1a5804a\" # >= 0.2.0 & < 0.3.0\nrequires \"nimcrypto == 0.5.4\"\nrequires \"bearssl#head\"\nrequires \"chronicles >= 0.10.2 & < 0.11.0\"\nrequires \"chronos#1394c9e04957928afc1db33d2e0965cfb677a1e0\" #  >= 3.0.11 & < 3.1.0\nrequires \"libp2p#unstable\"\nrequires \"metrics\"\nrequires \"stew#head\"\nrequires \"stint\"\nrequires \"asynctest >= 0.3.1 & < 0.4.0\"\nrequires \"https://github.com/status-im/nim-datastore#head\"\nrequires \"questionable\"\n\ntask testAll, \"Run DHT tests\":\n  exec \"nim c -r tests/testAll.nim\"\n\n# task coverage, \"generates code coverage report\":\n#   var (output, exitCode) = gorgeEx(\"which lcov\")\n#   if exitCode != 0:\n#     echo \"\"\n#     echo \"  ************************** ⛔️ ERROR ⛔️ **************************\"\n#     echo \"  **                                                             **\"\n#     echo \"  **   ERROR: lcov not found, it must be installed to run code   **\"\n#     echo \"  **   coverage locally                                          **\"\n#     echo \"  **                                                             **\"\n#     echo \"  *****************************************************************\"\n#     echo \"\"\n#     quit 1\n\n#   (output, exitCode) = gorgeEx(\"gcov --version\")\n#   if output.contains(\"Apple LLVM\"):\n#     echo \"\"\n#     echo \"  ************************* ⚠️  WARNING ⚠️  *************************\"\n#     echo \"  **                                                             **\"\n#     echo \"  **   WARNING: Using Apple's llvm-cov in place of gcov, which   **\"\n#     echo \"  **   emulates an old version of gcov (4.2.0) and therefore     **\"\n#     echo \"  **   coverage results will differ than those on CI (which      **\"\n#     echo \"  **   uses a much newer version of gcov).                       **\"\n#     echo \"  **                                                             **\"\n#     echo \"  *****************************************************************\"\n#     echo \"\"\n\n#   exec(\"nimble --verbose test --opt:speed -d:debug --verbosity:0 --hints:off --lineDir:on -d:chronicles_log_level=INFO --nimcache:nimcache --passC:-fprofile-arcs --passC:-ftest-coverage --passL:-fprofile-arcs --passL:-ftest-coverage\")\n#   exec(\"cd nimcache; rm *.c; cd ..\")\n#   mkDir(\"coverage\")\n#   exec(\"lcov --capture --directory nimcache --output-file coverage/coverage.info\")\n#   exec(\"$(which bash) -c 'shopt -s globstar; ls $(pwd)/libp2pdht/{*,**/*}.nim'\")\n#   exec(\"$(which bash) -c 'shopt -s globstar; lcov --extract coverage/coverage.info  $(pwd)/libp2pdht/{*,**/*}.nim --output-file coverage/coverage.f.info'\")\n#   echo \"Generating HTML coverage report\"\n#   exec(\"genhtml coverage/coverage.f.info --output-directory coverage/report\")\n#   echo \"Opening HTML coverage report in browser...\"\n#   exec(\"open coverage/report/index.html\")\n\n"
+  },
+  "hostOS": "macosx",
+  "hostCPU": "arm64",
+  "nimVersion": "1.6.14",
+  "gccVersion": "",
+  "clangVersion": ""
+}
