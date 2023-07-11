@@ -1,9 +1,8 @@
 name: CI-nimbus
 on:
   push:
-    # total hack... can remove later but I want to preserve for now
-    branches:
-    - disable_this_ci
+    paths:
+    - atlas.lock
 
 jobs:
   build:
@@ -30,7 +29,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-12
             shell: bash
           - target:
               os: windows
