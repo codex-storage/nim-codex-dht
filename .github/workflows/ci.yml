@@ -15,15 +15,13 @@ jobs:
         target:
           - os: linux
             cpu: amd64
-          - os: linux
-            cpu: i386
           - os: macos
             cpu: amd64
           - os: windows
             cpu: amd64
           #- os: windows
             #cpu: i386
-        branch: [version-1-2, version-1-6]
+        branch: [version-1-6]
         include:
           - target:
               os: linux
@@ -31,7 +29,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-12
             shell: bash
           - target:
               os: windows
@@ -142,26 +140,31 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      - name: Build Nim and Nimble
-        run: |
-          curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
-          env MAKE="${MAKE_CMD} -j${ncpu}" ARCH_OVERRIDE=${PLATFORM} NIM_COMMIT=${{ matrix.branch }} \
-            QUICK_AND_DIRTY_COMPILER=1 QUICK_AND_DIRTY_NIMBLE=1 CC=gcc \
-            bash build_nim.sh nim csources dist/nimble NimBinaries
-          echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
+      # - name: Restore nimble dependencies from cache
+      #   id: nimble_deps
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       ~/.nimble/pkgs2
+      #       ~/.nimble/packages_official.json
+      #     key: ${{ inputs.os }}-${{ inputs.cpu }}-${{ env.cache_nonce }}
+
+      - name: Setup Nimble
+        uses: "./.github/actions/install_nimble"
+        with:
+          os: ${{ matrix.target.os }}
+          cpu: ${{ matrix.target.cpu }}
 
       - name: Run tests
         run: |
+          rm -rf ~/.nimble/
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          nim --version
-          nimble --version
-          nimble install -y --depsOnly
-          nimble test
+          nimble test -y
           if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
             echo -e "\nTesting with '--gc:orc':\n"
             export NIMFLAGS="${NIMFLAGS} --gc:orc"
-            nimble test
+            nimble test -y
           fi;
