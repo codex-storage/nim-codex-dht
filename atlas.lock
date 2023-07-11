@@ -5,6 +5,11 @@
       "url": "https://github.com/status-im/nimbus-build-system",
       "commit": "239c3a7fbb88fd241da0ade3246fd2e5fcff4f25"
     },
+    "nim-nat-traversal": {
+      "dir": "vendor/nim-nat-traversal",
+      "url": "https://github.com/status-im/nim-nat-traversal",
+      "commit": "802d75edcc656e616120fb27f950ff1285ddcbba"
+    },
     "nim-zlib": {
       "dir": "vendor/nim-zlib",
       "url": "https://github.com/status-im/nim-zlib",
