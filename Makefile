@@ -45,15 +45,10 @@ else # "variables.mk" was included. Business as usual until the end of this file
 
 # default target, because it's the first one that doesn't start with '.'
 
-# Builds the codex binary
-all: | build deps
-	echo -e $(BUILD_MSG) "$@" && \
-		$(ENV_SCRIPT) nim codex $(NIM_PARAMS) codexdht.nims
-
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-deps: | deps-common nat-libs codexdht.nims
+deps: | deps-common nat-libs
 
 #- deletes and recreates "codexdht.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common codexdht.nims
@@ -63,11 +58,7 @@ update: | update-common codexdht.nims
 # Builds and run a part of the test suite
 test: | build deps
 	echo -e $(BUILD_MSG) "$@" && \
-		$(ENV_SCRIPT) nim testAll $(NIM_PARAMS) codexdht.nims
-
-# symlink
-codexdht.nims:
-	ln -s codexdht.nimble $@
+		$(ENV_SCRIPT) nim testAll $(NIM_PARAMS) config.nims
 
 # usual cleaning
 clean: | clean-common
