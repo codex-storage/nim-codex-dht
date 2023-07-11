@@ -3,3 +3,4 @@ nimcache
 tests/testAll
 nimble.develop
 nimble.paths
+nim.cfg
