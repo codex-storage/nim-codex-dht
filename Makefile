@@ -30,7 +30,7 @@ LINK_PCRE := 0
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+GIT_SUBMODULE_UPDATE := nimble install https://github.com/elcritch/atlas && atlas rep atlas.lock
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
