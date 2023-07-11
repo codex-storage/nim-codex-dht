@@ -1,5 +1,10 @@
 {
   "items": {
+    "nimbus-build-system": {
+      "dir": "vendor/nimbus-build-system",
+      "url": "https://github.com/status-im/nimbus-build-system",
+      "commit": "239c3a7fbb88fd241da0ade3246fd2e5fcff4f25"
+    },
     "nim-zlib": {
       "dir": "vendor/nim-zlib",
       "url": "https://github.com/status-im/nim-zlib",
