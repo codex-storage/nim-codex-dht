@@ -16,13 +16,10 @@ when getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
     # matching where the Nim command was invocated. This means that we
     # must do all file existance checks with full absolute paths:
     system.fileExists(currentDir & "nimbus-build-system.paths"):
-  echo "Using Nimbus Build"
+  echo "Using Nimbus Paths"
   include "nimbus-build-system.paths"
 elif fileExists("nimble.paths"):
-  echo "Using Nimble Build"
+  echo "Using Nimble Paths"
   # begin Nimble config (version 1)
   include "nimble.paths"
   # end Nimble config
-elif fileExists("atlas.paths"):
-  echo "Using Atlas Build"
-  include "atlas.paths"
