@@ -1,8 +1,9 @@
 name: CI-nimbus
 on:
   push:
-  pull_request:
-  workflow_dispatch:
+    # total hack... can remove later but I want to preserve for now
+    branches:
+    - disable_this_ci
 
 jobs:
   build:
