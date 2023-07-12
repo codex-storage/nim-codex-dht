@@ -3,6 +3,7 @@ on:
   push:
     paths:
     - atlas.lock
+    - .github/workflows/ci-nimbus.yml
 
 jobs:
   build:

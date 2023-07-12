@@ -30,7 +30,7 @@ LINK_PCRE := 0
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
-GIT_SUBMODULE_UPDATE := nimble install https://github.com/elcritch/atlas && atlas rep atlas.lock
+GIT_SUBMODULE_UPDATE := nimble install https://github.com/elcritch/atlas && atlas rep --noexec atlas.lock
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
@@ -44,6 +44,11 @@ GIT_SUBMODULE_UPDATE := nimble install https://github.com/elcritch/atlas && atla
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
+
+# Builds the codex binary
+all: | build deps
+	echo -e $(BUILD_MSG) "$@" && \
+		$(ENV_SCRIPT) nim test $(NIM_PARAMS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
