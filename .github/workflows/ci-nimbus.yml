@@ -154,7 +154,7 @@ jobs:
           key: nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ hashFiles('atlas.lock') }}
 
       - name: Restore Vendor Clones from cache
-        id: vendor-cache
+        id: nim-cache
         uses: actions/cache@v3
         with:
           path: vendor/*/
