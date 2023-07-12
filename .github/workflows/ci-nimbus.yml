@@ -160,6 +160,8 @@ jobs:
 
       - name: Run tests
         run: |
+      - name: Run tests
+        run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
@@ -169,5 +171,6 @@ jobs:
 
           echo "BUILD: "
           export NIM_COMMIT=${{ matrix.branch }}
-          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          # make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          make -j${ncpu} 
           make test -j${ncpu}

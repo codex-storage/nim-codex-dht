@@ -56,7 +56,7 @@ all: | build deps
 deps: | deps-common nat-libs
 
 #- deletes and recreates "codexdht.nims" which on Windows is a copy instead of a proper symlink
-update: | update-common codexdht.nims
+update: | update-common
 	rm -rf codexdht.nims && \
 		$(MAKE) codexdht.nims $(HANDLE_OUTPUT)
 
