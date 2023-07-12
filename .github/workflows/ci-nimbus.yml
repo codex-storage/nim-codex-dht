@@ -146,20 +146,20 @@ jobs:
           nim-version: 1.6.14
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Restore Nim toolchain binaries from cache
-      #   id: nim-cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: NimBinaries
-      #     key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
-      #     restore-keys: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
+      - name: Restore Nim toolchain binaries from cache
+        id: nim-cache
+        uses: actions/cache@v3
+        with:
+          path: NimBinaries
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ hashFiles('atlas.lock') }}
 
-      # - name: Set NIM_COMMIT
-      #   shell: ${{ matrix.shell }} {0}
-      #   run: echo "NIM_COMMIT=${{ matrix.branch }}" >> ${GITHUB_ENV}
+      - name: Restore Vendor Clones from cache
+        id: nim-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor/*/
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-vendor-${{ hashFiles('atlas.lock') }}
 
-      - name: Run tests
-        run: |
       - name: Run tests
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
