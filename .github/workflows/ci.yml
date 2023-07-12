@@ -146,7 +146,7 @@ jobs:
         with:
           path: |
             ~/.nimble
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nimble-${{ hashFiles('nimble.lock') }}
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nimble-dir-${{ hashFiles('nimble.lock') }}
 
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
