@@ -141,13 +141,18 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      - name: Restore Nim toolchain binaries from cache
-        id: nim-cache
-        uses: actions/cache@v3
+      - uses: jiro4989/setup-nim-action@v1
         with:
-          path: NimBinaries
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
-          restore-keys: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
+          nim-version: 1.6.14
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Restore Nim toolchain binaries from cache
+      #   id: nim-cache
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: NimBinaries
+      #     key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}-${{ github.run_id }}
+      #     restore-keys: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ matrix.branch }}-cache-${{ env.cache_nonce }}
 
       # - name: Set NIM_COMMIT
       #   shell: ${{ matrix.shell }} {0}
