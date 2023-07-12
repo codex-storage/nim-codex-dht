@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "0.2.0"
 author        = "Status Research & Development GmbH"
 description   = "DHT based on the libp2p Kademlia spec"
 license       = "MIT"
