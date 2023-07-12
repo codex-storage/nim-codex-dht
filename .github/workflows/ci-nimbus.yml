@@ -171,6 +171,5 @@ jobs:
 
           echo "BUILD: "
           export NIM_COMMIT=${{ matrix.branch }}
-          # make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
-          make -j${ncpu} 
+          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1
           make test -j${ncpu}
