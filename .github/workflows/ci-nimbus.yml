@@ -1,10 +1,9 @@
-name: CI
+name: CI-nimbus
 on:
   push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
+    paths:
+    - atlas.lock
+    - .github/workflows/ci-nimbus.yml
 
 jobs:
   build:
@@ -15,6 +14,8 @@ jobs:
         target:
           - os: linux
             cpu: amd64
+          # - os: linux
+          #   cpu: i386
           - os: macos
             cpu: amd64
           - os: windows
@@ -140,31 +141,33 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      - name: Restore nimble dependencies from cache
-        id: nimble_deps
+      - uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: 1.6.14
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore Nim toolchain binaries from cache
+        id: nim-cache
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.nimble/pkgs2
-            ~/.nimble/packages_official.json
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nimble-${{ hashFiles('nimble.lock') }}
+          path: NimBinaries
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ hashFiles('atlas.lock') }}
 
-      - name: Setup Nimble
-        uses: "./.github/actions/install_nimble"
+      - name: Restore Vendor Clones from cache
+        id: vendor-cache
+        uses: actions/cache@v3
         with:
-          os: ${{ matrix.target.os }}
-          cpu: ${{ matrix.target.cpu }}
+          path: vendor/*/
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-vendor-${{ hashFiles('atlas.lock') }}
 
       - name: Run tests
         run: |
-          rm -rf ~/.nimble/
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          nimble test -y
-          if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
-            echo -e "\nTesting with '--gc:orc':\n"
-            export NIMFLAGS="${NIMFLAGS} --gc:orc"
-            nimble test -y
-          fi;
+
+          echo "BUILD: "
+          export NIM_COMMIT=${{ matrix.branch }}
+          make -j${ncpu} CI_CACHE=NimBinaries ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1
+          make test -j${ncpu}

@@ -3,3 +3,8 @@ nimcache
 tests/testAll
 nimble.develop
 nimble.paths
+nim.cfg
+nimbus-build-system.paths
+vendor/*
+NimBinaries
+.update.timestamp
