@@ -63,7 +63,7 @@ update: | update-common
 # Builds and run a part of the test suite
 test: | build deps
 	echo -e $(BUILD_MSG) "$@" && \
-		$(ENV_SCRIPT) nim testAll $(NIM_PARAMS) config.nims
+		$(ENV_SCRIPT) nim test $(NIM_PARAMS) config.nims
 
 # usual cleaning
 clean: | clean-common
