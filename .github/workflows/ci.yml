@@ -160,7 +160,7 @@ jobs:
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          nimble install -d
+          nimble install
 
       - name: Run tests
         run: |
