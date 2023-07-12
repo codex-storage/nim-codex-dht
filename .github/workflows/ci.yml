@@ -140,14 +140,14 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      # - name: Restore nimble dependencies from cache
-      #   id: nimble_deps
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.nimble/pkgs2
-      #       ~/.nimble/packages_official.json
-      #     key: ${{ inputs.os }}-${{ inputs.cpu }}-${{ env.cache_nonce }}
+      - name: Restore nimble dependencies from cache
+        id: nimble_deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.nimble/pkgs2
+            ~/.nimble/packages_official.json
+          key: ${{ inputs.os }}-${{ inputs.cpu }}-${{ env.cache_nonce }}
 
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
