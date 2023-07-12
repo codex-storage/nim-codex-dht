@@ -155,14 +155,23 @@ jobs:
           os: ${{ matrix.target.os }}
           cpu: ${{ matrix.target.cpu }}
 
-      - name: Run tests
+      - name: Install Deps
         run: |
-          rm -rf ~/.nimble/
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
+          nimble install -d
+
+      - name: Run tests
+        run: |
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            # https://github.com/status-im/nimbus-eth2/issues/3121
+            export NIMFLAGS="-d:nimRawSetjmp"
+          fi
+
           nimble test -y
+
           if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
             echo -e "\nTesting with '--gc:orc':\n"
             export NIMFLAGS="${NIMFLAGS} --gc:orc"
