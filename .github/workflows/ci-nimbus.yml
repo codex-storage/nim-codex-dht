@@ -151,14 +151,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: NimBinaries
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nim-${{ hashFiles('atlas.lock') }}
+          key: nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ hashFiles('atlas.lock') }}
 
       - name: Restore Vendor Clones from cache
         id: vendor-cache
         uses: actions/cache@v3
         with:
           path: vendor/*/
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-vendor-${{ hashFiles('atlas.lock') }}
+          key: vendor-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ hashFiles('atlas.lock') }}
 
       - name: Run tests
         run: |
