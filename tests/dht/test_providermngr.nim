@@ -6,11 +6,11 @@ import pkg/asynctest
 import pkg/datastore
 import pkg/libp2p
 
-import libp2pdht/dht
-import libp2pdht/private/eth/p2p/discoveryv5/spr
-import libp2pdht/private/eth/p2p/discoveryv5/providers
-import libp2pdht/discv5/node
-import libp2pdht/private/eth/p2p/discoveryv5/lru
+import codexdht/dht
+import codexdht/private/eth/p2p/discoveryv5/spr
+import codexdht/private/eth/p2p/discoveryv5/providers
+import codexdht/discv5/node
+import codexdht/private/eth/p2p/discoveryv5/lru
 import ./test_helper
 
 suite "Test Providers Manager simple":

@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.1"
+version       = "0.3.0"
 author        = "Status Research & Development GmbH"
 description   = "DHT based on the libp2p Kademlia spec"
 license       = "MIT"
@@ -56,8 +56,8 @@ task testAll, "Run DHT tests":
 #   exec("cd nimcache; rm *.c; cd ..")
 #   mkDir("coverage")
 #   exec("lcov --capture --directory nimcache --output-file coverage/coverage.info")
-#   exec("$(which bash) -c 'shopt -s globstar; ls $(pwd)/libp2pdht/{*,**/*}.nim'")
-#   exec("$(which bash) -c 'shopt -s globstar; lcov --extract coverage/coverage.info  $(pwd)/libp2pdht/{*,**/*}.nim --output-file coverage/coverage.f.info'")
+#   exec("$(which bash) -c 'shopt -s globstar; ls $(pwd)/codexdht/{*,**/*}.nim'")
+#   exec("$(which bash) -c 'shopt -s globstar; lcov --extract coverage/coverage.info  $(pwd)/codexdht/{*,**/*}.nim --output-file coverage/coverage.f.info'")
 #   echo "Generating HTML coverage report"
 #   exec("genhtml coverage/coverage.f.info --output-directory coverage/report")
 #   echo "Opening HTML coverage report in browser..."

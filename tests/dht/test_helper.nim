@@ -3,9 +3,9 @@ import
   chronos,
   libp2p/crypto/[crypto, secp],
   libp2p/multiaddress,
-  libp2pdht/discv5/[node, routing_table, spr],
-  libp2pdht/discv5/crypto as dhtcrypto,
-  libp2pdht/discv5/protocol as discv5_protocol,
+  codexdht/discv5/[node, routing_table, spr],
+  codexdht/discv5/crypto as dhtcrypto,
+  codexdht/discv5/protocol as discv5_protocol,
   stew/shims/net
 
 export net
