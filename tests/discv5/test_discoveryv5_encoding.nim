@@ -275,12 +275,12 @@ suite "Discovery v5.1 Packet Encodings Test Vectors":
 
     let
       enrRecA = SignedPeerRecord.init(1, privKeyA,
-        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
-        some(Port(9000))).expect("Properly intialized private key")
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9001)),
+        some(Port(9001))).expect("Properly intialized private key")
 
       enrRecB = SignedPeerRecord.init(1, privKeyB,
-        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
-        some(Port(9000))).expect("Properly intialized private key")
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9001)),
+        some(Port(9001))).expect("Properly intialized private key")
 
     nodeA = newNode(enrRecA).expect("Properly initialized record")
     nodeB = newNode(enrRecB).expect("Properly initialized record")
@@ -508,12 +508,12 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
     let
       enrRecA = SignedPeerRecord.init(1, privKeyA,
-        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
-        some(Port(9000))).expect("Properly intialized private key")
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9001)),
+        some(Port(9001))).expect("Properly intialized private key")
 
       enrRecB = SignedPeerRecord.init(1, privKeyB,
-        some(ValidIpAddress.init("127.0.0.1")), some(Port(9000)),
-        some(Port(9000))).expect("Properly intialized private key")
+        some(ValidIpAddress.init("127.0.0.1")), some(Port(9001)),
+        some(Port(9001))).expect("Properly intialized private key")
 
     nodeA = newNode(enrRecA).expect("Properly initialized record")
     nodeB = newNode(enrRecB).expect("Properly initialized record")

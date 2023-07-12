@@ -8,7 +8,7 @@ task testAll, "Run DHT tests":
   exec "nim c -r tests/testAll.nim"
 
 task test, "Run DHT tests":
-  testAllTask()
+  exec "nim c -r --verbosity:0 tests/testAllParallel.nim"
 
 when getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
     # BEWARE
