@@ -147,7 +147,7 @@ jobs:
         run: |
           rm -rf ~/.nimble/
           rm -rf ./.nimble
-          echo "NIMBLE_DIR=${PWD}/.nimble" >> $GITHUB_ENV
+          echo 'NIMBLE_DIR=${{ github.workspace }}/.nimble' >> $GITHUB_PATH
           
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
