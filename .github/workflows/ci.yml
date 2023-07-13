@@ -139,10 +139,6 @@ jobs:
           nimble install -y nimble@0.14.2
           nimble -v
 
-      - name: Setup Deps
-        run: |
-          nimble install -d -y
-
       - name: Run tests
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
