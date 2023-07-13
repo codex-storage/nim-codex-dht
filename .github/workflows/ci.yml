@@ -19,10 +19,6 @@ jobs:
           - os: macos
             cpu: amd64
             tests: all
-          - os: macos
-          - os: windows
-            cpu: amd64
-            tests: all
           - os: windows
             cpu: amd64
             tests: part1
