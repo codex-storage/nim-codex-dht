@@ -167,8 +167,6 @@ jobs:
         run: |
           echo ENV:
           env
-          which nim
-          which nimble
 
           nim -v
           nimble -v
