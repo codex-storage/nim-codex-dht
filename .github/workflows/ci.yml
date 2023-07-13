@@ -78,33 +78,6 @@ jobs:
         run: |
           echo '${{ github.workspace }}'"/external/dlls" >> $GITHUB_PATH
 
-      - name: Derive environment variables
-        run: |
-          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            PLATFORM=x64
-          else
-            PLATFORM=x86
-          fi
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-          ncpu=
-          MAKE_CMD="make"
-          case '${{ runner.os }}' in
-          'Linux')
-            ncpu=$(nproc)
-            ;;
-          'macOS')
-            ncpu=$(sysctl -n hw.ncpu)
-            ;;
-          'Windows')
-            ncpu=$NUMBER_OF_PROCESSORS
-            MAKE_CMD="mingw32-make"
-            ;;
-          esac
-          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
-          echo "ncpu=$ncpu" >> $GITHUB_ENV
-          echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
-
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
         with:
