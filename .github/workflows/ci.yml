@@ -105,20 +105,11 @@ jobs:
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
 
-      - uses: jiro4989/setup-nim-action@v1
+      - name: Setup Nimble
+        uses: "./.github/actions/install_nimble"
         with:
-          nim-version: 1.6.14
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Setup Paths
-      #   run: |
-      #     echo 'NIMBLE_DIR=${{ github.workspace }}/.nimble' >> $GITHUB_ENV
-
-      # - name: Setup Nimble
-      #   uses: "./.github/actions/install_nimble"
-      #   with:
-      #     os: ${{ matrix.target.os }}
-      #     cpu: ${{ matrix.target.cpu }}
+          os: ${{ matrix.target.os }}
+          cpu: ${{ matrix.target.cpu }}
 
       - name: Restore nimble dependencies from cache
         id: nimble_deps
@@ -128,16 +119,14 @@ jobs:
             ${{ github.workspace }} / .nimble
           key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
 
-      - name: Check ENV
+      - name: Setup Env
         run: |
-          echo ENV:
-          env
-
-          nim -v
           nimble -v
 
-          nimble install -y nimble@0.14.2
-          nimble -v
+      - name: Setup Deps
+        run: |
+          nimble install -d
+          nimble setup
 
       - name: Run tests
         run: |
