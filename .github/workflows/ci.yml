@@ -47,70 +47,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Install build dependencies (Linux i386)
-        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-get install \
-            --no-install-recommends -yq gcc-multilib g++-multilib \
-            libssl-dev:i386
-          mkdir -p external/bin
-          cat << EOF > external/bin/gcc
-          #!/bin/bash
-          exec $(which gcc) -m32 "\$@"
-          EOF
-          cat << EOF > external/bin/g++
-          #!/bin/bash
-          exec $(which g++) -m32 "\$@"
-          EOF
-          chmod 755 external/bin/gcc external/bin/g++
-          echo '${{ github.workspace }}/external/bin' >> $GITHUB_PATH
-
-      - name: MSYS2 (Windows i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          msystem: MINGW32
-          install: >-
-            base-devel
-            git
-            mingw-w64-i686-toolchain
-
-      - name: MSYS2 (Windows amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          install: >-
-            base-devel
-            git
-            mingw-w64-x86_64-toolchain
-
-      - name: Restore Nim DLLs dependencies (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-dlls-cache
-        uses: actions/cache@v2
-        with:
-          path: external/dlls
-          key: 'dlls'
-
-      - name: Install DLL dependencies (Windows)
-        if: >
-          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir external
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x external/windeps.zip -oexternal/dlls
-
-      - name: Path to cached dependencies (Windows)
-        if: >
-          runner.os == 'Windows'
-        run: |
-          echo '${{ github.workspace }}'"/external/dlls" >> $GITHUB_PATH
-
       - name: Derive environment variables
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
@@ -143,15 +79,15 @@ jobs:
           nim-version: 1.6.14
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Paths
-        run: |
-          echo 'NIMBLE_DIR=${{ github.workspace }}/.nimble' >> $GITHUB_ENV
-          
-      - name: Setup Nimble
-        uses: "./.github/actions/install_nimble"
-        with:
-          os: ${{ matrix.target.os }}
-          cpu: ${{ matrix.target.cpu }}
+      # - name: Setup Paths
+      #   run: |
+      #     echo 'NIMBLE_DIR=${{ github.workspace }}/.nimble' >> $GITHUB_ENV
+
+      # - name: Setup Nimble
+      #   uses: "./.github/actions/install_nimble"
+      #   with:
+      #     os: ${{ matrix.target.os }}
+      #     cpu: ${{ matrix.target.cpu }}
 
       - name: Restore nimble dependencies from cache
         id: nimble_deps
@@ -169,14 +105,16 @@ jobs:
           nim -v
           nimble -v
 
+          nimble install nimble@0.14.2
+
+          nimble -v
+
           find ./.nimble/
           find ~/.nimble/
 
       - name: Setup Deps
         run: |
           nimble install -d
-          find ./.nimble/
-          find ~/.nimble/
 
       - name: Run tests
         run: |
@@ -185,8 +123,6 @@ jobs:
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
 
-          find ./.nimble/
-          find ~/.nimble/
           nimble test -y
 
           if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
