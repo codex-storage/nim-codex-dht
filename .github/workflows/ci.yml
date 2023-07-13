@@ -105,7 +105,7 @@ jobs:
           nim -v
           nimble -v
 
-          nimble install nimble@0.14.2
+          nimble install -y nimble@0.14.2
 
           nimble -v
 
