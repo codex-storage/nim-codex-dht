@@ -145,8 +145,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ~/.nimble
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nimble-dir-${{ hashFiles('nimble.lock') }}
+            ${{ github.workspace }} / .nimble
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
 
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
@@ -154,14 +154,13 @@ jobs:
           os: ${{ matrix.target.os }}
           cpu: ${{ matrix.target.cpu }}
 
-      - name: Install Deps
+      - name: Setup Nim
         run: |
-          echo "NIMBLE: version: " `nimble -v`
-          echo "NIMBLE: which: " `which nimble`
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
+          rm -rf ~/.nimble/
+          nimble -v
+          
+      - name: Setup Deps
+        run: |
           nimble install
 
       - name: Run tests
@@ -170,9 +169,7 @@ jobs:
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-
           nimble test -y
-
           if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
             echo -e "\nTesting with '--gc:orc':\n"
             export NIMFLAGS="${NIMFLAGS} --gc:orc"
