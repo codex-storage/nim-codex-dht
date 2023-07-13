@@ -18,9 +18,11 @@ when getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
     system.fileExists(currentDir & "nimbus-build-system.paths"):
   echo "Using Nimbus Paths"
   include "nimbus-build-system.paths"
+elif withDir(thisDir(), system.fileExists("nimble.paths")):
+  echo "Using Nimble Paths"
 
 # begin Nimble config (version 2)
+--noNimblePath
 when withDir(thisDir(), system.fileExists("nimble.paths")):
-  --noNimblePath
-  echo "Using Nimble Paths"
+  include "nimble.paths"
 # end Nimble config
