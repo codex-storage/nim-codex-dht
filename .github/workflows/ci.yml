@@ -115,7 +115,7 @@ jobs:
           nimble test -y
 
       - name: Run windows tests part1
-        if: runner.os == 'Windows' && matrix.target.ver == 'part1'
+        if: runner.os == 'Windows' && matrix.target.tests == 'part1'
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
@@ -125,7 +125,7 @@ jobs:
           nimble testPart1 -y
 
       - name: Run windows tests part2
-        if: runner.os == 'Windows' && matrix.target.ver == 'part2'
+        if: runner.os == 'Windows' && matrix.target.tests == 'part2'
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             export NIMFLAGS="-d:nimRawSetjmp"
