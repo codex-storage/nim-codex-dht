@@ -114,22 +114,12 @@ jobs:
         run: |
           nimble test -y
 
-      - name: Run windows tests part1
-        if: runner.os == 'Windows' && matrix.target.ver == 'alpha'
-        run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
-
-          nimble test -y
-
       - name: Run windows tests part2
-        if: runner.os == 'Windows' && matrix.target.ver == 'alpha'
+        if: runner.os == 'Windows'
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
 
-          nimble test -y
+          nimble test${{ matrix.target.ver }} -y
