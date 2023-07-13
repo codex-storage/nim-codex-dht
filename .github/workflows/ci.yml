@@ -145,8 +145,6 @@ jobs:
 
       - name: Setup Paths
         run: |
-          rm -rf ~/.nimble/
-          rm -rf ./.nimble
           echo 'NIMBLE_DIR=${{ github.workspace }}/.nimble' >> $GITHUB_ENV
           
       - name: Setup Nimble
