@@ -106,15 +106,11 @@ jobs:
           nimble -v
 
           nimble install -y nimble@0.14.2
-
           nimble -v
-
-          find ./.nimble/
-          find ~/.nimble/
 
       - name: Setup Deps
         run: |
-          nimble install -d
+          nimble install -d -y
 
       - name: Run tests
         run: |
