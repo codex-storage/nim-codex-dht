@@ -163,6 +163,19 @@ jobs:
             ${{ github.workspace }} / .nimble
           key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
 
+      - name: Check ENV
+        run: |
+          echo ENV:
+          env
+          which nim
+          which nimble
+
+          nim -v
+          nimble -v
+
+          find ./.nimble/
+          find ~/.nimble/
+
       - name: Setup Deps
         run: |
           nimble install -d
