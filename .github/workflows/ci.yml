@@ -78,19 +78,20 @@ jobs:
         run: |
           echo '${{ github.workspace }}'"/external/dlls" >> $GITHUB_PATH
 
-      - name: Setup Nimble
-        uses: "./.github/actions/install_nimble"
-        with:
-          os: ${{ matrix.target.os }}
-          cpu: ${{ matrix.target.cpu }}
-
       - name: Restore nimble dependencies from cache
         id: nimble_deps
         uses: actions/cache@v3
         with:
           path: |
+            ~/.nimble
             ${{ github.workspace }}/.nimble
           key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
+
+      - name: Setup Nimble
+        uses: "./.github/actions/install_nimble"
+        with:
+          os: ${{ matrix.target.os }}
+          cpu: ${{ matrix.target.cpu }}
 
       - name: Setup Env
         run: |
@@ -100,7 +101,6 @@ jobs:
         run: |
           nimble install -d
           nimble setup
-          cat nimble.paths
 
       - name: Run tests
         run: |
