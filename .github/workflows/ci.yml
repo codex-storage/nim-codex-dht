@@ -31,7 +31,7 @@ jobs:
             shell: bash
           - target:
               os: windows
-            builder: windows-2019
+            builder: windows-latest
             shell: msys2 {0}
 
     defaults:
