@@ -15,10 +15,20 @@ jobs:
         target:
           - os: linux
             cpu: amd64
+            tests: all
           - os: macos
             cpu: amd64
+            tests: all
+          - os: macos
           - os: windows
             cpu: amd64
+            tests: all
+          - os: windows
+            cpu: amd64
+            tests: part1
+          - os: windows
+            cpu: amd64
+            tests: part2
         branch: [version-1-6]
         include:
           - target:
@@ -104,6 +114,12 @@ jobs:
           nimble setup
 
       - name: Run tests
+        if: runner.os != 'Windows'
+        run: |
+          nimble test -y
+
+      - name: Run windows tests part1
+        if: runner.os == 'Windows' && matrix.target.ver == 'alpha'
         run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
@@ -112,8 +128,12 @@ jobs:
 
           nimble test -y
 
-          if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
-            echo -e "\nTesting with '--gc:orc':\n"
-            export NIMFLAGS="${NIMFLAGS} --gc:orc"
-            nimble test -y
-          fi;
+      - name: Run windows tests part2
+        if: runner.os == 'Windows' && matrix.target.ver == 'alpha'
+        run: |
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            # https://github.com/status-im/nimbus-eth2/issues/3121
+            export NIMFLAGS="-d:nimRawSetjmp"
+          fi
+
+          nimble test -y

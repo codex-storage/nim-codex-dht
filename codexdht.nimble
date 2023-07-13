@@ -27,7 +27,13 @@ task testAll, "Run DHT tests":
   exec "nim c -r tests/testAll.nim"
 
 task test, "Run DHT tests":
-  exec "nim c -r --verbosity:0 tests/testAllParallel.nim"
+  exec "nim c -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
+
+task testA, "Run DHT tests A":
+  exec "nim c -r -d:testsPart1 tests/testAllParallel.nim"
+
+task testB, "Run DHT tests B":
+  exec "nim c -r -d:testsPart2 tests/testAllParallel.nim"
 
 # task coverage, "generates code coverage report":
 #   var (output, exitCode) = gorgeEx("which lcov")
