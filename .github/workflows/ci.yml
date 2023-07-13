@@ -156,6 +156,8 @@ jobs:
 
       - name: Install Deps
         run: |
+          echo "NIMBLE: version: " `nimble -v`
+          echo "NIMBLE: which: " `which nimble`
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
