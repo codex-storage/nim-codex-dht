@@ -89,7 +89,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ${{ github.workspace }} / .nimble
+            ${{ github.workspace }}/.nimble
           key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
 
       - name: Setup Env
