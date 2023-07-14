@@ -1,4 +1,4 @@
-import std / strutils
+import std / [os, strutils, sequtils]
 
 switch("define", "libp2p_pki_schemes=secp256k1")
 
@@ -40,14 +40,19 @@ task coverage, "generates code coverage report":
     echo "  *****************************************************************"
     echo ""
 
-  exec("nimble --verbose test --opt:speed -d:debug --verbosity:0 --hints:off --lineDir:on -d:chronicles_log_level=INFO --nimcache:nimcache --passC:-fprofile-arcs --passC:-ftest-coverage --passL:-fprofile-arcs --passL:-ftest-coverage")
-  exec("cd nimcache; rm *.c; cd ..")
-  mkDir("coverage")
+  var nimSrcs = ""
+  for f in walkDirRec(".", {pcFile}):
+    if f.endswith(".nim"): nimSrcs.add " " & f.quoteShell()
+
+  echo "======== Running Tests ======== "
+  exec("nim c -r tests/coverage.nim")
+  # exec("rm nimcache/*.c")
+  rmDir("coverage"); mkDir("coverage")
+  echo " ======== Running LCOV ======== "
   exec("lcov --capture --directory nimcache --output-file coverage/coverage.info")
-  exec("$(which bash) -c 'shopt -s globstar; ls $(pwd)/codexdht/{*,**/*}.nim'")
-  exec("$(which bash) -c 'shopt -s globstar; lcov --extract coverage/coverage.info  $(pwd)/codexdht/{*,**/*}.nim --output-file coverage/coverage.f.info'")
-  echo "Generating HTML coverage report"
-  exec("genhtml coverage/coverage.f.info --output-directory coverage/report")
-  echo "Opening HTML coverage report in browser..."
+  exec("lcov --extract coverage/coverage.info --output-file coverage/coverage.f.info " & nimSrcs)
+  echo " ======== Generating HTML coverage report ======== "
+  exec("genhtml coverage/coverage.f.info --output-directory coverage/report ")
+  echo " ======== Opening HTML coverage report in browser... ======== "
   exec("open coverage/report/index.html")
 

@@ -11,3 +11,4 @@ nimbus-build-system.paths
 vendor/*
 NimBinaries
 .update.timestamp
+*.dSYM
