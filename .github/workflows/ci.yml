@@ -15,12 +15,16 @@ jobs:
         target:
           - os: linux
             cpu: amd64
+            tests: all
           - os: macos
             cpu: amd64
+            tests: all
           - os: windows
             cpu: amd64
-          #- os: windows
-            #cpu: i386
+            tests: part1
+          - os: windows
+            cpu: amd64
+            tests: part2
         branch: [version-1-6]
         include:
           - target:
@@ -33,7 +37,7 @@ jobs:
             shell: bash
           - target:
               os: windows
-            builder: windows-2019
+            builder: windows-latest
             shell: msys2 {0}
 
     defaults:
@@ -49,37 +53,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Install build dependencies (Linux i386)
-        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-get install \
-            --no-install-recommends -yq gcc-multilib g++-multilib \
-            libssl-dev:i386
-          mkdir -p external/bin
-          cat << EOF > external/bin/gcc
-          #!/bin/bash
-          exec $(which gcc) -m32 "\$@"
-          EOF
-          cat << EOF > external/bin/g++
-          #!/bin/bash
-          exec $(which g++) -m32 "\$@"
-          EOF
-          chmod 755 external/bin/gcc external/bin/g++
-          echo '${{ github.workspace }}/external/bin' >> $GITHUB_PATH
-
-      - name: MSYS2 (Windows i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          msystem: MINGW32
-          install: >-
-            base-devel
-            git
-            mingw-w64-i686-toolchain
-
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
         uses: msys2/setup-msys2@v2
@@ -89,7 +62,6 @@ jobs:
             base-devel
             git
             mingw-w64-x86_64-toolchain
-
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
@@ -106,48 +78,21 @@ jobs:
           mkdir external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           7z x external/windeps.zip -oexternal/dlls
-
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
         run: |
           echo '${{ github.workspace }}'"/external/dlls" >> $GITHUB_PATH
 
-      - name: Derive environment variables
-        run: |
-          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            PLATFORM=x64
-          else
-            PLATFORM=x86
-          fi
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-          ncpu=
-          MAKE_CMD="make"
-          case '${{ runner.os }}' in
-          'Linux')
-            ncpu=$(nproc)
-            ;;
-          'macOS')
-            ncpu=$(sysctl -n hw.ncpu)
-            ;;
-          'Windows')
-            ncpu=$NUMBER_OF_PROCESSORS
-            MAKE_CMD="mingw32-make"
-            ;;
-          esac
-          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
-          echo "ncpu=$ncpu" >> $GITHUB_ENV
-          echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
-
+      ## Restore nimble deps
       - name: Restore nimble dependencies from cache
         id: nimble_deps
         uses: actions/cache@v3
         with:
           path: |
-            ~/.nimble/pkgs2
-            ~/.nimble/packages_official.json
-          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-nimble-${{ hashFiles('nimble.lock') }}
+            ~/.nimble
+            ${{ github.workspace }}/.nimble
+          key: ${{ matrix.target.os }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
 
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
@@ -155,16 +100,35 @@ jobs:
           os: ${{ matrix.target.os }}
           cpu: ${{ matrix.target.cpu }}
 
-      - name: Run tests
+      - name: Setup Env
         run: |
-          rm -rf ~/.nimble/
+          nimble -v
+
+      - name: Setup Deps
+        run: |
+          nimble install -d
+          nimble setup
+
+      - name: Run tests
+        if: runner.os != 'Windows'
+        run: |
+          nimble test -y
+
+      - name: Run windows tests part1
+        if: runner.os == 'Windows' && matrix.target.tests == 'part1'
+        run: |
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
-          nimble test -y
-          if [[ "${{ matrix.branch }}" == "version-1-6" || "${{ matrix.branch }}" == "devel" ]]; then
-            echo -e "\nTesting with '--gc:orc':\n"
-            export NIMFLAGS="${NIMFLAGS} --gc:orc"
-            nimble test -y
-          fi;
+
+          nimble testPart1 -y
+
+      - name: Run windows tests part2
+        if: runner.os == 'Windows' && matrix.target.tests == 'part2'
+        run: |
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            export NIMFLAGS="-d:nimRawSetjmp"
+          fi
+
+          nimble testPart2 -y

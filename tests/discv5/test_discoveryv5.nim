@@ -22,13 +22,13 @@ suite "Discovery v5 Tests":
       pk = PrivateKey.example(rng)
       targetPk = PrivateKey.example(rng)
       node = initDiscoveryNode(rng, pk, localAddress(20302))
-      targetNode = targetPk.generateNode()
+      targetNode = targetPk.generateNode(port=26302)
 
     check node.addNode(targetNode)
 
     for i in 0..<1000:
       let pk = PrivateKey.example(rng)
-      discard node.addNode(pk.generateNode())
+      discard node.addNode(pk.generateNode(port=27302+i))
 
     let n = node.getNode(targetNode.id)
     check n.isSome()
@@ -265,7 +265,7 @@ suite "Discovery v5 Tests":
 
     # Generate 1000 random nodes and add to our main node's routing table
     for i in 0..<1000:
-      discard mainNode.addSeenNode(generateNode(PrivateKey.example(rng))) # for testing only!
+      discard mainNode.addSeenNode(generateNode(PrivateKey.example(rng), port=28302+i)) # for testing only!
 
     let
       neighbours = mainNode.neighbours(mainNode.localNode.id)

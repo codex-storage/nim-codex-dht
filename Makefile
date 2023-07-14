@@ -30,7 +30,7 @@ LINK_PCRE := 0
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
-GIT_SUBMODULE_UPDATE := nimble install https://github.com/elcritch/atlas && atlas rep --noexec atlas.lock
+GIT_SUBMODULE_UPDATE := nimble install https://github.com/nim-lang/atlas@\#2ab291c9f37e9d7acce906d1bb7fa49f57f10b22 && atlas rep --noexec atlas.lock
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE); \
@@ -63,7 +63,7 @@ update: | update-common
 # Builds and run a part of the test suite
 test: | build deps
 	echo -e $(BUILD_MSG) "$@" && \
-		$(ENV_SCRIPT) nim testAll $(NIM_PARAMS) config.nims
+		$(ENV_SCRIPT) nim test $(NIM_PARAMS) config.nims
 
 # usual cleaning
 clean: | clean-common

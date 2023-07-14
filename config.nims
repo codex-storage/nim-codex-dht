@@ -8,7 +8,13 @@ task testAll, "Run DHT tests":
   exec "nim c -r tests/testAll.nim"
 
 task test, "Run DHT tests":
-  testAllTask()
+  exec "nim c -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
+
+task testPart1, "Run DHT tests A":
+  exec "nim c -r -d:testsPart1 tests/testAllParallel.nim"
+
+task testPart2, "Run DHT tests B":
+  exec "nim c -r -d:testsPart2 tests/testAllParallel.nim"
 
 when getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
     # BEWARE
@@ -18,8 +24,11 @@ when getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
     system.fileExists(currentDir & "nimbus-build-system.paths"):
   echo "Using Nimbus Paths"
   include "nimbus-build-system.paths"
-elif fileExists("nimble.paths"):
+elif withDir(thisDir(), system.fileExists("nimble.paths")):
   echo "Using Nimble Paths"
-  # begin Nimble config (version 1)
+
+# begin Nimble config (version 2)
+--noNimblePath
+when withDir(thisDir(), system.fileExists("nimble.paths")):
   include "nimble.paths"
-  # end Nimble config
+# end Nimble config
