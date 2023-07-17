@@ -57,7 +57,7 @@
     },
     "nimcrypto": {
       "dir": "vendor/nimcrypto",
-      "url": "https://github.com/cheatfate/nimcrypto.git",
+      "url": "https://github.com/status-im/nimcrypto.git",
       "commit": "a5742a9a214ac33f91615f3862c7b099aec43b00"
     },
     "json_serialization": {
@@ -92,12 +92,12 @@
     },
     "nim-datastore": {
       "dir": "vendor/nim-datastore",
-      "url": "https://github.com/status-im/nim-datastore",
+      "url": "https://github.com/codex-storage/nim-datastore",
       "commit": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa"
     },
     "asynctest": {
       "dir": "vendor/asynctest",
-      "url": "https://github.com/status-im/asynctest.git",
+      "url": "https://github.com/codex-storage/asynctest.git",
       "commit": "a236a5f0f3031573ac2cb082b63dbf6e170e06e7"
     },
     "stint": {
