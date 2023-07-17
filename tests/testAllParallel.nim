@@ -5,6 +5,7 @@
 import std/[os, osproc, strutils]
 
 when declared(getPathsClause):
+  ## note this doesn't appear to work, what to do?
   proc nimc(): string = "nim c -r " & getPathsClause()
 else:
   proc nimc(): string = "nim c -r "
