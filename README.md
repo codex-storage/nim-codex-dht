@@ -19,3 +19,26 @@ This DHT implementation is aiming to provide a DHT for Codex with the following 
 Current implementation is based on nim-eth's Discovery v5 implementation.
 
 Base files were copied from [`status-im/nim-eth@779d767b024175a51cf74c79ec7513301ebe2f46`](https://github.com/status-im/nim-eth/commit/779d767b024175a51cf74c79ec7513301ebe2f46)
+
+## Building
+
+This repo is setup to use Nimble lockfiles. This requires Nimble 0.14+ which isn't installed by default when this was written. If `nimble -v` reports `0.13.x` then you will need to install Nimble 0.14. Note that using Nimble 0.14 changes how Nimble behaves! 
+
+Nimble 0.14 can be install by: 
+
+```sh
+nimble install nimble@0.14.2
+```
+
+After this you can setup your Nimble environment. Note that this will build the pinned version of Nim! The first run can take ~15 minutes.
+
+```sh
+nimble setup # creates a nimble.paths used for rest of Nimble commands
+nimble testAll
+```
+
+You can also run tasks directly:
+
+```sh
+nim testAll
+```
