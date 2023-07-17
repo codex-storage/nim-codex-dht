@@ -31,20 +31,28 @@ jobs:
           sudo apt-get install -y lcov build-essential git curl
           mkdir coverage
 
+      - name: Restore nimble dependencies from cache
+        id: nimble_deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.nimble
+          key: ubuntu-20.04-amd64-${{ hashFiles('nimble.lock') }}
+
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
         with:
           os: linux
           cpu: x64
 
-      - name: Restore nimble dependencies from cache
-        id: nimble_deps
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.nimble/pkgs2
-            ~/.nimble/packages_official.json
-          key: linux-x64-${{ env.cache_nonce }}
+      - name: Setup Env
+        run: |
+          nimble -v
+
+      - name: Setup Deps
+        run: |
+          nimble install -d
+          nimble setup
 
       - name: Run tests
         run: |
