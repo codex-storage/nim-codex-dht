@@ -56,16 +56,7 @@ jobs:
 
       - name: Run tests
         run: |
-          nimble -y --verbose ${{ matrix.test-program }} --opt:speed -d:debug --verbosity:0 --hints:off --lineDir:on -d:chronicles_log_level=INFO --nimcache:nimcache --passC:-fprofile-arcs --passC:-ftest-coverage --passL:-fprofile-arcs --passL:-ftest-coverage ${{ matrix.nim-options }}
-          cd nimcache; rm *.c; cd ..
-
-      - name: Generate coverage data
-        run: |
-          mkdir coverage
-          lcov --capture --directory nimcache --output-file coverage/coverage.info
-          shopt -s globstar
-          ls $(pwd)/libp2pdht/{*,**/*}.nim
-          lcov --extract coverage/coverage.info  $(pwd)/libp2pdht/{*,**/*}.nim --output-file coverage/coverage.f.info
+          nimble -y --verbose coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
