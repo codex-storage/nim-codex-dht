@@ -15,11 +15,10 @@ for d in walkDirRec("tests", {pcDir}):
     if kind == pcFile and file.endswith(".nim") and file.startsWith("t"):
       cmds.add nimc() & file.absolutePath.quoteShell()
 
-when defined(testsPart1) or defined(testsAll):
-  cmds = cmds[0..cmds.len div 2]
-when defined(testsPart2) or defined(testsAll):
-  cmds = cmds[cmds.len div 2..<cmds.len]
+when defined(testsPart1):
+  cmds = cmds[0..cmds.len div 2 - 1]
+when defined(testsPart2):
+  cmds = cmds[cmds.len div 2 - 1..<cmds.len]
 
 echo "Running Test Commands: ", cmds
-
 # quit execProcesses(cmds)

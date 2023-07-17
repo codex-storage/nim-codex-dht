@@ -1,4 +1,4 @@
-import std / [os, strutils, sequtils, osproc]
+import std / [os, strutils, sequtils]
 
 when declared(getPathsClause):
   proc nimc(): string = "nim c " & getPathsClause()
