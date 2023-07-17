@@ -1,18 +1,23 @@
-import std / [os, strutils, sequtils]
+import std / [os, strutils, sequtils, osproc]
+
+when declared(getPathsClause):
+  proc nimc(): string = "nim c " & getPathsClause()
+else:
+  proc nimc(): string = "nim c"
 
 switch("define", "libp2p_pki_schemes=secp256k1")
 
 task testAll, "Run DHT tests":
-  exec "nim c -r tests/testAll.nim"
+  exec nimc() & " -r tests/testAll.nim"
 
 task test, "Run DHT tests":
-  exec "nim c -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
+  exec nimc() & " -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
 
 task testPart1, "Run DHT tests A":
-  exec "nim c -r -d:testsPart1 tests/testAllParallel.nim"
+  exec nimc() & " -r -d:testsPart1 tests/testAllParallel.nim"
 
 task testPart2, "Run DHT tests B":
-  exec "nim c -r -d:testsPart2 tests/testAllParallel.nim"
+  exec nimc() & " -r -d:testsPart2 tests/testAllParallel.nim"
 
 task coverage, "generates code coverage report":
   var (output, exitCode) = gorgeEx("which lcov")
