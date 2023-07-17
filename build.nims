@@ -42,11 +42,11 @@ task coverage, "generates code coverage report":
 
   var nimSrcs = ""
   for f in walkDirRec(".", {pcFile}):
-    if f.endswith(".nim"): nimSrcs.add " " & f.quoteShell()
+    if f.endswith(".nim"): nimSrcs.add " " & f.absolutePath.quoteShell()
 
   echo "======== Running Tests ======== "
   exec("nim c -r tests/coverage.nim")
-  # exec("rm nimcache/*.c")
+  exec("rm nimcache/*.c")
   rmDir("coverage"); mkDir("coverage")
   echo " ======== Running LCOV ======== "
   exec("lcov --capture --directory nimcache --output-file coverage/coverage.info")
@@ -54,5 +54,6 @@ task coverage, "generates code coverage report":
   echo " ======== Generating HTML coverage report ======== "
   exec("genhtml coverage/coverage.f.info --output-directory coverage/report ")
   echo " ======== Opening HTML coverage report in browser... ======== "
-  exec("open coverage/report/index.html")
+  if findExe("open") != "":
+    exec("open coverage/report/index.html")
 
