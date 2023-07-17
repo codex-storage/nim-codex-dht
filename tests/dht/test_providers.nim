@@ -18,9 +18,9 @@ import
   nimcrypto,
   libp2p/crypto/[crypto, secp],
   libp2p/[multiaddress, multicodec, multihash, routing_record, signed_envelope],
-  libp2pdht/dht,
-  libp2pdht/discv5/crypto as dhtcrypto,
-  libp2pdht/discv5/protocol as discv5_protocol,
+  codexdht/dht,
+  codexdht/discv5/crypto as dhtcrypto,
+  codexdht/discv5/protocol as discv5_protocol,
   stew/byteutils,
   test_helper
 
@@ -34,7 +34,7 @@ proc bootstrapNodes(
   debug "---- STARTING BOOSTRAPS ---"
   for i in 0..<nodecount:
     let privKey = PrivateKey.example(rng)
-    let node = initDiscoveryNode(rng, privKey, localAddress(20302 + i), bootnodes)
+    let node = initDiscoveryNode(rng, privKey, localAddress(23302 + i), bootnodes)
     await node.start()
     result.add((node, privKey))
     if delay > 0:
@@ -53,7 +53,7 @@ proc bootstrapNetwork(
     bootNodeKey = PrivateKey.fromHex(
       "a2b50376a79b1a8c8a3296485572bdfbf54708bb46d3c25d73d2723aaaf6a617")
       .expect("Valid private key hex")
-    bootNodeAddr = localAddress(20301)
+    bootNodeAddr = localAddress(25311)
     bootNode = initDiscoveryNode(rng, bootNodeKey, bootNodeAddr, @[]) # just a shortcut for new and open
 
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above

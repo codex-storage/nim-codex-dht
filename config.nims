@@ -1,4 +1,5 @@
-switch("define", "libp2p_pki_schemes=secp256k1")
+
+include "build.nims"
 
 # begin Nimble config (version 2)
 --noNimblePath

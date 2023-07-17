@@ -3,9 +3,9 @@ import
   chronos,
   libp2p/crypto/[crypto, secp],
   libp2p/multiaddress,
-  libp2pdht/discv5/[node, routing_table, spr],
-  libp2pdht/discv5/crypto as dhtcrypto,
-  libp2pdht/discv5/protocol as discv5_protocol,
+  codexdht/discv5/[node, routing_table, spr],
+  codexdht/discv5/crypto as dhtcrypto,
+  codexdht/discv5/protocol as discv5_protocol,
   stew/shims/net
 
 export net
@@ -53,7 +53,7 @@ proc nodeIdInNodes*(id: NodeId, nodes: openArray[Node]): bool =
   for n in nodes:
     if id == n.id: return true
 
-proc generateNode*(privKey: PrivateKey, port: int = 20302,
+proc generateNode*(privKey: PrivateKey, port: int,
     ip: ValidIpAddress = ValidIpAddress.init("127.0.0.1")): Node =
 
   let
@@ -67,7 +67,7 @@ proc generateNRandomNodes*(rng: ref HmacDrbgContext, n: int): seq[Node] =
   for i in 1..n:
     let
       privKey = PrivateKey.example(rng)
-      node = privKey.generateNode()
+      node = privKey.generateNode(port = 20402 + 10*n)
     res.add(node)
   res
 
@@ -76,7 +76,7 @@ proc nodeAndPrivKeyAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
   while true:
     let
       privKey = PrivateKey.random(rng).expect("Valid rng for private key")
-      node = privKey.generateNode(ip = ip)
+      node = privKey.generateNode(port = 21302 + 10*d.int, ip = ip)
     if logDistance(n.id, node.id) == d:
       return (node, privKey)
 
