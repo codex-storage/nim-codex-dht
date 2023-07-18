@@ -1,10 +1,14 @@
-import std / [os, strutils, sequtils]
+import std / [os, strutils]
 
 when declared(getPathsClause):
-  proc nimc(): string = "nim c " & getPathsClause()
+  proc nimc(): string =
+    # set this for compiling parallel tests
+    putEnv("NIMBLE_PATHS", getPathsClause().split(" ").join($PathSep & $PathSep))
+    "nim c " & getPathsClause()
 else:
-  proc nimc(): string = "nim c"
-  proc getPathsClause(): string = ""
+  proc nimc(): string =
+    putEnv("NIMBLE_PATHS", "")
+    "nim c "
 
 switch("define", "libp2p_pki_schemes=secp256k1")
 
@@ -12,7 +16,6 @@ task testAll, "Run DHT tests":
   exec nimc() & " -r tests/testAll.nim"
 
 task test, "Run DHT tests":
-  putEnv("NIMBLE_PATHS", getPathsClause().split(" ").join($PathSep & $PathSep))
   exec nimc() & " -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
 
 task testPart1, "Run DHT tests A":
