@@ -171,13 +171,13 @@
       }
     },
     "unittest2": {
-      "version": "0.0.2",
-      "vcsRevision": "02c49b8a994dd3f9eddfaab45262f9b8fa507f8e",
+      "version": "0.0.7",
+      "vcsRevision": "b178f47527074964f76c395ad0dfc81cf118f379",
       "url": "https://github.com/status-im/nim-unittest2.git",
       "downloadMethod": "git",
       "dependencies": [],
       "checksums": {
-        "sha1": "a7f3331cabb5fad0d04c93be0aad1f020f9c8033"
+        "sha1": "b6d4a5cbe28b43c166d6442ba6804aafd4abe368"
       }
     },
     "combparser": {
