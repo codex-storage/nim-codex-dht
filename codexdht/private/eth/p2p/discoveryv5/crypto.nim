@@ -89,7 +89,7 @@ func ecdhSharedSecretFull*(seckey: PrivateKey, pubkey: PublicKey): SharedSecretF
 proc ecdhRaw*(
     priv: PrivateKey,
     pub: PublicKey
-): Result[SharedSecret, cstring] =
+): Result[SharedSecretFull, cstring] =
   ## emulate old ecdhRaw style keys
   ## 
   ## this includes a leading 0x02 or 0x03
@@ -98,4 +98,4 @@ proc ecdhRaw*(
   if priv.scheme != Secp256k1 or pub.scheme != Secp256k1:
     return err "Must use secp256k1 scheme".cstring
 
-  ok ecdhSharedSecret(priv.skkey, pub.skkey)
+  ok ecdhSharedSecretFull(priv, pub)
