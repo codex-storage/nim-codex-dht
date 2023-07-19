@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  cache_nonce: 0 # Allows for easily busting actions/cache caches
+
 jobs:
   build:
     timeout-minutes: 90
@@ -92,7 +95,7 @@ jobs:
           path: |
             ~/.nimble
             ${{ github.workspace }}/.nimble
-          key: ${{ matrix.builder }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
+          key: ${{ matrix.builder }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}-${{ env.cache_nonce }}
 
       - name: Setup Nimble
         uses: "./.github/actions/install_nimble"
