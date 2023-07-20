@@ -9,12 +9,12 @@ skipDirs      = @["tests"]
 
 # Dependencies
 requires "nim >= 1.2.0"
-requires "secp256k1#b3f38e2795e805743b299dc5d96d332db375b520" # >= 0.5.2 & < 0.6.0
-requires "protobuf_serialization#27b400fdf3bd8ce7120ca66fc1de39d3f1a5804a" # >= 0.2.0 & < 0.3.0
+requires "secp256k1#2acbbdcc0e63002a013fff49f015708522875832" # >= 0.5.2 & < 0.6.0
+requires "protobuf_serialization" # >= 0.2.0 & < 0.3.0
 requires "nimcrypto == 0.5.4"
 requires "bearssl#head"
 requires "chronicles >= 0.10.2 & < 0.11.0"
-requires "chronos#1394c9e04957928afc1db33d2e0965cfb677a1e0" #  >= 3.0.11 & < 3.1.0
+requires "chronos == 3.2.0" #  >= 3.0.11 & < 3.1.0
 requires "libp2p#unstable"
 requires "metrics"
 requires "stew#head"
