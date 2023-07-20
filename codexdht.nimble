@@ -20,7 +20,7 @@ requires "metrics"
 requires "stew#head"
 requires "stint"
 requires "asynctest >= 0.3.1 & < 0.4.0"
-requires "https://github.com/status-im/nim-datastore#head"
+requires "https://github.com/codex-storage/nim-datastore#head"
 requires "questionable"
 
 include "build.nims"

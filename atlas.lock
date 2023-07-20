@@ -97,7 +97,7 @@
     },
     "datastore": {
       "dir": "vendor/nim-datastore",
-      "url": "https://github.com/status-im/nim-datastore",
+      "url": "https://github.com/codex-storage/nim-datastore",
       "commit": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa"
     },
     "json_serialization": {
