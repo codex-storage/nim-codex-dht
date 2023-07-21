@@ -18,7 +18,7 @@
     "nim-chronos": {
       "dir": "vendor/nim-chronos",
       "url": "https://github.com/status-im/nim-chronos",
-      "commit": "e04c042e8acfe0025c780de8a025aa4c4e042130"
+      "commit": "0277b65be2c7a365ac13df002fba6e172be55537"
     },
     "upraises": {
       "dir": "vendor/upraises",

@@ -46,12 +46,12 @@
     },
     "chronos": {
       "version": "3.2.0",
-      "vcsRevision": "e04c042e8acfe0025c780de8a025aa4c4e042130",
+      "vcsRevision": "0277b65be2c7a365ac13df002fba6e172be55537",
       "url": "https://github.com/status-im/nim-chronos",
       "downloadMethod": "git",
       "dependencies": [],
       "checksums": {
-        "sha1": "90b3c2af18afd9ac4c0b0b38ce458f3b92018dd1"
+        "sha1": "78a41db7fb05b937196d4fa2f1e3fb4353b36a07"
       }
     },
     "upraises": {
