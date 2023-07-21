@@ -56,7 +56,7 @@
       "commit": "23214235d4784d24aceed99bbfe153379ea557c8"
     },
     "nimcrypto": {
-      "dir": "vendor/nimcrypto.status-im.github.com",
+      "dir": "vendor/nimcrypto",
       "url": "https://github.com/status-im/nimcrypto",
       "commit": "a5742a9a214ac33f91615f3862c7b099aec43b00"
     },
@@ -96,7 +96,7 @@
       "commit": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa"
     },
     "asynctest": {
-      "dir": "vendor/asynctest.codex-storage.github.com",
+      "dir": "vendor/asynctest",
       "url": "https://github.com/codex-storage/asynctest",
       "commit": "a236a5f0f3031573ac2cb082b63dbf6e170e06e7"
     },
