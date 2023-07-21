@@ -1,94 +1,99 @@
 {
   "items": {
-    "zlib": {
-      "dir": "vendor/zlib",
+    "nim-zlib": {
+      "dir": "vendor/nim-zlib",
       "url": "https://github.com/status-im/nim-zlib",
-      "commit": "74cdeb54b21bededb5a515d36f608bc1850555a2"
+      "commit": "f34ca261efd90f118dc1647beefd2f7a69b05d93"
     },
-    "stew": {
-      "dir": "vendor/stew",
-      "url": "https://github.com/status-im/nim-stew.git",
-      "commit": "e18f5a62af2ade7a1fd1d39635d4e04d944def08"
+    "nim-stew": {
+      "dir": "vendor/nim-stew",
+      "url": "https://github.com/status-im/nim-stew",
+      "commit": "7afe7e3c070758cac1f628e4330109f3ef6fc853"
     },
-    "httputils": {
-      "dir": "vendor/httputils",
-      "url": "https://github.com/status-im/nim-http-utils.git",
-      "commit": "e88e231dfcef4585fe3b2fbd9b664dbd28a88040"
+    "nim-http-utils": {
+      "dir": "vendor/nim-http-utils",
+      "url": "https://github.com/status-im/nim-http-utils",
+      "commit": "3b491a40c60aad9e8d3407443f46f62511e63b18"
     },
-    "chronos": {
-      "dir": "vendor/chronos",
-      "url": "https://github.com/status-im/nim-chronos.git",
-      "commit": "6525f4ce1d1a7eba146e5f1a53f6f105077ae686"
+    "nim-chronos": {
+      "dir": "vendor/nim-chronos",
+      "url": "https://github.com/status-im/nim-chronos",
+      "commit": "0277b65be2c7a365ac13df002fba6e172be55537"
     },
     "upraises": {
       "dir": "vendor/upraises",
-      "url": "https://github.com/markspanbroek/upraises.git",
+      "url": "https://github.com/markspanbroek/upraises",
       "commit": "ff4f8108e44fba9b35cac535ab63d3927e8fd3c2"
     },
-    "sqlite3_abi": {
-      "dir": "vendor/sqlite3_abi",
+    "nim-sqlite3-abi": {
+      "dir": "vendor/nim-sqlite3-abi",
       "url": "https://github.com/arnetheduck/nim-sqlite3-abi",
       "commit": "362e1bd9f689ad9f5380d9d27f0705b3d4dfc7d3"
     },
     "questionable": {
       "dir": "vendor/questionable",
-      "url": "https://github.com/status-im/questionable.git",
-      "commit": "30e4184a99c8c1ba329925912d2c5d4b09acf8cc"
+      "url": "https://github.com/codex-storage/questionable",
+      "commit": "b3cf35ac450fd42c9ea83dc084f5cba2efc55da3"
     },
-    "websock": {
-      "dir": "vendor/websock",
-      "url": "https://github.com/status-im/nim-websock.git",
-      "commit": "7b2ed397d6e4c37ea4df08ae82aeac7ff04cd180"
+    "nim-results": {
+      "dir": "vendor/nim-results",
+      "url": "https://github.com/arnetheduck/nim-results",
+      "commit": "f3c666a272c69d70cb41e7245e7f6844797303ad"
     },
-    "secp256k1": {
-      "dir": "vendor/secp256k1",
-      "url": "https://github.com/status-im/nim-secp256k1.git",
+    "nim-unittest2": {
+      "dir": "vendor/nim-unittest2",
+      "url": "https://github.com/status-im/nim-unittest2",
+      "commit": "b178f47527074964f76c395ad0dfc81cf118f379"
+    },
+    "nim-websock": {
+      "dir": "vendor/nim-websock",
+      "url": "https://github.com/status-im/nim-websock",
+      "commit": "2c3ae3137f3c9cb48134285bd4a47186fa51f0e8"
+    },
+    "nim-secp256k1": {
+      "dir": "vendor/nim-secp256k1",
+      "url": "https://github.com/status-im/nim-secp256k1",
       "commit": "2acbbdcc0e63002a013fff49f015708522875832"
     },
-    "bearssl": {
-      "dir": "vendor/bearssl",
-      "url": "https://github.com/status-im/nim-bearssl.git",
-      "commit": "f4c4233de453cb7eac0ce3f3ffad6496295f83ab"
+    "nim-bearssl": {
+      "dir": "vendor/nim-bearssl",
+      "url": "https://github.com/status-im/nim-bearssl",
+      "commit": "99fcb3405c55b27cfffbf60f5368c55da7346f23"
     },
-    "dnsclient": {
-      "dir": "vendor/dnsclient",
+    "dnsclient.nim": {
+      "dir": "vendor/dnsclient.nim",
       "url": "https://github.com/ba0f3/dnsclient.nim",
       "commit": "23214235d4784d24aceed99bbfe153379ea557c8"
     },
     "nimcrypto": {
       "dir": "vendor/nimcrypto",
-      "url": "https://github.com/status-im/nimcrypto.git",
-      "commit": "a5742a9a214ac33f91615f3862c7b099aec43b00"
+      "url": "https://github.com/status-im/nimcrypto",
+      "commit": "24e006df85927f64916e60511620583b11403178"
     },
-    "json_serialization": {
-      "dir": "vendor/json_serialization",
-      "url": "https://github.com/status-im/nim-json-serialization.git",
-      "commit": "e5b18fb710c3d0167ec79f3b892f5a7a1bc6d1a4"
+    "nim-json-serialization": {
+      "dir": "vendor/nim-json-serialization",
+      "url": "https://github.com/status-im/nim-json-serialization",
+      "commit": "bb53d49caf2a6c6cf1df365ba84af93cdcfa7aa3"
     },
-    "testutils": {
-      "dir": "vendor/testutils",
+    "nim-testutils": {
+      "dir": "vendor/nim-testutils",
       "url": "https://github.com/status-im/nim-testutils",
-      "commit": "dfc4c1b39f9ded9baf6365014de2b4bfb4dafc34"
+      "commit": "b56a5953e37fc5117bd6ea6dfa18418c5e112815"
     },
-    "unittest2": {
-      "dir": "vendor/unittest2",
-      "url": "https://github.com/status-im/nim-unittest2.git",
-      "commit": "b178f47527074964f76c395ad0dfc81cf118f379"
+    "npeg": {
+      "dir": "vendor/npeg",
+      "url": "https://github.com/zevv/npeg",
+      "commit": "b15a10e388b91b898c581dbbcb6a718d46b27d2f"
     },
-    "combparser": {
-      "dir": "vendor/combparser",
-      "url": "https://github.com/PMunch/combparser.git",
-      "commit": "ba4464c005d7617c008e2ed2ebc1ba52feb469c6"
+    "nim-serialization": {
+      "dir": "vendor/nim-serialization",
+      "url": "https://github.com/status-im/nim-serialization",
+      "commit": "384eb2561ee755446cff512a8e057325848b86a7"
     },
-    "serialization": {
-      "dir": "vendor/serialization",
-      "url": "https://github.com/status-im/nim-serialization.git",
-      "commit": "493d18b8292fc03aa4f835fd825dea1183f97466"
-    },
-    "faststreams": {
-      "dir": "vendor/faststreams",
-      "url": "https://github.com/status-im/nim-faststreams.git",
-      "commit": "1b561a9e71b6bdad1c1cdff753418906037e9d09"
+    "nim-faststreams": {
+      "dir": "vendor/nim-faststreams",
+      "url": "https://github.com/status-im/nim-faststreams",
+      "commit": "720fc5e5c8e428d9d0af618e1e27c44b42350309"
     },
     "nim-datastore": {
       "dir": "vendor/nim-datastore",
@@ -97,39 +102,39 @@
     },
     "asynctest": {
       "dir": "vendor/asynctest",
-      "url": "https://github.com/codex-storage/asynctest.git",
-      "commit": "a236a5f0f3031573ac2cb082b63dbf6e170e06e7"
+      "url": "https://github.com/codex-storage/asynctest",
+      "commit": "fe1a34caf572b05f8bdba3b650f1871af9fce31e"
     },
-    "stint": {
-      "dir": "vendor/stint",
+    "nim-stint": {
+      "dir": "vendor/nim-stint",
       "url": "https://github.com/status-im/nim-stint",
       "commit": "86621eced1dcfb5e25903019ebcfc76ed9128ec5"
     },
-    "metrics": {
-      "dir": "vendor/metrics",
-      "url": "https://github.com/status-im/nim-metrics.git",
-      "commit": "743f81d4f6c6ebf0ac02389f2392ff8b4235bee5"
+    "nim-metrics": {
+      "dir": "vendor/nim-metrics",
+      "url": "https://github.com/status-im/nim-metrics",
+      "commit": "6142e433fc8ea9b73379770a788017ac528d46ff"
     },
-    "libp2p": {
-      "dir": "vendor/libp2p",
-      "url": "https://github.com/status-im/nim-libp2p.git",
-      "commit": "a3e9d1ed80c048cd5abc839cbe0863cefcedc702"
+    "nim-libp2p": {
+      "dir": "vendor/nim-libp2p",
+      "url": "https://github.com/status-im/nim-libp2p",
+      "commit": "440461b24b9e66542b34d26a0b908c17f6549d05"
     },
-    "chronicles": {
-      "dir": "vendor/chronicles",
-      "url": "https://github.com/status-im/nim-chronicles.git",
-      "commit": "7631f7b2ee03398cb1512a79923264e8f9410af6"
+    "nim-chronicles": {
+      "dir": "vendor/nim-chronicles",
+      "url": "https://github.com/status-im/nim-chronicles",
+      "commit": "c9c8e58ec3f89b655a046c485f622f9021c68b61"
     },
-    "protobuf_serialization": {
-      "dir": "vendor/protobuf_serialization",
+    "nim-protobuf-serialization": {
+      "dir": "vendor/nim-protobuf-serialization",
       "url": "https://github.com/status-im/nim-protobuf-serialization",
-      "commit": "27b400fdf3bd8ce7120ca66fc1de39d3f1a5804a"
+      "commit": "28214b3e40c755a9886d2ec8f261ec48fbb6bec6"
     }
   },
-  "nimcfg": "############# begin Atlas config section ##########\n--noNimblePath\n--path:\"vendor/secp256k1\"\n--path:\"vendor/protobuf_serialization\"\n--path:\"vendor/nimcrypto\"\n--path:\"vendor/bearssl\"\n--path:\"vendor/chronicles\"\n--path:\"vendor/chronos\"\n--path:\"vendor/libp2p\"\n--path:\"vendor/metrics\"\n--path:\"vendor/stew\"\n--path:\"vendor/stint\"\n--path:\"vendor/asynctest\"\n--path:\"vendor/nim-datastore\"\n--path:\"vendor/questionable\"\n--path:\"vendor/faststreams\"\n--path:\"vendor/serialization\"\n--path:\"vendor/combparser/src\"\n--path:\"vendor/unittest2\"\n--path:\"vendor/testutils\"\n--path:\"vendor/json_serialization\"\n--path:\"vendor/httputils\"\n--path:\"vendor/dnsclient/src\"\n--path:\"vendor/websock\"\n--path:\"vendor/sqlite3_abi\"\n--path:\"vendor/upraises\"\n--path:\"vendor/zlib\"\n############# end Atlas config section   ##########\n",
+  "nimcfg": "############# begin Atlas config section ##########\n--noNimblePath\n--path:\"vendor/nim-secp256k1\"\n--path:\"vendor/nim-protobuf-serialization\"\n--path:\"vendor/nimcrypto\"\n--path:\"vendor/nim-bearssl\"\n--path:\"vendor/nim-chronicles\"\n--path:\"vendor/nim-chronos\"\n--path:\"vendor/nim-libp2p\"\n--path:\"vendor/nim-metrics\"\n--path:\"vendor/nim-stew\"\n--path:\"vendor/nim-stint\"\n--path:\"vendor/asynctest\"\n--path:\"vendor/nim-datastore\"\n--path:\"vendor/questionable\"\n--path:\"vendor/nim-faststreams\"\n--path:\"vendor/nim-serialization\"\n--path:\"vendor/npeg/src\"\n--path:\"vendor/nim-unittest2\"\n--path:\"vendor/nim-testutils\"\n--path:\"vendor/nim-json-serialization\"\n--path:\"vendor/nim-http-utils\"\n--path:\"vendor/dnsclient.nim/src\"\n--path:\"vendor/nim-websock\"\n--path:\"vendor/nim-results\"\n--path:\"vendor/nim-sqlite3-abi\"\n--path:\"vendor/upraises\"\n--path:\"vendor/nim-zlib\"\n############# end Atlas config section   ##########\n",
   "nimbleFile": {
-    "filename": "nim-codex-dht.nimble",
-    "content": "# Package\n\nversion       = \"0.3.2\"\nauthor        = \"Status Research & Development GmbH\"\ndescription   = \"DHT based on the libp2p Kademlia spec\"\nlicense       = \"MIT\"\nskipDirs      = @[\"tests\"]\n\n\n# Dependencies\nrequires \"nim >= 1.2.0\"\nrequires \"secp256k1#b3f38e2795e805743b299dc5d96d332db375b520\" # >= 0.5.2 & < 0.6.0\nrequires \"protobuf_serialization#27b400fdf3bd8ce7120ca66fc1de39d3f1a5804a\" # >= 0.2.0 & < 0.3.0\nrequires \"nimcrypto == 0.5.4\"\nrequires \"bearssl#head\"\nrequires \"chronicles >= 0.10.2 & < 0.11.0\"\nrequires \"chronos#1394c9e04957928afc1db33d2e0965cfb677a1e0\" #  >= 3.0.11 & < 3.1.0\nrequires \"libp2p#unstable\"\nrequires \"metrics\"\nrequires \"stew#head\"\nrequires \"stint\"\nrequires \"asynctest >= 0.3.1 & < 0.4.0\"\nrequires \"https://github.com/status-im/nim-datastore#head\"\nrequires \"questionable\"\n\ninclude \"build.nims\"\n\n\n"
+    "filename": "",
+    "content": "# Package\n\nversion       = \"0.3.2\"\nauthor        = \"Status Research & Development GmbH\"\ndescription   = \"DHT based on the libp2p Kademlia spec\"\nlicense       = \"MIT\"\nskipDirs      = @[\"tests\"]\n\n\n# Dependencies\nrequires \"nim >= 1.2.0\"\nrequires \"secp256k1#2acbbdcc0e63002a013fff49f015708522875832\" # >= 0.5.2 & < 0.6.0\nrequires \"protobuf_serialization\" # >= 0.2.0 & < 0.3.0\nrequires \"nimcrypto == 0.5.4\"\nrequires \"bearssl#head\"\nrequires \"chronicles >= 0.10.2 & < 0.11.0\"\nrequires \"chronos == 3.2.0\" #  >= 3.0.11 & < 3.1.0\nrequires \"libp2p#unstable\"\nrequires \"metrics\"\nrequires \"stew#head\"\nrequires \"stint\"\nrequires \"asynctest >= 0.3.1 & < 0.4.0\"\nrequires \"https://github.com/codex-storage/nim-datastore#head\"\nrequires \"questionable\"\n\ninclude \"build.nims\"\n\n"
   },
   "hostOS": "macosx",
   "hostCPU": "arm64",

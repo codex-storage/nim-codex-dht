@@ -4,7 +4,6 @@ import std/sequtils
 import pkg/chronos
 import pkg/asynctest
 import pkg/datastore
-import pkg/libp2p
 
 import codexdht/dht
 import codexdht/private/eth/p2p/discoveryv5/spr
