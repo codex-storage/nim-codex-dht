@@ -23,4 +23,4 @@ requires "asynctest >= 0.3.1 & < 0.4.0"
 requires "https://github.com/status-im/nim-datastore#head"
 requires "questionable"
 
-import "build.nims"
+include "build.nims"
