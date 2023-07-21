@@ -125,7 +125,6 @@ suite "Providers Tests: node alone":
     debug "Providers:", providers
     check (providers.len == 0)
 
-
 suite "Providers Tests: two nodes":
 
   var

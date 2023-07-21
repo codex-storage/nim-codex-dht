@@ -307,7 +307,7 @@ proc encodeHandshakePacket*(rng: var HmacDrbgContext, c: var Codec,
 
   authdataHead.add(c.localNode.id.toByteArrayBE())
 
-  let ephKeys = ? KeyPair.random(rng)
+  let ephKeys = ? KeyPair.random(PKScheme.Secp256k1, rng)
                     .mapErr((e: CryptoError) =>
                       ("Failed to create random key pair: " & $e).cstring)
 
