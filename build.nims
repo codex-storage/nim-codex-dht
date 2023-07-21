@@ -1,7 +1,5 @@
 import std / [os, strutils, sequtils]
 
-switch("define", "libp2p_pki_schemes=secp256k1")
-
 task testAll, "Run DHT tests":
   exec "nim c -r tests/testAll.nim"
 
