@@ -14,7 +14,7 @@ proc localAddress*(port: int): Address =
   Address(ip: ValidIpAddress.init("127.0.0.1"), port: Port(port))
 
 proc example*(T: type PrivateKey, rng: ref HmacDrbgContext): PrivateKey =
-  PrivateKey.random(rng[]).expect("Valid rng for private key")
+  PrivateKey.random(PKScheme.Secp256k1, rng[]).expect("Valid rng for private key")
 
 proc example*(T: type NodeId, rng: ref HmacDrbgContext): NodeId =
   let

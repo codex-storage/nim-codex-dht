@@ -2,10 +2,10 @@
 
 version       = "0.3.2"
 author        = "Status Research & Development GmbH"
-description   = "DHT based on the libp2p Kademlia spec"
+description   = "DHT based on Eth discv5 implementation"
 license       = "MIT"
 skipDirs      = @["tests"]
-
+installFiles  = @["build.nims"]
 
 # Dependencies
 requires "nim >= 1.2.0"
@@ -24,4 +24,3 @@ requires "https://github.com/codex-storage/nim-datastore#head"
 requires "questionable"
 
 include "build.nims"
-
