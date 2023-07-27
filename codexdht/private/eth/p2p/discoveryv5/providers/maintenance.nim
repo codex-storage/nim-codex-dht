@@ -68,8 +68,9 @@ proc cleanupExpired*(
     trace "Cleaned up expired records", size = keys.len
 
 proc cleanupOrphaned*(
-  store: Datastore,
-  batchSize = ExpiredCleanupBatch) {.async.} =
+    store: Datastore,
+    batchSize = ExpiredCleanupBatch
+) {.async.} =
   trace "Cleaning up orphaned records"
 
   let
