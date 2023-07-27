@@ -69,8 +69,9 @@ proc cleanupExpired*(
     trace "Cleaned up expired records", size = keys.len
 
 proc cleanupOrphaned*(
-  store: Datastore,
-  batchSize = ExpiredCleanupBatch) {.async.} =
+    store: Datastore,
+    batchSize = ExpiredCleanupBatch
+) {.async.} =
   trace "Cleaning up orphaned records"
 
   let
@@ -109,10 +110,11 @@ proc cleanupOrphaned*(
           continue
 
         let
-          res = (await allFinished(toSeq(cidIter)))
-            .filterIt( it.completed )
-            .mapIt( it.read.get )
-            .filterIt( it.key.isSome ).len
+          queries = toSeq(cidIter)
+          cids = await allFinished(queries)
+          res = cids.filterIt( it.completed )
+                      .mapIt( it.read.get )
+                      .filterIt( it.key.isSome ).len
 
         if not isNil(cidIter):
           trace "Disposing cid iter"
