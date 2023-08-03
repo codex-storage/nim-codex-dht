@@ -163,7 +163,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
 
 proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
     Future[void] {.async.} =
-  let t = getUserData[Transport[T]](transp)
+  let tt = getUserData[Transport[T]](transp)
 
   # TODO: should we use `peekMessage()` to avoid allocation?
   let buf = try: transp.getMessage()
@@ -178,23 +178,23 @@ proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
              return
   let a = Address(ip: ValidIpAddress.init(ip), port: raddr.port)
 
-  t.receive(a, buf)
+  tt.receive(a, buf)
 
-proc open*[T](t: Transport[T]) {.raises: [Defect, CatchableError].} =
-  info "Starting transport", bindAddress = t.bindAddress
+proc open*[T](tt: Transport[T]) {.raises: [Defect, CatchableError].} =
+  info "Starting transport", bindAddress = tt.bindAddress
 
   # TODO allow binding to specific IP / IPv6 / etc
-  let ta = initTAddress(t.bindAddress.ip, t.bindAddress.port)
-  t.transp = newDatagramTransport(processClient[T], udata = t, local = ta)
+  let ta = initTAddress(tt.bindAddress.ip, tt.bindAddress.port)
+  tt.transp = newDatagramTransport(processClient[T], udata = tt, local = ta)
 
-proc close*(t: Transport) =
-  t.transp.close
+proc close*(tt: Transport) =
+  tt.transp.close
 
-proc closed*(t: Transport) : bool =
-  t.transp.closed
+proc closed*(tt: Transport) : bool =
+  tt.transp.closed
 
-proc closeWait*(t: Transport) {.async.} =
-  await t.transp.closeWait
+proc closeWait*(tt: Transport) {.async.} =
+  await tt.transp.closeWait
 
 proc newTransport*[T](
   client: T,
