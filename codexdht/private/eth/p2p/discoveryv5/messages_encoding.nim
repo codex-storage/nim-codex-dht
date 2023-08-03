@@ -11,6 +11,7 @@
 import
   std/net,
   chronicles,
+  stew/endians2,
   libp2p/routing_record,
   libp2p/signed_envelope,
   "."/[messages, spr, node],
@@ -98,7 +99,7 @@ proc getField*(pb: ProtoBuffer, field: int,
   if not(res):
     ok(false)
   else:
-    family = uint8.fromBytesBE(buffer).IpAddressFamily
+    family = endians2.fromBytesBE(uint8, buffer).IpAddressFamily
     ok(true)
 
 proc write*(pb: var ProtoBuffer, field: int, family: IpAddressFamily) =
