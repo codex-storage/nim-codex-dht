@@ -4,7 +4,7 @@ on:
   #On push to common branches, this computes the "bases stats" for PRs
   push:
     branches:
-      - main
+      - master
   pull_request:
   workflow_dispatch:
 
