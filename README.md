@@ -3,8 +3,8 @@
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](#stability)
-[![CI (GitHub Actions)](https://github.com/status-im/nim-libp2p-dht/workflows/CI/badge.svg?branch=main)](https://github.com/status-im/nim-libp2p-dht/actions?query=workflow%3ACI+branch%3Amain)
-[![codecov](https://codecov.io/gh/status-im/nim-libp2p-dht/branch/main/graph/badge.svg?token=tlmMJgU4l7)](https://codecov.io/gh/status-im/nim-libp2p-dht)
+[![CI (GitHub Actions)](https://github.com/codex-storage/nim-codex-dht/workflows/CI/badge.svg?branch=master)](https://github.com/codex-storage/nim-codex-dht/actions/workflows/ci.yml?query=workflow%3ACI+branch%3Amaster)
+[![codecov](https://codecov.io/gh/codex-storage/nim-codex-dht/branch/master/graph/badge.svg?token=tlmMJgU4l7)](https://codecov.io/gh/codex-storage/nim-codex-dht)
 
 This DHT implementation is aiming to provide a DHT for Codex with the following properties
 * flexible secure transport usage with
