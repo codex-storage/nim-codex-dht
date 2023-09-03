@@ -866,7 +866,7 @@ proc addValue*(
   # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
       res.add(d.localNode)
-  for toNode in res[0 .. ValueReplication]:
+  for toNode in res[0 ..< ValueReplication]:
     if toNode != d.localNode:
       let reqId = RequestId.init(d.rng[])
       d.sendRequest(toNode, AddValueMessage(cId: cId, value: value), reqId)
