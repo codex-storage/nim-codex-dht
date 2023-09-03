@@ -217,5 +217,5 @@ proc newTransport*[T](
     codec: Codec(
       localNode: localNode,
       privKey: privKey,
-      sessions: Sessions.init(256)),
+      sessions: Sessions.init(100000)),
     rng: rng)
