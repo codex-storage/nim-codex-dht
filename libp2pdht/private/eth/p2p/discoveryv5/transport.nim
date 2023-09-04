@@ -68,7 +68,7 @@ proc sendMessage*(t: Transport, toId: NodeId, toAddr: Address, message: seq[byte
 proc registerRequest(t: Transport, n: Node, message: seq[byte],
     nonce: AESGCMNonce) =
   let request = PendingRequest(node: n, message: message)
-  if not t.pendingRequests.hasKeyOrPut(nonce, request):
+  if not t.pendingRequests.hasKeyOrPut(nonce, request): # why hasHeyOrPut? What if key already exists
     sleepAsync(responseTimeout).addCallback() do(data: pointer):
       t.pendingRequests.del(nonce)
 
