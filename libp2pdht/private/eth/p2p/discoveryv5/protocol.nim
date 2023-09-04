@@ -302,7 +302,7 @@ proc sendNodes(d: Protocol, toId: NodeId, toAddr: Address, reqId: RequestId,
     nodes: openArray[Node]) =
   proc sendNodes(d: Protocol, toId: NodeId, toAddr: Address,
       message: NodesMessage, reqId: RequestId) {.nimcall.} =
-    trace "Respond message packet", dstId = toId, address = toAddr,
+    trace "Send response packet", myport = d.transport.bindAddress.port, dstId = toId, address = toAddr,
       kind = MessageKind.nodes
     d.sendResponse(toId, toAddr, message, reqId)
 
@@ -420,6 +420,7 @@ proc handleAddValue(
   fromAddr: Address,
   addValue: AddValueMessage,
   reqId: RequestId) =
+  trace "handleAddValue", myid = d.localNode, dist = logDistance(d.localNode.id, addValue.cId), scr = fromId, key = addValue.cId 
   asyncSpawn d.addValueLocal(addValue.cId, addValue.value)
 
 proc handleGetValue(
@@ -443,6 +444,8 @@ proc handleGetValue(
 
 proc handleFindValue(d: Protocol, fromId: NodeId, fromAddr: Address,
     fv: FindValueMessage, reqId: RequestId) {.async.} =
+  trace "got findValueMessage", myid = d.localNode, key = fv.cId, src = fromId
+
   try:
     let value = d.valueStore[fv.cId]
     trace "retrieved value from local db", n = d.localNode, cID = fv.cId, value
@@ -525,7 +528,7 @@ proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
   let
     message = encodeMessage(m, reqId)
 
-  trace "Send message packet", dstId = toNode.id,
+  trace "Send request packet", myport = d.transport.bindAddress.port, dstId = toNode.id,
     address = toNode.address, kind = messageKind(T)
   discovery_message_requests_outgoing.inc()
 
@@ -862,7 +865,7 @@ proc addValue*(
     value: seq[byte]): Future[seq[Node]] {.async.} =
 
   var res = await d.lookup(cId, fast=true)
-  trace "lookup returned:", res
+  trace "addValue lookup returned:", key=cId, res
   # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
       res.add(d.localNode)
@@ -1004,6 +1007,7 @@ proc findValue*(
   proc worker(d: Protocol, destNode: Node, target: NodeId):
       Future[(seq[Node], seq[byte])] {.async.} =
 
+    trace "findValue send", myid = d.localNode, key = target, destNode
     let r = await d.sendFindValue(destNode, target)
 
     if r.isOk:
@@ -1013,9 +1017,13 @@ proc findValue*(
       # Attempt to add all nodes discovered
       for n in nodes:
         discard d.addNode(n)
+      trace "findValue receive", myid = d.localNode, key = target, nodes, value
+    else:
+      trace "findValue worker timeout", myid = d.localNode, key = target
 
   var closestNodes = d.routingTable.neighbours(target, BUCKET_SIZE,
     seenOnly = false)
+  trace "findValue start", myid = d.localNode, key = target, closestNodes
 
   var asked, seen = initHashSet[NodeId]()
   asked.incl(d.localNode.id) # No need to ask our own node
@@ -1052,6 +1060,7 @@ proc findValue*(
     let (nodes, value) = query.read
     # TODO: Remove node on timed-out query?
     if value.len > 0:
+      trace "findValue found", myid = d.localNode, key = target, value
       return ok(value)
     for n in nodes:
       if not seen.containsOrIncl(n.id):
@@ -1064,6 +1073,7 @@ proc findValue*(
         if closestNodes.len > BUCKET_SIZE:
           closestNodes.del(closestNodes.high())
 
+  debug "findValue not found", myid = d.localNode, key = target
   d.lastLookup = now(chronos.Moment)
 
 proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
@@ -1199,6 +1209,8 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
     # Get IP and port from pong message and add it to the ip votes
     let a = Address(ip: ValidIpAddress.init(res.ip), port: Port(res.port))
     d.ipVote.insert(n.id, a)
+  else:
+    debug "ping error", error = pong.error
 
 proc revalidateLoop(d: Protocol) {.async.} =
   ## Loop which revalidates the nodes in the routing table by sending the ping
@@ -1225,7 +1237,7 @@ proc refreshLoop(d: Protocol) {.async.} =
       if currentTime > (d.lastLookup + RefreshInterval):
         let randomQuery = await d.queryRandom()
         trace "Discovered nodes in random target query", nodes = randomQuery.len
-        debug "Total nodes in discv5 routing table", total = d.routingTable.len()
+        trace "Total nodes in discv5 routing table", total = d.routingTable.len()
 
       await sleepAsync(RefreshInterval)
   except CancelledError:
@@ -1272,7 +1284,7 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
             warn "Discovered new external address but SPR auto update is off",
               majority, previous
         else:
-          debug "Discovered external address matches current address", majority,
+          trace "Discovered external address matches current address", majority,
             current = d.localNode.address
 
       await sleepAsync(IpMajorityInterval)

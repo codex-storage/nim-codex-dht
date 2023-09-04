@@ -23,7 +23,7 @@ const
 type
   Transport* [Client] = ref object
     client: Client
-    bindAddress: Address ## UDP binding address
+    bindAddress*: Address ## UDP binding address
     transp: DatagramTransport
     pendingRequests: Table[AESGCMNonce, PendingRequest]
     handshakeInProgress: HashSet[NodeId]
@@ -176,7 +176,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         discard t.sendPending(toNode)
 
       else:
-        debug "Timed out or unrequested whoareyou packet", address = a
+        debug "Timed out or unrequested whoareyou packet", myport = t.bindAddress.port, address = a
     of HandshakeMessage:
       trace "Received handshake message packet", myport = t.bindAddress.port, srcId = packet.srcIdHs,
         address = a, kind = packet.message.kind
