@@ -516,11 +516,12 @@ proc registerTalkProtocol*(d: Protocol, protocolId: seq[byte],
 proc replaceNode(d: Protocol, n: Node) =
   if n.record notin d.bootstrapRecords:
     d.routingTable.replaceNode(n)
-  else:
+  # else:
+    # TODO
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
     # peers in the routing table.
-    debug "Message request to bootstrap node failed", src=d.localNode, dst=n
+    # debug "Message request to bootstrap node failed", src=d.localNode, dst=n
 
 proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
     reqId: RequestId) =
