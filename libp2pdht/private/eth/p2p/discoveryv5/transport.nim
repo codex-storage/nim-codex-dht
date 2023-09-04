@@ -56,7 +56,7 @@ proc send(t: Transport, n: Node, data: seq[byte]) =
   t.sendToA(n.address.get(), data)
 
 proc sendMessage*(t: Transport, toId: NodeId, toAddr: Address, message: seq[byte]) =
-  let (data, _) = encodeMessagePacket(t.rng[], t.codec, toId, toAddr,
+  let (data, _, _) = encodeMessagePacket(t.rng[], t.codec, toId, toAddr,
     message)
   t.sendToA(toAddr, data)
 
@@ -74,7 +74,7 @@ proc registerRequest(t: Transport, n: Node, message: seq[byte],
 proc sendMessage*(t: Transport, toNode: Node, message: seq[byte]) =
   doAssert(toNode.address.isSome())
   let address = toNode.address.get()
-  let (data, nonce) = encodeMessagePacket(t.rng[], t.codec,
+  let (data, nonce, haskey) = encodeMessagePacket(t.rng[], t.codec,
     toNode.id, address, message)
 
   t.registerRequest(toNode, message, nonce)

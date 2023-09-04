@@ -629,7 +629,7 @@ suite "Discovery v5 Tests":
         sendNode = newNode(enrRec).expect("Properly initialized record")
       var codec = Codec(localNode: sendNode, privKey: privKey, sessions: Sessions.init(5))
 
-      let (packet, _) = encodeMessagePacket(rng[], codec,
+      let (packet, _, _) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
 
@@ -659,7 +659,7 @@ suite "Discovery v5 Tests":
     var codec = Codec(localNode: sendNode, privKey: privKey, sessions: Sessions.init(5))
     for i in 0 ..< 5:
       let a = localAddress(20303 + i)
-      let (packet, _) = encodeMessagePacket(rng[], codec,
+      let (packet, _, _) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
 
@@ -691,7 +691,7 @@ suite "Discovery v5 Tests":
 
     var firstRequestNonce: AESGCMNonce
     for i in 0 ..< 5:
-      let (packet, requestNonce) = encodeMessagePacket(rng[], codec,
+      let (packet, requestNonce, _) = encodeMessagePacket(rng[], codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
       if i == 0:

@@ -526,7 +526,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       reqId = RequestId.init(rng[])
       message = encodeMessage(m, reqId)
 
-    let (data, nonce) = encodeMessagePacket(rng[], codecA, nodeB.id,
+    let (data, nonce, _) = encodeMessagePacket(rng[], codecA, nodeB.id,
       nodeB.address.get(), message)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
@@ -642,7 +642,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     codecB.sessions.store(nodeA.id, nodeA.address.get(), secrets.initiatorKey,
       secrets.recipientKey)
 
-    let (data, nonce) = encodeMessagePacket(rng[], codecA, nodeB.id,
+    let (data, nonce, _) = encodeMessagePacket(rng[], codecA, nodeB.id,
       nodeB.address.get(), message)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
