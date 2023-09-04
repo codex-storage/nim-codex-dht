@@ -455,16 +455,6 @@ proc replaceNode(d: Protocol, n: Node) =
     # peers in the routing table.
     debug "Message request to bootstrap node failed", src=d.localNode, dst=n
 
-proc sendRequest*[T: SomeMessage](d: Protocol, toId: NodeId, toAddr: Address, m: T,
-    reqId: RequestId) =
-  let
-    message = encodeMessage(m, reqId)
-
-  trace "Send message packet", dstId = toId, toAddr, kind = messageKind(T)
-  discovery_message_requests_outgoing.inc()
-
-  d.transport.sendMessage(toId, toAddr, message)
-
 proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
     reqId: RequestId) =
   doAssert(toNode.address.isSome())
