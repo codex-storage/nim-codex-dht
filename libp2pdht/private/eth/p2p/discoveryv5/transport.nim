@@ -128,6 +128,7 @@ proc sendPending(t:Transport, toNode: Node):
   if t.pendingRequestsByNode.hasKey(toNode.id):
     trace "Found pending request", myport = t.bindAddress.port, src = toNode, len = t.pendingRequestsByNode[toNode.id].len
     for message in t.pendingRequestsByNode[toNode.id]:
+      await sleepAsync(1.microseconds)
       trace "Sending pending packet", myport = t.bindAddress.port, dstId = toNode.id
       let address = toNode.address.get()
       let (data, nonce, haskey) = encodeMessagePacket(t.rng[], t.codec, toNode.id, address, message)
