@@ -869,7 +869,7 @@ proc addValue*(
     cId: NodeId,
     value: seq[byte]): Future[seq[Node]] {.async.} =
 
-  var res = await d.lookup(cId)
+  var res = await d.lookup(cId, fast=true)
   trace "lookup returned:", res
   # TODO: lookup is specified as not returning local, even if that is the closest. Is this OK?
   if res.len == 0:
