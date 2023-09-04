@@ -159,7 +159,12 @@ type
     tableIpLimits*: TableIpLimits
     bitsPerHop*: int
 
+  ProtocolBehavior* = enum
+    honest, # normal protocol behavior
+    noresponse # does not respond to messages (can still send out messages)
+
   Protocol* = ref object
+    behavior*: ProtocolBehavior
     localNode*: Node
     privateKey: PrivateKey
     transport*: Transport[Protocol] # exported for tests
@@ -450,6 +455,9 @@ proc handleFindValue(d: Protocol, fromId: NodeId, fromAddr: Address,
 
 proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
+  if d.behavior == ProtocolBehavior.noresponse:
+    trace "Behavior=noresponse -> ignoring message", n = d.localNode, src = srcId
+    return
   case message.kind
   of ping:
     discovery_message_requests_incoming.inc()
@@ -1353,6 +1361,7 @@ proc newProtocol*(
       rng)
 
   result = Protocol(
+    behavior: ProtocolBehavior.honest,
     privateKey: privKey,
     localNode: node,
     bootstrapRecords: @bootstrapRecords,
@@ -1390,6 +1399,7 @@ proc newProtocol*(
   doAssert rng != nil, "RNG initialization failed"
 
   result = Protocol(
+    behavior: ProtocolBehavior.honest,
     privateKey: privKey,
     localNode: node,
     bootstrapRecords: @bootstrapRecords,
