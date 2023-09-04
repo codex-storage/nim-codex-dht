@@ -26,7 +26,7 @@ type
     bindAddress: Address ## UDP binding address
     transp: DatagramTransport
     pendingRequests: Table[AESGCMNonce, PendingRequest]
-    keyexchangeInProgress: HashSet[NodeId]
+    handshakeInProgress: HashSet[NodeId]
     pendingRequestsByNode: Table[NodeId, seq[seq[byte]]]
     codec*: Codec
     rng: ref HmacDrbgContext
@@ -84,21 +84,17 @@ proc sendMessage*(t: Transport, toNode: Node, message: seq[byte]) =
     t.registerRequest(toNode, message, nonce)
     t.send(toNode, data)
   else:
-    # we don't have an encryption key for this target, so we should initiate keyexchange
-    if not (toNode.id in t.keyexchangeInProgress):
-      trace "Send message: send random to trigger Whoareyou", myport = t.bindAddress.port , dstId = toNode
+    if not (toNode.id in t.handshakeInProgress):
+      trace "Send message: send random", myport = t.bindAddress.port , dstId = toNode
       t.registerRequest(toNode, message, nonce)
       t.send(toNode, data)
-      t.keyexchangeInProgress.incl(toNode.id)
-      trace "keyexchangeInProgress added", myport = t.bindAddress.port , dstId = toNode
+      t.handshakeInProgress.incl(toNode.id)
       sleepAsync(responseTimeout).addCallback() do(data: pointer):
-        t.keyexchangeInProgress.excl(toNode.id)
-        trace "keyexchangeInProgress removed (timeout)", myport = t.bindAddress.port , dstId = toNode
+        t.handshakeInProgress.excl(toNode.id)
     else:
-      # delay sending this message until whoareyou is received and handshake is sent
-      # have to reencode once keys are clear
+      # delay sending this message until handshake, have to reencode once keys are clear
       t.pendingRequestsByNode.mgetOrPut(toNode.id, newSeq[seq[byte]]()).add(message)
-      trace "Send message: Node with this id already has ongoing keyexchage, delaying packet",
+      trace "Send message: Node with this id already has ongoing handshake, delaying packet",
             myport = t.bindAddress.port , dstId = toNode, qlen=t.pendingRequestsByNode[toNode.id].len
 
 proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
@@ -124,7 +120,8 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
     t.sendToA(a, data)
   else:
     # TODO: is this reasonable to drop it? Should we allow a mini-queue here?
-    debug "Node with this id already has ongoing handshake, ignoring packet", myport = t.bindAddress.port , dstId = toId, address = a
+    # Queue should be on sender side, as this is random encoded!
+    debug "Node with this id already has ongoing handshake, queuing packet", myport = t.bindAddress.port , dstId = toId, address = a
 
 proc sendPending(t:Transport, toNode: Node):
       Future[void] {.async.} =
@@ -180,9 +177,8 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
 
         trace "Send handshake message packet", myport = t.bindAddress.port, dstId = toNode.id, address
         t.send(toNode, data)
-        # keyexchange ready, we can send queued packets
-        t.keyexchangeInProgress.excl(toNode.id)
-        trace "keyexchangeInProgress removed (finished)", myport = t.bindAddress.port, dstId = toNode.id, address
+        # handshake ready, we can send queued packets
+        t.handshakeInProgress.excl(toNode.id)
         discard t.sendPending(toNode)
 
       else:
@@ -205,6 +201,9 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
           node.seen = true
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
+          # handshake finished, TODO: should this be inside the if above?
+          t.handshakeInProgress.excl(node.id)
+          discard t.sendPending(node)
   else:
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
