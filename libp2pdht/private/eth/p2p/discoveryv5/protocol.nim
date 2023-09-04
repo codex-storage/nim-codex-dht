@@ -111,6 +111,7 @@ declareCounter discovery_enr_auto_update,
 
 logScope:
   topics = "discv5"
+  simTime = Moment.now()
 
 const
   Alpha = 3 ## Kademlia concurrency factor
