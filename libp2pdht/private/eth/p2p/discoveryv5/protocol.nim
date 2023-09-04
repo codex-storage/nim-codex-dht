@@ -119,7 +119,7 @@ const
   FindNodeResultLimit = 16 ## Maximum amount of SPRs in the total Nodes messages
   FindNodeFastResultLimit = 6 ## Maximum amount of SPRs in response to findNodeFast
   ## that will be processed
-  MaxNodesPerMessage = 3 ## Maximum amount of SPRs per individual Nodes message
+  MaxNodesPerMessage = 6 ## Maximum amount of SPRs per individual Nodes message
   RefreshInterval = 5.minutes ## Interval of launching a random query to
   ## refresh the routing table.
   RevalidateMax = 10000 ## Revalidation of a peer is done between 0 and this
