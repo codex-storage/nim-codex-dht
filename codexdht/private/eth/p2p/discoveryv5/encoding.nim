@@ -227,8 +227,8 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
 
   # message
   var messageEncrypted: seq[byte]
-  var initiatorKey, recipientKey: AesKey
-  if c.sessions.load(toId, toAddr, recipientKey, initiatorKey):
+  var initiatorKey, recipientKey1, recipientKey2: AesKey
+  if c.sessions.load(toId, toAddr, recipientKey1, recipientKey2, initiatorKey):
     haskey = true
     messageEncrypted = encryptGCM(initiatorKey, nonce, message, @iv & header)
     discovery_session_lru_cache_hits.inc()
@@ -423,8 +423,8 @@ proc decodeMessagePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
   let srcId = NodeId.fromBytesBE(header.toOpenArray(staticHeaderSize,
     header.high))
 
-  var initiatorKey, recipientKey: AesKey
-  if not c.sessions.load(srcId, fromAddr, recipientKey, initiatorKey):
+  var initiatorKey, recipientKey1, recipientKey2: AesKey
+  if not c.sessions.load(srcId, fromAddr, recipientKey1, recipientKey2, initiatorKey):
     # Don't consider this an error, simply haven't done a handshake yet or
     # the session got removed.
     trace "Decrypting failed (no keys)"
@@ -434,15 +434,24 @@ proc decodeMessagePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
 
   discovery_session_lru_cache_hits.inc()
 
-  let pt = decryptGCM(recipientKey, nonce, ct, @iv & @header)
+  var pt = decryptGCM(recipientKey2, nonce, ct, @iv & @header)
   if pt.isNone():
-    # Don't consider this an error, the session got probably removed at the
-    # peer's side and a random message is send.
-    trace "Decrypting failed (invalid keys)"
-    c.sessions.del(srcId, fromAddr)
-    discovery_session_decrypt_failures.inc()
-    return ok(Packet(flag: Flag.OrdinaryMessage, requestNonce: nonce,
-      srcId: srcId))
+    trace "Decrypting failed, trying other key"
+    pt = decryptGCM(recipientKey1, nonce, ct, @iv & @header)
+    if pt.isNone():
+      # Don't consider this an error, the session got probably removed at the
+      # peer's side and a random message is send.
+      # This might also be a cross-connect. Not deleteing key, as it might be
+      # needed later, depending on message order.
+      trace "Decrypting failed (invalid keys)", address = fromAddr
+      #c.sessions.del(srcId, fromAddr)
+      discovery_session_decrypt_failures.inc()
+      return ok(Packet(flag: Flag.OrdinaryMessage, requestNonce: nonce,
+        srcId: srcId))
+
+    # Most probably the same decryption key will work next time. We should
+    # elevate it's priority.
+    c.sessions.swapr(srcId, fromAddr)
 
   let message = ? decodeMessage(pt.get())
 
