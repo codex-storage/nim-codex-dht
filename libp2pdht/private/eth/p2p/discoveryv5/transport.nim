@@ -207,8 +207,6 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
           node.seen = true
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
-          # handshake finished, TODO: should this be inside the if above?
-          t.keyexchangeInProgress.excl(node.id)
           discard t.sendPending(node)
   else:
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
