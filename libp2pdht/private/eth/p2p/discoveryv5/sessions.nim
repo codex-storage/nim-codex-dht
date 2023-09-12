@@ -9,6 +9,13 @@
 ## https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md#session-cache
 ##
 
+## A session stores encryption and decryption keys for P2P encryption.
+## Since key exchange can be started both ways, and these might not get finalised with
+## UDP transport, we can't be sure what encryption key will be used by the other side:
+## - the one derived in the key-exchange started by us,
+## - the one derived in the key-exchange started by the other node.
+## To alleviate this issue, we store two decryption keys in each session.
+
 {.push raises: [Defect].}
 
 import
@@ -27,7 +34,7 @@ const
 type
   AesKey* = array[aesKeySize, byte]
   SessionKey* = array[keySize, byte]
-  SessionValue* = array[sizeof(AesKey) + sizeof(AesKey), byte]
+  SessionValue* = array[3 * sizeof(AesKey), byte]
   Sessions* = LRUCache[SessionKey, SessionValue]
 
 func makeKey(id: NodeId, address: Address): SessionKey =
@@ -42,18 +49,37 @@ func makeKey(id: NodeId, address: Address): SessionKey =
   pos.inc(sizeof(address.ip.address_v6))
   result[pos ..< pos+sizeof(address.port)] = toBytes(address.port.uint16)
 
-func store*(s: var Sessions, id: NodeId, address: Address, r, w: AesKey) =
-  var value: array[sizeof(r) + sizeof(w), byte]
-  value[0 .. 15] = r
-  value[16 .. ^1] = w
-  s.put(makeKey(id, address), value)
+func swapr*(s: var Sessions, id: NodeId, address: Address) =
+  var value: array[3 * sizeof(AesKey), byte]
+  let
+    key = makeKey(id, address)
+    entry = s.get(key)
+  if entry.isSome():
+    let val = entry.get()
+    copyMem(addr value[0], unsafeAddr val[16], sizeof(AesKey))
+    copyMem(addr value[16], unsafeAddr val[0], sizeof(AesKey))
+    copyMem(addr value[32], unsafeAddr val[32], sizeof(AesKey))
+    s.put(key, value)
 
-func load*(s: var Sessions, id: NodeId, address: Address, r, w: var AesKey): bool =
+func store*(s: var Sessions, id: NodeId, address: Address, r, w: AesKey) =
+  var value: array[3 * sizeof(AesKey), byte]
+  let
+    key = makeKey(id, address)
+    entry = s.get(key)
+  if entry.isSome():
+    let val = entry.get()
+    copyMem(addr value[0], unsafeAddr val[16], sizeof(r))
+  value[16 .. 31] = r
+  value[32 .. ^1] = w
+  s.put(key, value)
+
+func load*(s: var Sessions, id: NodeId, address: Address, r1, r2, w: var AesKey): bool =
   let res = s.get(makeKey(id, address))
   if res.isSome():
     let val = res.get()
-    copyMem(addr r[0], unsafeAddr val[0], sizeof(r))
-    copyMem(addr w[0], unsafeAddr val[sizeof(r)], sizeof(w))
+    copyMem(addr r1[0], unsafeAddr val[0], sizeof(r1))
+    copyMem(addr r2[0], unsafeAddr val[sizeof(r1)], sizeof(r2))
+    copyMem(addr w[0], unsafeAddr val[sizeof(r1) + sizeof(r2)], sizeof(w))
     return true
   else:
     return false
