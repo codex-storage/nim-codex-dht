@@ -138,6 +138,7 @@ proc get*(
         trace "Cleaning up query iterator"
         discard (await cidIter.dispose())
 
+    var keys: seq[Key]
     for item in cidIter:
       # TODO: =? doesn't support tuples
       if (maybeKey, val) =? (await item) and key =? maybeKey:
@@ -149,15 +150,22 @@ proc get*(
         trace "Querying provider key", key = provKey
         without data =? (await self.store.get(provKey)):
           trace "Error getting provider", key = provKey
+          keys.add(key)
           continue
 
         without provider =? SignedPeerRecord.decode(data).mapErr(mapFailure), err:
           trace "Unable to decode provider from store", err = err.msg
+          keys.add(key)
           continue
 
         trace "Retrieved provider with key", key = provKey
         providers.add(provider)
         self.cache.add(id, provider)
+
+    trace "Deleting keys without provider from store", len = keys.len
+    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+      trace "Error deleting records from persistent store", err = err.msg
+      return failure err
 
     trace "Retrieved providers from persistent store", id = id, len = providers.len
   return success providers
@@ -271,16 +279,17 @@ proc remove*(
           let
             parts = key.id.split(datastore.Separator)
 
-          self.cache.remove(NodeId.fromHex(parts[2]), peerId)
-
       if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
         trace "Error deleting record from persistent store", err = err.msg
         return failure err
 
       trace "Deleted records from store"
 
-  without provKey =? makeProviderKey(peerId), err:
+  without provKey =? peerId.makeProviderKey, err:
     return failure err
+
+  trace "Removing provider from cache", peerId
+  self.cache.remove(peerId)
 
   trace "Removing provider record", key = provKey
   return (await self.store.delete(provKey))
