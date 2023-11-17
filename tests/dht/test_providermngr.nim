@@ -218,6 +218,24 @@ suite "Test Provider Maintenance":
     for id in nodeIds:
       check: (await manager.get(id)).tryGet.len == 0
 
+  test "Should not cleanup unexpired":
+    let
+      unexpired = PrivateKey.example(rng).toSignedPeerRecord()
+
+    (await manager.add(nodeIds[0], unexpired, ttl = 1.minutes)).tryGet
+
+    await sleepAsync(500.millis)
+    await manager.store.cleanupExpired()
+
+    let
+      unexpiredProvs = (await manager.get(nodeIds[0])).tryGet
+
+    check:
+      unexpiredProvs.len == 1
+      await (unexpired.data.peerId in manager)
+
+    (await manager.remove(nodeIds[0])).tryGet
+
   test "Should cleanup orphaned":
     for id in nodeIds:
       check: (await manager.get(id)).tryGet.len == 0

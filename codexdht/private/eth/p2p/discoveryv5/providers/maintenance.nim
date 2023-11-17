@@ -9,6 +9,7 @@
 
 import std/options
 import std/sequtils
+from std/times import now, utc, toTime, toUnix
 
 import pkg/stew/endians2
 import pkg/chronos
@@ -30,9 +31,6 @@ proc cleanupExpired*(
   trace "Cleaning up expired records"
 
   let
-    now = Moment.now()
-
-  let
     q = Query.init(CidKey, limit = batchSize)
 
   block:
@@ -48,10 +46,13 @@ proc cleanupExpired*(
     var
       keys = newSeq[Key]()
 
+    let
+      now = times.now().utc().toTime().toUnix()
+
     for item in iter:
       if (key, data) =? (await item) and key.isSome:
         let
-          expired = Moment.init(uint64.fromBytesBE(data).int64, Microsecond)
+          expired = uint64.fromBytesBE(data).int64
 
         if now >= expired:
           trace "Found expired record", key

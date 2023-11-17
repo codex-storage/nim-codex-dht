@@ -7,6 +7,7 @@
 
 import std/sequtils
 import std/strutils
+from std/times import now, utc, toTime, toUnix
 
 import pkg/stew/endians2
 import pkg/datastore
@@ -74,13 +75,13 @@ proc add*(
     return failure err.msg
 
   let
+    now = times.now().utc().toTime().toUnix()
     expires =
       if ttl > ZeroDuration:
-        ttl
+        ttl.seconds + now
       else:
-        Moment.fromNow(self.ttl) - ZeroMoment
-
-    ttl = endians2.toBytesBE(expires.microseconds.uint64)
+        self.ttl.seconds + now
+    ttl = endians2.toBytesBE(expires.uint64.toBytesBE)
 
     bytes: seq[byte] =
       if existing =? (await self.getProvByKey(provKey)) and
@@ -98,7 +99,7 @@ proc add*(
     if err =? (await self.store.put(provKey, bytes)).errorOption:
       trace "Unable to store provider with key", key = provKey, err = err.msg
 
-  trace "Adding or updating cid", cid, key = cidKey, ttl = expires.minutes
+  trace "Adding or updating cid", cid, key = cidKey, ttl = expires.seconds
   if err =? (await self.store.put(cidKey, @ttl)).errorOption:
     trace "Unable to store provider with key", key = cidKey, err = err.msg
     return
