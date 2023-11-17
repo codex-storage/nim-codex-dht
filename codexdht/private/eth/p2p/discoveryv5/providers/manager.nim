@@ -58,19 +58,19 @@ proc getProvByKey*(self: ProvidersManager, key: Key): Future[?!SignedPeerRecord]
 
 proc add*(
   self: ProvidersManager,
-  cid: NodeId,
+  id: NodeId,
   provider: SignedPeerRecord,
   ttl = ZeroDuration): Future[?!void] {.async.} =
 
   let
     peerId = provider.data.peerId
 
-  trace "Adding provider to persistent store", cid, peerId
+  trace "Adding provider to persistent store", id, peerId
   without provKey =? makeProviderKey(peerId), err:
     trace "Error creating key from provider record", err = err.msg
     return failure err.msg
 
-  without cidKey =? makeCidKey(cid, peerId), err:
+  without cidKey =? makeCidKey(id, peerId), err:
     trace "Error creating key from content id", err = err.msg
     return failure err.msg
 
@@ -95,17 +95,17 @@ proc add*(
         bytes
 
   if bytes.len > 0:
-    trace "Adding or updating provider record", cid, peerId
+    trace "Adding or updating provider record", id, peerId
     if err =? (await self.store.put(provKey, bytes)).errorOption:
       trace "Unable to store provider with key", key = provKey, err = err.msg
 
-  trace "Adding or updating cid", cid, key = cidKey, ttl = expires.seconds
+  trace "Adding or updating id", id, key = cidKey, ttl = expires.seconds
   if err =? (await self.store.put(cidKey, @ttl)).errorOption:
     trace "Unable to store provider with key", key = cidKey, err = err.msg
     return
 
-  self.cache.add(cid, provider)
-  trace "Provider for cid added", cidKey, provKey
+  self.cache.add(id, provider)
+  trace "Provider for id added", cidKey, provKey
   return success()
 
 proc get*(
@@ -140,10 +140,7 @@ proc get*(
 
     for item in cidIter:
       # TODO: =? doesn't support tuples
-      if pair =? (await item) and pair.key.isSome:
-        let
-          (key, val) = (pair.key.get, pair.data)
-
+      if (maybeKey, val) =? (await item) and key =? maybeKey:
         without pairs =? key.fromCidKey() and
           provKey =? makeProviderKey(pairs.peerId), err:
           trace "Error creating key from provider record", err = err.msg
@@ -162,7 +159,7 @@ proc get*(
         providers.add(provider)
         self.cache.add(id, provider)
 
-    trace "Retrieved providers from persistent store", cid = id, len = providers.len
+    trace "Retrieved providers from persistent store", id = id, len = providers.len
   return success providers
 
 proc contains*(
@@ -180,8 +177,8 @@ proc contains*(self: ProvidersManager, peerId: PeerId): Future[bool] {.async.} =
 
   return (await self.store.has(provKey)) |? false
 
-proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
-  without cidKey =? (CidKey / $cid), err:
+proc contains*(self: ProvidersManager, id: NodeId): Future[bool] {.async.} =
+  without cidKey =? (CidKey / $id), err:
     return false
 
   let
@@ -198,15 +195,15 @@ proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
         discard (await iter.dispose())
 
     for item in iter:
-      if pair =? (await item) and pair.key.isSome:
+      if (key, _) =? (await item) and key.isSome:
         return true
 
   return false
 
-proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
+proc remove*(self: ProvidersManager, id: NodeId): Future[?!void] {.async.} =
 
-  self.cache.drop(cid)
-  without cidKey =? (CidKey / $cid), err:
+  self.cache.drop(id)
+  without cidKey =? (CidKey / $id), err:
     return failure(err.msg)
 
   let
@@ -226,16 +223,14 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
       keys: seq[Key]
 
     for item in iter:
-      if pair =? (await item) and pair.key.isSome:
-        let
-          key = pair.key.get()
+      if (maybeKey, _) =? (await item) and key =? maybeKey:
 
         keys.add(key)
         without pairs =? key.fromCidKey, err:
           trace "Unable to parse peer id from key", key
           return failure err
 
-        self.cache.remove(cid, pairs.peerId)
+        self.cache.remove(id, pairs.peerId)
         trace "Deleted record from store", key
 
     if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
@@ -270,10 +265,7 @@ proc remove*(
         keys: seq[Key]
 
       for item in iter:
-        if pair =? (await item) and pair.key.isSome:
-          let
-            key = pair.key.get()
-
+        if (maybeKey, _) =? (await item) and key =? maybeKey:
           keys.add(key)
 
           let
@@ -295,11 +287,11 @@ proc remove*(
 
 proc remove*(
   self: ProvidersManager,
-  cid: NodeId,
+  id: NodeId,
   peerId: PeerId): Future[?!void] {.async.} =
 
-  self.cache.remove(cid, peerId)
-  without cidKey =? makeCidKey(cid, peerId), err:
+  self.cache.remove(id, peerId)
+  without cidKey =? makeCidKey(id, peerId), err:
     trace "Error creating key from content id", err = err.msg
     return failure err.msg
 

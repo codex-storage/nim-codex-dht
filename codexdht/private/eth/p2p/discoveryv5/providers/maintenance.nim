@@ -50,14 +50,14 @@ proc cleanupExpired*(
       now = times.now().utc().toTime().toUnix()
 
     for item in iter:
-      if (key, data) =? (await item) and key.isSome:
+      if (maybeKey, data) =? (await item) and key =? maybeKey:
         let
           expired = uint64.fromBytesBE(data).int64
 
         if now >= expired:
           trace "Found expired record", key
-          keys.add(key.get)
-          without pairs =? key.get.fromCidKey(), err:
+          keys.add(key)
+          without pairs =? key.fromCidKey(), err:
             trace "Error extracting parts from cid key", key
             continue
 
@@ -93,9 +93,9 @@ proc cleanupOrphaned*(
         trace "Batch cleaned up", size = batchSize
 
       count.inc
-      if (key, _) =? (await item) and key.isSome:
-        without peerId =? key.get.fromProvKey(), err:
-          trace "Error extracting parts from cid key", key = key.get
+      if (maybeKey, _) =? (await item) and key =? maybeKey:
+        without peerId =? key.fromProvKey(), err:
+          trace "Error extracting parts from cid key", key
           continue
 
         without cidKey =? (CidKey / "*" / $peerId), err:
@@ -122,7 +122,7 @@ proc cleanupOrphaned*(
           trace "Peer not orphaned, skipping", peerId
           continue
 
-        if err =? (await store.delete(key.get)).errorOption:
+        if err =? (await store.delete(key)).errorOption:
           trace "Error deleting orphaned peer", err = err.msg
           continue
 
