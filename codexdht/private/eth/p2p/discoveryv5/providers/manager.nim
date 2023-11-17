@@ -244,43 +244,48 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
 
   return success()
 
-proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
-  without cidKey =? (CidKey / "*" / $peerId), err:
-    return failure err
+proc remove*(
+  self: ProvidersManager,
+  peerId: PeerId,
+  entries = false): Future[?!void] {.async.} =
 
-  let
-    q = Query.init(cidKey)
-
-  block:
-    without iter =? (await self.store.query(q)), err:
-      trace "Unable to obtain record for key", key = cidKey
+  if entries:
+    without cidKey =? (CidKey / "*" / $peerId), err:
       return failure err
 
-    defer:
-      if not isNil(iter):
-        trace "Cleaning up query iterator"
-        discard (await iter.dispose())
+    let
+      q = Query.init(cidKey)
 
-    var
-      keys: seq[Key]
+    block:
+      without iter =? (await self.store.query(q)), err:
+        trace "Unable to obtain record for key", key = cidKey
+        return failure err
 
-    for item in iter:
-      if pair =? (await item) and pair.key.isSome:
-        let
-          key = pair.key.get()
+      defer:
+        if not isNil(iter):
+          trace "Cleaning up query iterator"
+          discard (await iter.dispose())
 
-        keys.add(key)
+      var
+        keys: seq[Key]
 
-        let
-          parts = key.id.split(datastore.Separator)
+      for item in iter:
+        if pair =? (await item) and pair.key.isSome:
+          let
+            key = pair.key.get()
 
-        self.cache.remove(NodeId.fromHex(parts[2]), peerId)
+          keys.add(key)
 
-    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
-      trace "Error deleting record from persistent store", err = err.msg
-      return failure err
+          let
+            parts = key.id.split(datastore.Separator)
 
-    trace "Deleted records from store"
+          self.cache.remove(NodeId.fromHex(parts[2]), peerId)
+
+      if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+        trace "Error deleting record from persistent store", err = err.msg
+        return failure err
+
+      trace "Deleted records from store"
 
   without provKey =? makeProviderKey(peerId), err:
     return failure err

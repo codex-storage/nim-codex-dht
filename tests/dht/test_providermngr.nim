@@ -4,6 +4,7 @@ import std/sequtils
 import pkg/chronos
 import pkg/asynctest
 import pkg/datastore
+from pkg/libp2p import PeerId
 
 import codexdht/dht
 import codexdht/private/eth/p2p/discoveryv5/spr
@@ -101,9 +102,9 @@ suite "Test Providers Manager multiple":
       not (await manager.contains(nodeIds[99]))
 
   test "Should remove by PeerId":
-    (await (manager.remove(providers[0].data.peerId))).tryGet
-    (await (manager.remove(providers[5].data.peerId))).tryGet
-    (await (manager.remove(providers[9].data.peerId))).tryGet
+    (await (manager.remove(providers[0].data.peerId, true))).tryGet
+    (await (manager.remove(providers[5].data.peerId, true))).tryGet
+    (await (manager.remove(providers[9].data.peerId, true))).tryGet
 
     for id in nodeIds:
       check:
@@ -164,9 +165,9 @@ suite "Test providers with cache":
       not (await manager.contains(nodeIds[99]))
 
   test "Should remove by PeerId":
-    (await (manager.remove(providers[0].data.peerId))).tryGet
-    (await (manager.remove(providers[5].data.peerId))).tryGet
-    (await (manager.remove(providers[9].data.peerId))).tryGet
+    (await (manager.remove(providers[0].data.peerId, true))).tryGet
+    (await (manager.remove(providers[5].data.peerId, true))).tryGet
+    (await (manager.remove(providers[9].data.peerId, true))).tryGet
 
     for id in nodeIds:
       check:
