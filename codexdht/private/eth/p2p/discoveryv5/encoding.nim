@@ -15,6 +15,7 @@
 
 import
   std/[hashes, net, options, sugar, tables],
+  stew/endians2,
   bearssl/rand,
   chronicles,
   stew/[results, byteutils],
@@ -200,7 +201,7 @@ proc hasHandshake*(c: Codec, key: HandshakeKey): bool =
 proc encodeStaticHeader*(flag: Flag, nonce: AESGCMNonce, authSize: int):
     seq[byte] =
   result.add(protocolId)
-  result.add(version.toBytesBE())
+  result.add(endians2.toBytesBE(version))
   result.add(byte(flag))
   result.add(nonce)
   # TODO: assert on authSize of > 2^16?

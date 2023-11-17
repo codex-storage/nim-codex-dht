@@ -12,3 +12,4 @@ vendor/*
 NimBinaries
 .update.timestamp
 *.dSYM
+*.vscode/*

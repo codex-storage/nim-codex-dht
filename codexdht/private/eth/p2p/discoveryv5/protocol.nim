@@ -369,7 +369,7 @@ proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
 
 proc addProviderLocal(p: Protocol, cId: NodeId, prov: SignedPeerRecord) {.async.} =
   trace "adding provider to local db", n = p.localNode, cId, prov
-  if (let res = (await p.providers.add(cid, prov)); res.isErr):
+  if (let res = (await p.providers.add(cId, prov)); res.isErr):
     trace "Unable to add provider", cid, peerId = prov.data.peerId
 
 proc handleAddProvider(

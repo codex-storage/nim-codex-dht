@@ -10,6 +10,7 @@
 import std/options
 import std/sequtils
 
+import pkg/stew/endians2
 import pkg/chronos
 import pkg/libp2p
 import pkg/datastore

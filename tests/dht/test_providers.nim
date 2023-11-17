@@ -59,7 +59,7 @@ proc bootstrapNetwork(
   #waitFor bootNode.bootstrap()  # immediate, since no bootnodes are defined above
 
   var res = await bootstrapNodes(nodecount - 1,
-                           @[bootnode.localNode.record],
+                           @[bootNode.localNode.record],
                            rng,
                            delay)
   res.insert((bootNode, bootNodeKey), 0)

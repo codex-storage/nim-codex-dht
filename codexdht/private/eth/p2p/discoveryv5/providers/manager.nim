@@ -8,6 +8,7 @@
 import std/sequtils
 import std/strutils
 
+import pkg/stew/endians2
 import pkg/datastore
 import pkg/chronos
 import pkg/libp2p
@@ -79,7 +80,7 @@ proc add*(
       else:
         Moment.fromNow(self.ttl) - ZeroMoment
 
-    ttl = expires.microseconds.uint64.toBytesBE
+    ttl = endians2.toBytesBE(expires.microseconds.uint64)
 
     bytes: seq[byte] =
       if existing =? (await self.getProvByKey(provKey)) and
