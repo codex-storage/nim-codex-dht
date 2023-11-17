@@ -55,3 +55,10 @@ iterator items*[K, V](lru: LRUCache[K, V]): V =
 
   for item in lru.list:
     yield item[1]
+
+iterator keys*[K, V](lru: LRUCache[K, V]): K =
+  ## Get cached keys - this doesn't touch the cache
+  ##
+
+  for item in lru.table.keys:
+    yield item

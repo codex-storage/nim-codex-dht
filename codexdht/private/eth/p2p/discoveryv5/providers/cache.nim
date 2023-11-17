@@ -37,6 +37,8 @@ func add*(
   self: var ProvidersCache,
   id: NodeId,
   record: SignedPeerRecord) =
+  ## Add providers for an id
+  ## to the cache
 
   if self.disable:
     return
@@ -56,6 +58,8 @@ proc get*(
   id: NodeId,
   start = 0,
   stop = MaxProvidersPerEntry.int): seq[SignedPeerRecord] =
+  ## Get providers for an id
+  ## from the cache
 
   if self.disable:
     return
@@ -69,8 +73,27 @@ proc get*(
 
 func remove*(
   self: var ProvidersCache,
+  peerId: PeerId) =
+  ## Remove a provider record from an id
+  ## from the cache
+  ##
+
+  if self.disable:
+    return
+
+  for id in self.cache.keys:
+    if var providers =? self.cache.get(id):
+      trace "Removing provider from cache", id, peerId
+      providers.del(peerId)
+      self.cache.put(id, providers)
+
+func remove*(
+  self: var ProvidersCache,
   id: NodeId,
   peerId: PeerId) =
+  ## Remove a provider record from an id
+  ## from the cache
+  ##
 
   if self.disable:
     return
@@ -81,6 +104,9 @@ func remove*(
     self.cache.put(id, providers)
 
 func drop*(self: var ProvidersCache, id: NodeId) =
+  ## Drop all the providers for an entry
+  ##
+
   if self.disable:
     return
 
