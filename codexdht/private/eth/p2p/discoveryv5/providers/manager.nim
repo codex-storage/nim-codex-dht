@@ -7,6 +7,7 @@
 
 import std/sequtils
 import std/strutils
+from std/times import now, utc, toTime, toUnix
 
 import pkg/stew/endians2
 import pkg/datastore
@@ -57,30 +58,30 @@ proc getProvByKey*(self: ProvidersManager, key: Key): Future[?!SignedPeerRecord]
 
 proc add*(
   self: ProvidersManager,
-  cid: NodeId,
+  id: NodeId,
   provider: SignedPeerRecord,
   ttl = ZeroDuration): Future[?!void] {.async.} =
 
   let
     peerId = provider.data.peerId
 
-  trace "Adding provider to persistent store", cid, peerId
+  trace "Adding provider to persistent store", id, peerId
   without provKey =? makeProviderKey(peerId), err:
     trace "Error creating key from provider record", err = err.msg
     return failure err.msg
 
-  without cidKey =? makeCidKey(cid, peerId), err:
+  without cidKey =? makeCidKey(id, peerId), err:
     trace "Error creating key from content id", err = err.msg
     return failure err.msg
 
   let
+    now = times.now().utc().toTime().toUnix()
     expires =
       if ttl > ZeroDuration:
-        ttl
+        ttl.seconds + now
       else:
-        Moment.fromNow(self.ttl) - ZeroMoment
-
-    ttl = endians2.toBytesBE(expires.microseconds.uint64)
+        self.ttl.seconds + now
+    ttl = endians2.toBytesBE(expires.uint64)
 
     bytes: seq[byte] =
       if existing =? (await self.getProvByKey(provKey)) and
@@ -94,17 +95,17 @@ proc add*(
         bytes
 
   if bytes.len > 0:
-    trace "Adding or updating provider record", cid, peerId
+    trace "Adding or updating provider record", id, peerId
     if err =? (await self.store.put(provKey, bytes)).errorOption:
       trace "Unable to store provider with key", key = provKey, err = err.msg
 
-  trace "Adding or updating cid", cid, key = cidKey, ttl = expires.minutes
+  trace "Adding or updating id", id, key = cidKey, ttl = expires.seconds
   if err =? (await self.store.put(cidKey, @ttl)).errorOption:
     trace "Unable to store provider with key", key = cidKey, err = err.msg
     return
 
-  self.cache.add(cid, provider)
-  trace "Provider for cid added", cidKey, provKey
+  self.cache.add(id, provider)
+  trace "Provider for id added", cidKey, provKey
   return success()
 
 proc get*(
@@ -137,12 +138,10 @@ proc get*(
         trace "Cleaning up query iterator"
         discard (await cidIter.dispose())
 
+    var keys: seq[Key]
     for item in cidIter:
       # TODO: =? doesn't support tuples
-      if pair =? (await item) and pair.key.isSome:
-        let
-          (key, val) = (pair.key.get, pair.data)
-
+      if (maybeKey, val) =? (await item) and key =? maybeKey:
         without pairs =? key.fromCidKey() and
           provKey =? makeProviderKey(pairs.peerId), err:
           trace "Error creating key from provider record", err = err.msg
@@ -151,17 +150,24 @@ proc get*(
         trace "Querying provider key", key = provKey
         without data =? (await self.store.get(provKey)):
           trace "Error getting provider", key = provKey
+          keys.add(key)
           continue
 
         without provider =? SignedPeerRecord.decode(data).mapErr(mapFailure), err:
           trace "Unable to decode provider from store", err = err.msg
+          keys.add(key)
           continue
 
         trace "Retrieved provider with key", key = provKey
         providers.add(provider)
         self.cache.add(id, provider)
 
-    trace "Retrieved providers from persistent store", cid = id, len = providers.len
+    trace "Deleting keys without provider from store", len = keys.len
+    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+      trace "Error deleting records from persistent store", err = err.msg
+      return failure err
+
+    trace "Retrieved providers from persistent store", id = id, len = providers.len
   return success providers
 
 proc contains*(
@@ -179,8 +185,8 @@ proc contains*(self: ProvidersManager, peerId: PeerId): Future[bool] {.async.} =
 
   return (await self.store.has(provKey)) |? false
 
-proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
-  without cidKey =? (CidKey / $cid), err:
+proc contains*(self: ProvidersManager, id: NodeId): Future[bool] {.async.} =
+  without cidKey =? (CidKey / $id), err:
     return false
 
   let
@@ -197,15 +203,15 @@ proc contains*(self: ProvidersManager, cid: NodeId): Future[bool] {.async.} =
         discard (await iter.dispose())
 
     for item in iter:
-      if pair =? (await item) and pair.key.isSome:
+      if (key, _) =? (await item) and key.isSome:
         return true
 
   return false
 
-proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
+proc remove*(self: ProvidersManager, id: NodeId): Future[?!void] {.async.} =
 
-  self.cache.drop(cid)
-  without cidKey =? (CidKey / $cid), err:
+  self.cache.drop(id)
+  without cidKey =? (CidKey / $id), err:
     return failure(err.msg)
 
   let
@@ -225,16 +231,14 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
       keys: seq[Key]
 
     for item in iter:
-      if pair =? (await item) and pair.key.isSome:
-        let
-          key = pair.key.get()
+      if (maybeKey, _) =? (await item) and key =? maybeKey:
 
         keys.add(key)
         without pairs =? key.fromCidKey, err:
           trace "Unable to parse peer id from key", key
           return failure err
 
-        self.cache.remove(cid, pairs.peerId)
+        self.cache.remove(id, pairs.peerId)
         trace "Deleted record from store", key
 
     if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
@@ -243,57 +247,60 @@ proc remove*(self: ProvidersManager, cid: NodeId): Future[?!void] {.async.} =
 
   return success()
 
-proc remove*(self: ProvidersManager, peerId: PeerId): Future[?!void] {.async.} =
-  without cidKey =? (CidKey / "*" / $peerId), err:
-    return failure err
+proc remove*(
+  self: ProvidersManager,
+  peerId: PeerId,
+  entries = false): Future[?!void] {.async.} =
 
-  let
-    q = Query.init(cidKey)
-
-  block:
-    without iter =? (await self.store.query(q)), err:
-      trace "Unable to obtain record for key", key = cidKey
+  if entries:
+    without cidKey =? (CidKey / "*" / $peerId), err:
       return failure err
 
-    defer:
-      if not isNil(iter):
-        trace "Cleaning up query iterator"
-        discard (await iter.dispose())
+    let
+      q = Query.init(cidKey)
 
-    var
-      keys: seq[Key]
+    block:
+      without iter =? (await self.store.query(q)), err:
+        trace "Unable to obtain record for key", key = cidKey
+        return failure err
 
-    for item in iter:
-      if pair =? (await item) and pair.key.isSome:
-        let
-          key = pair.key.get()
+      defer:
+        if not isNil(iter):
+          trace "Cleaning up query iterator"
+          discard (await iter.dispose())
 
-        keys.add(key)
+      var
+        keys: seq[Key]
 
-        let
-          parts = key.id.split(datastore.Separator)
+      for item in iter:
+        if (maybeKey, _) =? (await item) and key =? maybeKey:
+          keys.add(key)
 
-        self.cache.remove(NodeId.fromHex(parts[2]), peerId)
+          let
+            parts = key.id.split(datastore.Separator)
 
-    if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
-      trace "Error deleting record from persistent store", err = err.msg
-      return failure err
+      if keys.len > 0 and err =? (await self.store.delete(keys)).errorOption:
+        trace "Error deleting record from persistent store", err = err.msg
+        return failure err
 
-    trace "Deleted records from store"
+      trace "Deleted records from store"
 
-  without provKey =? makeProviderKey(peerId), err:
+  without provKey =? peerId.makeProviderKey, err:
     return failure err
+
+  trace "Removing provider from cache", peerId
+  self.cache.remove(peerId)
 
   trace "Removing provider record", key = provKey
   return (await self.store.delete(provKey))
 
 proc remove*(
   self: ProvidersManager,
-  cid: NodeId,
+  id: NodeId,
   peerId: PeerId): Future[?!void] {.async.} =
 
-  self.cache.remove(cid, peerId)
-  without cidKey =? makeCidKey(cid, peerId), err:
+  self.cache.remove(id, peerId)
+  without cidKey =? makeCidKey(id, peerId), err:
     trace "Error creating key from content id", err = err.msg
     return failure err.msg
 

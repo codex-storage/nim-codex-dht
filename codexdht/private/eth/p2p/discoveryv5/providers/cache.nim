@@ -11,6 +11,7 @@ import std/sequtils
 
 import pkg/chronicles
 import pkg/libp2p
+import pkg/questionable
 
 import ../node
 import ../lru
@@ -35,22 +36,21 @@ type
 func add*(
   self: var ProvidersCache,
   id: NodeId,
-  provider: SignedPeerRecord) =
+  record: SignedPeerRecord) =
+  ## Add providers for an id
+  ## to the cache
 
   if self.disable:
     return
 
-  var providers =
-    if id notin self.cache:
-      Providers.init(self.maxProviders.int)
-    else:
-      self.cache.get(id).get()
+  without var providers =? self.cache.get(id):
+    providers = Providers.init(self.maxProviders.int)
 
   let
-    peerId = provider.data.peerId
+    peerId = record.data.peerId
 
-  trace "Adding provider to cache", id, peerId
-  providers.put(peerId, provider)
+  trace "Adding provider record to cache", id, peerId
+  providers.put(peerId, record)
   self.cache.put(id, providers)
 
 proc get*(
@@ -58,14 +58,13 @@ proc get*(
   id: NodeId,
   start = 0,
   stop = MaxProvidersPerEntry.int): seq[SignedPeerRecord] =
+  ## Get providers for an id
+  ## from the cache
 
   if self.disable:
     return
 
-  if id in self.cache:
-    let
-      recs = self.cache.get(id).get
-
+  if recs =? self.cache.get(id):
     let
       providers = toSeq(recs)[start..<min(recs.len, stop)]
 
@@ -74,23 +73,40 @@ proc get*(
 
 func remove*(
   self: var ProvidersCache,
-  id: NodeId,
   peerId: PeerId) =
+  ## Remove a provider record from an id
+  ## from the cache
+  ##
 
   if self.disable:
     return
 
-  if id notin self.cache:
+  for id in self.cache.keys:
+    if var providers =? self.cache.get(id):
+      trace "Removing provider from cache", id, peerId
+      providers.del(peerId)
+      self.cache.put(id, providers)
+
+func remove*(
+  self: var ProvidersCache,
+  id: NodeId,
+  peerId: PeerId) =
+  ## Remove a provider record from an id
+  ## from the cache
+  ##
+
+  if self.disable:
     return
 
-  var
-    providers = self.cache.get(id).get()
-
-  trace "Removing provider from cache", id
-  providers.del(peerId)
-  self.cache.put(id, providers)
+  if var providers =? self.cache.get(id):
+    trace "Removing record from cache", id
+    providers.del(peerId)
+    self.cache.put(id, providers)
 
 func drop*(self: var ProvidersCache, id: NodeId) =
+  ## Drop all the providers for an entry
+  ##
+
   if self.disable:
     return
 

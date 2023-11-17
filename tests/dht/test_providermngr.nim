@@ -4,6 +4,7 @@ import std/sequtils
 import pkg/chronos
 import pkg/asynctest
 import pkg/datastore
+from pkg/libp2p import PeerId
 
 import codexdht/dht
 import codexdht/private/eth/p2p/discoveryv5/spr
@@ -100,10 +101,10 @@ suite "Test Providers Manager multiple":
       not (await manager.contains(nodeIds[49]))
       not (await manager.contains(nodeIds[99]))
 
-  test "Should remove by PeerId":
-    (await (manager.remove(providers[0].data.peerId))).tryGet
-    (await (manager.remove(providers[5].data.peerId))).tryGet
-    (await (manager.remove(providers[9].data.peerId))).tryGet
+  test "Should remove by PeerId with associated keys":
+    (await (manager.remove(providers[0].data.peerId, true))).tryGet
+    (await (manager.remove(providers[5].data.peerId, true))).tryGet
+    (await (manager.remove(providers[9].data.peerId, true))).tryGet
 
     for id in nodeIds:
       check:
@@ -115,6 +116,22 @@ suite "Test Providers Manager multiple":
       not (await manager.contains(providers[0].data.peerId))
       not (await manager.contains(providers[5].data.peerId))
       not (await manager.contains(providers[9].data.peerId))
+
+  test "Should not return keys without provider":
+    for id in nodeIds:
+      check:
+        (await manager.get(id)).tryGet.len == 10
+
+    for provider in providers:
+      (await (manager.remove(provider.data.peerId))).tryGet
+
+    for id in nodeIds:
+      check:
+        (await manager.get(id)).tryGet.len == 0
+
+    for provider in providers:
+      check:
+        not (await manager.contains(provider.data.peerId))
 
 suite "Test providers with cache":
   let
@@ -164,9 +181,9 @@ suite "Test providers with cache":
       not (await manager.contains(nodeIds[99]))
 
   test "Should remove by PeerId":
-    (await (manager.remove(providers[0].data.peerId))).tryGet
-    (await (manager.remove(providers[5].data.peerId))).tryGet
-    (await (manager.remove(providers[9].data.peerId))).tryGet
+    (await (manager.remove(providers[0].data.peerId, true))).tryGet
+    (await (manager.remove(providers[5].data.peerId, true))).tryGet
+    (await (manager.remove(providers[9].data.peerId, true))).tryGet
 
     for id in nodeIds:
       check:
@@ -217,6 +234,24 @@ suite "Test Provider Maintenance":
 
     for id in nodeIds:
       check: (await manager.get(id)).tryGet.len == 0
+
+  test "Should not cleanup unexpired":
+    let
+      unexpired = PrivateKey.example(rng).toSignedPeerRecord()
+
+    (await manager.add(nodeIds[0], unexpired, ttl = 1.minutes)).tryGet
+
+    await sleepAsync(500.millis)
+    await manager.store.cleanupExpired()
+
+    let
+      unexpiredProvs = (await manager.get(nodeIds[0])).tryGet
+
+    check:
+      unexpiredProvs.len == 1
+      await (unexpired.data.peerId in manager)
+
+    (await manager.remove(nodeIds[0])).tryGet
 
   test "Should cleanup orphaned":
     for id in nodeIds:
