@@ -52,7 +52,7 @@ proc cleanupExpired*(
     for item in iter:
       if (maybeKey, data) =? (await item) and key =? maybeKey:
         let
-          expired = uint64.fromBytesBE(data).int64
+          expired = endians2.fromBytesBE(uint64, data).int64
 
         if now >= expired:
           trace "Found expired record", key

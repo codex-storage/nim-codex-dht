@@ -81,7 +81,7 @@ proc add*(
         ttl.seconds + now
       else:
         self.ttl.seconds + now
-    ttl = endians2.toBytesBE(expires.uint64.toBytesBE)
+    ttl = endians2.toBytesBE(expires.uint64)
 
     bytes: seq[byte] =
       if existing =? (await self.getProvByKey(provKey)) and
