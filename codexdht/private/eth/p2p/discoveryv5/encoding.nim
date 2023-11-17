@@ -209,8 +209,9 @@ proc encodeStaticHeader*(flag: Flag, nonce: AESGCMNonce, authSize: int):
 
 proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte]):
-    (seq[byte], AESGCMNonce) =
+    (seq[byte], AESGCMNonce, bool) =
   var nonce: AESGCMNonce
+  var haskey: bool
   hmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
   var iv: array[ivSize, byte]
   hmacDrbgGenerate(rng, iv) # Random IV
@@ -228,6 +229,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
   var messageEncrypted: seq[byte]
   var initiatorKey, recipientKey: AesKey
   if c.sessions.load(toId, toAddr, recipientKey, initiatorKey):
+    haskey = true
     messageEncrypted = encryptGCM(initiatorKey, nonce, message, @iv & header)
     discovery_session_lru_cache_hits.inc()
   else:
@@ -238,6 +240,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
     # message. 16 bytes for the gcm tag and 4 bytes for ping with requestId of
     # 1 byte (e.g "01c20101"). Could increase to 27 for 8 bytes requestId in
     # case this must not look like a random packet.
+    haskey = false
     var randomData: array[gcmTagSize + 4, byte]
     hmacDrbgGenerate(rng, randomData)
     messageEncrypted.add(randomData)
@@ -250,7 +253,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
   packet.add(maskedHeader)
   packet.add(messageEncrypted)
 
-  return (packet, nonce)
+  return (packet, nonce, haskey)
 
 proc encodeWhoareyouPacket*(rng: var HmacDrbgContext, c: var Codec,
     toId: NodeId, toAddr: Address, requestNonce: AESGCMNonce, recordSeq: uint64,
