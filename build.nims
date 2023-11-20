@@ -2,15 +2,22 @@ import std / [os, strutils, sequtils]
 
 task testAll, "Run DHT tests":
   exec "nim c -r tests/testAll.nim"
+  rmFile "./tests/testAll"
 
 task test, "Run DHT tests":
+  # compile with trace logging to make sure it doesn't crash
+  exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE tests/testAll.nim"
+  rmFile "./tests/testAll"
   exec "nim c -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
+  rmFile "./tests/testAllParallel"
 
 task testPart1, "Run DHT tests A":
   exec "nim c -r -d:testsPart1 tests/testAllParallel.nim"
+  rmFile "./tests/testAllParallel"
 
 task testPart2, "Run DHT tests B":
   exec "nim c -r -d:testsPart2 tests/testAllParallel.nim"
+  rmFile "./tests/testAllParallel"
 
 task coverage, "generates code coverage report":
   var (output, exitCode) = gorgeEx("which lcov")
