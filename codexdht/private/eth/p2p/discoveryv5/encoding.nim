@@ -441,7 +441,7 @@ proc decodeMessagePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
     if pt.isNone():
       # Don't consider this an error, the session got probably removed at the
       # peer's side and a random message is send.
-      # This might also be a cross-connect. Not deleteing key, as it might be
+      # This might also be a cross-connect. Not deleting key, as it might be
       # needed later, depending on message order.
       trace "Decrypting failed (invalid keys)", address = fromAddr
       #c.sessions.del(srcId, fromAddr)

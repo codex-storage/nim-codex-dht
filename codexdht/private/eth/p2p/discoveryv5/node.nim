@@ -177,3 +177,8 @@ func shortLog*(nodes: seq[Node]): string =
 
   result.add("]")
 chronicles.formatIt(seq[Node]): shortLog(it)
+
+func shortLog*(address: Address): string =
+  $address
+
+chronicles.formatIt(Address): shortLog(it)
