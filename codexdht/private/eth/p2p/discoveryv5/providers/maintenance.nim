@@ -23,7 +23,7 @@ import ./common
 
 const
   ExpiredCleanupBatch* = 1000
-  CleanupInterval* = 5.minutes
+  CleanupInterval* = 24.hours
 
 proc cleanupExpired*(
   store: Datastore,
