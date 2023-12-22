@@ -35,11 +35,18 @@ type
     node: Node
     message: seq[byte]
 
-proc sendToA(t: Transport, a: Address, data: seq[byte]) =
+proc sendToA(t: Transport, a: Address, msg: seq[byte]) =
   trace "Send packet", myport = t.bindAddress.port, address = a
   let ta = initTAddress(a.ip, a.port)
-  let f = t.transp.sendTo(ta, data)
+
+  # XXX: The Chronos datagram API will not keep long-living refs to data,
+  #   which means any seq passed in sendTo can be garbage collected at any time
+  #   unless we anchor it here. The symptom are messages that get corrupted
+  #   seemingly at random.
+  GC_ref(msg)
+  let f = t.transp.sendTo(ta, msg)
   f.callback = proc(data: pointer) {.gcsafe.} =
+    GC_unref(msg)
     if f.failed:
       # Could be `TransportUseClosedError` in case the transport is already
       # closed, or could be `TransportOsError` in case of a socket error.
@@ -138,6 +145,7 @@ proc sendPending(t:Transport, toNode: Node):
       t.registerRequest(toNode, message, nonce)
       t.send(toNode, data)
     t.pendingRequestsByNode.del(toNode.id)
+
 proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
   let decoded = t.codec.decodePacket(a, packet)
   if decoded.isOk:
@@ -215,11 +223,12 @@ proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
   let t = getUserData[Transport[T]](transp)
 
   # TODO: should we use `peekMessage()` to avoid allocation?
-  let buf = try: transp.getMessage()
-            except TransportOsError as e:
-              # This is likely to be local network connection issues.
-              warn "Transport getMessage", exception = e.name, msg = e.msg
-              return
+  let buf = try:
+    transp.getMessage()
+  except TransportOsError as e:
+    # This is likely to be local network connection issues.
+    warn "Transport getMessage", exception = e.name, msg = e.msg
+    return
 
   let ip = try: raddr.address()
            except ValueError as e:

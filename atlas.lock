@@ -21,7 +21,7 @@
     "chronos": {
       "dir": "$deps/nim-chronos",
       "url": "https://github.com/status-im/nim-chronos",
-      "commit": "0277b65be2c7a365ac13df002fba6e172be55537",
+      "commit": "e15dc3b41fea95348b58f32244962c1c6df310a7",
       "version": "3.2.0"
     },
     "upraises": {
@@ -117,14 +117,13 @@
     "datastore": {
       "dir": "$deps/nim-datastore",
       "url": "https://github.com/codex-storage/nim-datastore",
-      "commit": "0cde8aeb67c59fd0ac95496dc6b5e1168d6632aa",
+      "commit": "cadf38db576a2cf6145188f285f042e56aad7c91",
       "version": "0.0.1"
     },
     "asynctest": {
-      "dir": "$deps/asynctest",
-      "url": "https://github.com/markspanbroek/asynctest",
-      "commit": "fe1a34caf572b05f8bdba3b650f1871af9fce31e",
-      "version": "0.4.1"
+      "dir": "vendor/asynctest",
+      "url": "https://github.com/codex-storage/asynctest",
+      "commit": "9f31323"
     },
     "stint": {
       "dir": "$deps/nim-stint",
@@ -141,7 +140,7 @@
     "libp2p": {
       "dir": "$deps/nim-libp2p",
       "url": "https://github.com/status-im/nim-libp2p",
-      "commit": "440461b24b9e66542b34d26a0b908c17f6549d05",
+      "commit": "e3c967ad1939fb33b8e13759037d193734acd202",
       "version": "1.1.0"
     },
     "chronicles": {
