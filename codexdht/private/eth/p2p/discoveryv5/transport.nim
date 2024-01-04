@@ -38,27 +38,22 @@ type
 proc sendToA(t: Transport, a: Address, msg: seq[byte]) =
   trace "Send packet", myport = t.bindAddress.port, address = a
   let ta = initTAddress(a.ip, a.port)
-
-  # XXX: The Chronos datagram API will not keep long-living refs to data,
-  #   which means any seq passed in sendTo can be garbage collected at any time
-  #   unless we anchor it here. The symptom are messages that get corrupted
-  #   seemingly at random.
-  GC_ref(msg)
   let f = t.transp.sendTo(ta, msg)
-  f.callback = proc(data: pointer) {.gcsafe.} =
-    GC_unref(msg)
-    if f.failed:
-      # Could be `TransportUseClosedError` in case the transport is already
-      # closed, or could be `TransportOsError` in case of a socket error.
-      # In the latter case this would probably mostly occur if the network
-      # interface underneath gets disconnected or similar.
-      # TODO: Should this kind of error be propagated upwards? Probably, but
-      # it should not stop the process as that would reset the discovery
-      # progress in case there is even a small window of no connection.
-      # One case that needs this error available upwards is when revalidating
-      # nodes. Else the revalidation might end up clearing the routing tabl
-      # because of ping failures due to own network connection failure.
-      warn "Discovery send failed", msg = f.readError.msg
+  f.addCallback(
+    proc(data: pointer) =
+      if f.failed:
+        # Could be `TransportUseClosedError` in case the transport is already
+        # closed, or could be `TransportOsError` in case of a socket error.
+        # In the latter case this would probably mostly occur if the network
+        # interface underneath gets disconnected or similar.
+        # TODO: Should this kind of error be propagated upwards? Probably, but
+        # it should not stop the process as that would reset the discovery
+        # progress in case there is even a small window of no connection.
+        # One case that needs this error available upwards is when revalidating
+        # nodes. Else the revalidation might end up clearing the routing tabl
+        # because of ping failures due to own network connection failure.
+        warn "Discovery send failed", msg = f.readError.msg
+  )
 
 proc send(t: Transport, n: Node, data: seq[byte]) =
   doAssert(n.address.isSome())
