@@ -287,7 +287,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await testNode.closeWait()
 
-  proc testLookupTargets(fast: bool = false) {.async.} =
+  proc testLookupTargets(fast: bool = false) {.async: (raises: [Exception]).} =
     const
       nodeCount = 17
 
