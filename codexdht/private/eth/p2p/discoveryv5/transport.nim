@@ -35,23 +35,25 @@ type
     node: Node
     message: seq[byte]
 
-proc sendToA(t: Transport, a: Address, data: seq[byte]) =
+proc sendToA(t: Transport, a: Address, msg: seq[byte]) =
   trace "Send packet", myport = t.bindAddress.port, address = a
   let ta = initTAddress(a.ip, a.port)
-  let f = t.transp.sendTo(ta, data)
-  f.callback = proc(data: pointer) {.gcsafe.} =
-    if f.failed:
-      # Could be `TransportUseClosedError` in case the transport is already
-      # closed, or could be `TransportOsError` in case of a socket error.
-      # In the latter case this would probably mostly occur if the network
-      # interface underneath gets disconnected or similar.
-      # TODO: Should this kind of error be propagated upwards? Probably, but
-      # it should not stop the process as that would reset the discovery
-      # progress in case there is even a small window of no connection.
-      # One case that needs this error available upwards is when revalidating
-      # nodes. Else the revalidation might end up clearing the routing tabl
-      # because of ping failures due to own network connection failure.
-      warn "Discovery send failed", msg = f.readError.msg
+  let f = t.transp.sendTo(ta, msg)
+  f.addCallback(
+    proc(data: pointer) =
+      if f.failed:
+        # Could be `TransportUseClosedError` in case the transport is already
+        # closed, or could be `TransportOsError` in case of a socket error.
+        # In the latter case this would probably mostly occur if the network
+        # interface underneath gets disconnected or similar.
+        # TODO: Should this kind of error be propagated upwards? Probably, but
+        # it should not stop the process as that would reset the discovery
+        # progress in case there is even a small window of no connection.
+        # One case that needs this error available upwards is when revalidating
+        # nodes. Else the revalidation might end up clearing the routing tabl
+        # because of ping failures due to own network connection failure.
+        warn "Discovery send failed", msg = f.readError.msg
+  )
 
 proc send(t: Transport, n: Node, data: seq[byte]) =
   doAssert(n.address.isSome())
@@ -138,6 +140,7 @@ proc sendPending(t:Transport, toNode: Node):
       t.registerRequest(toNode, message, nonce)
       t.send(toNode, data)
     t.pendingRequestsByNode.del(toNode.id)
+
 proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
   let decoded = t.codec.decodePacket(a, packet)
   if decoded.isOk:
@@ -215,11 +218,12 @@ proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
   let t = getUserData[Transport[T]](transp)
 
   # TODO: should we use `peekMessage()` to avoid allocation?
-  let buf = try: transp.getMessage()
-            except TransportOsError as e:
-              # This is likely to be local network connection issues.
-              warn "Transport getMessage", exception = e.name, msg = e.msg
-              return
+  let buf = try:
+    transp.getMessage()
+  except TransportOsError as e:
+    # This is likely to be local network connection issues.
+    warn "Transport getMessage", exception = e.name, msg = e.msg
+    return
 
   let ip = try: raddr.address()
            except ValueError as e:
