@@ -297,11 +297,7 @@
       "version": "0.0.1",
       "vcsRevision": "51f1227d0fd04ce84b1ef784b11280cb7875348c",
       "url": "https://github.com/status-im/nim-metrics",
-      "downloadMethod": "git",
-      "dependencies": [],
-      "checksums": {
-        "sha1": "16ba266012d32d49631ca00add8e4698343758e0"
-      }
+      "downloadMethod": "git"
     },
     "libp2p": {
       "version": "1.1.0",
