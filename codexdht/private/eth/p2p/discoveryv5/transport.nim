@@ -93,7 +93,7 @@ proc sendMessage*(t: Transport, toNode: Node, message: seq[byte]) =
       t.send(toNode, data)
       t.keyexchangeInProgress.incl(toNode.id)
       trace "keyexchangeInProgress added", myport = t.bindAddress.port , dstId = toNode
-      sleepAsync(responseTimeout).addCallback() do(data: pointer):
+      sleepAsync(handshakeTimeout).addCallback() do(data: pointer):
         t.keyexchangeInProgress.excl(toNode.id)
         trace "keyexchangeInProgress removed (timeout)", myport = t.bindAddress.port , dstId = toNode
     else:
