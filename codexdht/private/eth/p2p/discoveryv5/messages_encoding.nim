@@ -325,7 +325,7 @@ proc encodeMessage*[T: SomeMessage](p: T, reqId: RequestId): seq[byte] =
   pb.write(2, encoded)
   pb.finish()
   result.add(pb.buffer)
-  trace "Encoded protobuf message", typ = $T, encoded
+  trace "Encoded protobuf message", typ = $T
 
 proc decodeMessage*(body: openArray[byte]): DecodeResult[Message] =
   ## Decodes to the specific `Message` type.
