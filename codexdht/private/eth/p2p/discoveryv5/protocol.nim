@@ -338,7 +338,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
     # TODO: Still deduplicate also?
     if fn.distances.all(proc (x: uint16): bool = return x <= 256):
       d.sendNodes(fromId, fromAddr, reqId,
-        d.routingTable.neighboursAtDistances(fn.distances, seenOnly = true))
+        d.routingTable.neighboursAtDistances(fn.distances, seenOnly = true, k = FindNodeResultLimit))
     else:
       # At least one invalid distance, but the polite node we are, still respond
       # with empty nodes.
@@ -347,7 +347,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
 proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
     fnf: FindNodeFastMessage, reqId: RequestId) =
   d.sendNodes(fromId, fromAddr, reqId,
-    d.routingTable.neighbours(fnf.target, seenOnly = true))
+    d.routingTable.neighbours(fnf.target, seenOnly = true, k = FindNodeResultLimit))
   # TODO: if known, maybe we should add exact target even if not yet "seen"
 
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
