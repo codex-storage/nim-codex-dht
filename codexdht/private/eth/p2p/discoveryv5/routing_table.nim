@@ -17,6 +17,9 @@ export options
 declarePublicGauge routing_table_nodes,
   "Discovery routing table nodes", labels = ["state"]
 
+logScope:
+  topics = "discv5 routingtable"
+  
 type
   DistanceProc* = proc(a, b: NodeId): NodeId {.raises: [Defect], gcsafe, noSideEffect.}
   LogDistanceProc* = proc(a, b: NodeId): uint16 {.raises: [Defect], gcsafe, noSideEffect.}
@@ -317,15 +320,12 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       # gets moved to the tail.
       if k.replacementCache[nodeIdx].address.get().ip != n.address.get().ip:
         if not ipLimitInc(r, k, n):
-          trace "replace: ip limit reached"
           return IpLimitReached
         ipLimitDec(r, k, k.replacementCache[nodeIdx])
       k.replacementCache.delete(nodeIdx)
       k.replacementCache.add(n)
-    trace "replace: already existed"
     return ReplacementExisting
   elif not ipLimitInc(r, k, n):
-    trace "replace: ip limit reached (2)"
     return IpLimitReached
   else:
     doAssert(k.replacementCache.len <= REPLACEMENT_CACHE_SIZE)
@@ -336,7 +336,7 @@ proc addReplacement(r: var RoutingTable, k: KBucket, n: Node): NodeStatus =
       k.replacementCache.delete(0)
 
     k.replacementCache.add(n)
-    trace "replace: added"
+    debug "Node added to replacement cache", n
     return ReplacementAdded
 
 proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
@@ -403,21 +403,22 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       return IpLimitReached
 
     bucket.add(n)
-  else:
-    # Bucket must be full, but lets see if it should be split the bucket.
+    debug "Node added to routing table", n
+    return Added
 
-    # Calculate the prefix shared by all nodes in the bucket's range, not the
-    # ones actually in the bucket.
-    let depth = computeSharedPrefixBits(@[bucket.istart, bucket.iend])
-    # Split if the bucket has the local node in its range or if the depth is not
-    # congruent to 0 mod `bitsPerHop`
-    if bucket.inRange(r.localNode) or
-        (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
-      r.splitBucket(r.buckets.find(bucket))
-      return r.addNode(n) # retry adding
-    else:
-      # When bucket doesn't get split the node is added to the replacement cache
-      return r.addReplacement(bucket, n)
+  # Bucket must be full, but lets see if it should be split the bucket.
+  # Calculate the prefix shared by all nodes in the bucket's range, not the
+  # ones actually in the bucket.
+  let depth = computeSharedPrefixBits(@[bucket.istart, bucket.iend])
+  # Split if the bucket has the local node in its range or if the depth is not
+  # congruent to 0 mod `bitsPerHop`
+  if bucket.inRange(r.localNode) or
+      (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
+    r.splitBucket(r.buckets.find(bucket))
+    return r.addNode(n) # retry adding
+  else:
+    # When bucket doesn't get split the node is added to the replacement cache
+    return r.addReplacement(bucket, n)
 
 proc removeNode*(r: var RoutingTable, n: Node) =
   ## Remove the node `n` from the routing table.
@@ -433,12 +434,15 @@ proc replaceNode*(r: var RoutingTable, n: Node) =
   # revalidation as you don't want to try pinging that node all the time.
   let b = r.bucketForNode(n.id)
   if b.remove(n):
+    debug "Node removed from routing table", n
     ipLimitDec(r, b, n)
 
     if b.replacementCache.len > 0:
       # Nodes in the replacement cache are already included in the ip limits.
-      b.add(b.replacementCache[high(b.replacementCache)])
+      let rn = b.replacementCache[high(b.replacementCache)]
+      b.add(rn)
       b.replacementCache.delete(high(b.replacementCache))
+      debug "Node added to routing table from replacement cache", node=rn
 
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
