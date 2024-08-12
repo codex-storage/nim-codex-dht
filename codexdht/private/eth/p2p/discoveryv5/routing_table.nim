@@ -416,9 +416,9 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
     r.splitBucket(r.buckets.find(bucket))
     return r.addNode(n) # retry adding
-  else:
-    # When bucket doesn't get split the node is added to the replacement cache
-    return r.addReplacement(bucket, n)
+  
+  # When bucket doesn't get split the node is added to the replacement cache
+  return r.addReplacement(bucket, n)
 
 proc removeNode*(r: var RoutingTable, n: Node) =
   ## Remove the node `n` from the routing table.
