@@ -322,7 +322,7 @@
       }
     },
     "libp2p": {
-      "version": "1.1.0",
+      "version": "1.4.0",
       "vcsRevision": "036e110a6080fba1a1662c58cfd8c21f9a548021",
       "url": "https://github.com/status-im/nim-libp2p",
       "downloadMethod": "git",

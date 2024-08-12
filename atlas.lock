@@ -141,8 +141,8 @@
     "libp2p": {
       "dir": "$deps/nim-libp2p",
       "url": "https://github.com/status-im/nim-libp2p",
-      "commit": "e3c967ad1939fb33b8e13759037d193734acd202",
-      "version": "1.1.0"
+      "commit": "036e110a6080fba1a1662c58cfd8c21f9a548021",
+      "version": "1.4.0"
     },
     "chronicles": {
       "dir": "$deps/nim-chronicles",
