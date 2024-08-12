@@ -12,8 +12,8 @@
       }
     },
     "asynctest": {
-      "version": "0.4.3",
-      "vcsRevision": "9f31323a5f38bf9d7402676f8171aceea45fa091",
+      "version": "0.5.0",
+      "vcsRevision": "12c356672d26053ddc4c1443491e9eee65ec03a2",
       "url": "https://github.com/markspanbroek/asynctest",
       "downloadMethod": "git",
       "dependencies": [],
@@ -107,8 +107,8 @@
       }
     },
     "chronos": {
-      "version": "3.2.0",
-      "vcsRevision": "c41599a6d6d8b11c729032bf8913e06f4171e0fb",
+      "version": "4.0.2",
+      "vcsRevision": "dc3847e4d6733dfc3811454c2a9c384b87343e26",
       "url": "https://github.com/status-im/nim-chronos",
       "downloadMethod": "git",
       "dependencies": [
@@ -154,7 +154,7 @@
     },
     "datastore": {
       "version": "0.0.1",
-      "vcsRevision": "cadf38db576a2cf6145188f285f042e56aad7c91",
+      "vcsRevision": "ad3fee413bcf50377605a318162f8d02b3421c61",
       "url": "https://github.com/codex-storage/nim-datastore",
       "downloadMethod": "git",
       "dependencies": [
@@ -323,7 +323,7 @@
     },
     "libp2p": {
       "version": "1.1.0",
-      "vcsRevision": "e3c967ad1939fb33b8e13759037d193734acd202",
+      "vcsRevision": "036e110a6080fba1a1662c58cfd8c21f9a548021",
       "url": "https://github.com/status-im/nim-libp2p",
       "downloadMethod": "git",
       "dependencies": [

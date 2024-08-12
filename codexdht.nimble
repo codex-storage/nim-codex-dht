@@ -15,13 +15,13 @@ requires "protobuf_serialization" # >= 0.2.0 & < 0.3.0
 requires "nimcrypto >= 0.5.4"
 requires "bearssl#667b40440a53a58e9f922e29e20818720c62d9ac"
 requires "chronicles >= 0.10.2 & < 0.11.0"
-requires "chronos#e15dc3b41fea95348b58f32244962c1c6df310a7" #  Change to >= 4.0.0 & < 5.0.0 when available
-requires "libp2p#unstable"
+requires "chronos#dc3847e4d6733dfc3811454c2a9c384b87343e26"
+requires "libp2p#036e110a6080fba1a1662c58cfd8c21f9a548021"
 requires "metrics"
 requires "stew#head"
 requires "stint"
-requires "asynctest >= 0.4.3 & < 0.5.0"
-requires "https://github.com/codex-storage/nim-datastore#head"
+requires "asynctest#12c356672d26053ddc4c1443491e9eee65ec03a2"
+requires "https://github.com/codex-storage/nim-datastore#ad3fee413bcf50377605a318162f8d02b3421c61"
 requires "questionable"
 
 include "build.nims"

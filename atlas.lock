@@ -21,8 +21,8 @@
     "chronos": {
       "dir": "$deps/nim-chronos",
       "url": "https://github.com/status-im/nim-chronos",
-      "commit": "e15dc3b41fea95348b58f32244962c1c6df310a7",
-      "version": "3.2.0"
+      "commit": "dc3847e4d6733dfc3811454c2a9c384b87343e26",
+      "version": "4.0.2"
     },
     "upraises": {
       "dir": "$deps/upraises",
@@ -117,14 +117,14 @@
     "datastore": {
       "dir": "$deps/nim-datastore",
       "url": "https://github.com/codex-storage/nim-datastore",
-      "commit": "cadf38db576a2cf6145188f285f042e56aad7c91",
+      "commit": "ad3fee413bcf50377605a318162f8d02b3421c61",
       "version": "0.0.1"
     },
     "asynctest": {
       "dir": "$deps/asynctest",
       "url": "https://github.com/markspanbroek/asynctest",
-      "commit": "c9423b198f1a7fad128396ffaaa92077a1dda869",
-      "version": "0.4.3"
+      "commit": "12c356672d26053ddc4c1443491e9eee65ec03a2",
+      "version": "0.5.0"
     },
     "stint": {
       "dir": "$deps/nim-stint",
@@ -207,10 +207,10 @@
       "requires \"secp256k1#2acbbdcc0e63002a013fff49f015708522875832\" # >= 0.5.2 & < 0.6.0",
       "requires \"protobuf_serialization\" # >= 0.2.0 & < 0.3.0",
       "requires \"nimcrypto >= 0.5.4\"",
-      "requires \"bearssl#head\"",
+      "requires \"bearssl#667b40440a53a58e9f922e29e20818720c62d9ac\"",
       "requires \"chronicles >= 0.10.2 & < 0.11.0\"",
-      "requires \"chronos#e15dc3b41fea95348b58f32244962c1c6df310a7\" #  Change to >= 4.0.0 & < 5.0.0 when available",
-      "requires \"libp2p#unstable\"",
+      "requires \"chronos#dc3847e4d6733dfc3811454c2a9c384b87343e26\"",
+      "requires \"libp2p#036e110a6080fba1a1662c58cfd8c21f9a548021\"",
       "requires \"metrics\"",
       "requires \"stew#head\"",
       "requires \"stint\"",
