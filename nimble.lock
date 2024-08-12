@@ -12,7 +12,7 @@
       }
     },
     "asynctest": {
-      "version": "0.5.0",
+      "version": "0.5.1",
       "vcsRevision": "12c356672d26053ddc4c1443491e9eee65ec03a2",
       "url": "https://github.com/markspanbroek/asynctest",
       "downloadMethod": "git",
