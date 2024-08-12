@@ -57,8 +57,8 @@
     "bearssl": {
       "dir": "$deps/nim-bearssl",
       "url": "https://github.com/status-im/nim-bearssl",
-      "commit": "d55d3a86d7ec3ad11b244e17b3bad490bfbd076d",
-      "version": "0.2.1"
+      "commit": "667b40440a53a58e9f922e29e20818720c62d9ac",
+      "version": "0.2.5"
     },
     "dnsclient": {
       "dir": "$deps/dnsclient.nim",
