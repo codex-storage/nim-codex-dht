@@ -90,7 +90,7 @@
         "unittest2"
       ],
       "checksums": {
-        "sha1": "5327c983483c4dd465347c6b8a974239c7c6c612"
+        "sha1": "550e6f9321b85de53bba9c0ffab9c95ffbe12ab3"
       }
     },
     "httputils": {
