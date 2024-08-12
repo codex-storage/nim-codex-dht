@@ -21,7 +21,7 @@ requires "metrics"
 requires "stew#head"
 requires "stint"
 requires "asynctest#12c356672d26053ddc4c1443491e9eee65ec03a2"
-requires "https://github.com/codex-storage/nim-datastore#ad3fee413bcf50377605a318162f8d02b3421c61"
+requires "https://github.com/codex-storage/nim-datastore#042173085fe6ec035c8159e6c7cbcc149bab5213"
 requires "questionable"
 
 include "build.nims"

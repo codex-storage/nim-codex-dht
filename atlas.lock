@@ -117,7 +117,7 @@
     "datastore": {
       "dir": "$deps/nim-datastore",
       "url": "https://github.com/codex-storage/nim-datastore",
-      "commit": "ad3fee413bcf50377605a318162f8d02b3421c61",
+      "commit": "042173085fe6ec035c8159e6c7cbcc149bab5213",
       "version": "0.0.1"
     },
     "asynctest": {
