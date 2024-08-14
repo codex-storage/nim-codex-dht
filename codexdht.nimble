@@ -24,25 +24,25 @@ requires "questionable"
 
 task testAll, "Run all test suites":
   exec "nimble install -d -y"
-  withDir "testmodule":
+  withDir "tests":
     exec "nimble testAll"
 
 task test, "Run the test suite":
   exec "nimble install -d -y"
-  withDir "testmodule":
+  withDir "tests":
     exec "nimble test"
 
 task testPart1, "Run the test suite part 1":
   exec "nimble install -d -y"
-  withDir "testmodule":
+  withDir "tests":
     exec "nimble testPart1"
 
 task testPart2, "Run the test suite part 2":
   exec "nimble install -d -y"
-  withDir "testmodule":
+  withDir "tests":
     exec "nimble testPart2"
 
 task coverage, "Run the test coverage":
   exec "nimble install -d -y"
-  withDir "testmodule":
+  withDir "tests":
     exec "nimble coverage"
