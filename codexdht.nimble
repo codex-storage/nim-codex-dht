@@ -5,7 +5,6 @@ author        = "Status Research & Development GmbH"
 description   = "DHT based on Eth discv5 implementation"
 license       = "MIT"
 skipDirs      = @["tests"]
-installFiles  = @["build.nims"]
 
 # Dependencies
 requires "nim >= 1.6.18"
@@ -20,9 +19,30 @@ requires "libp2p#cde5ed7e8ccc3b452878db4c82c6f2f2e70d28f4"
 requires "metrics"
 requires "stew#head"
 requires "stint"
-requires "asynctest#12c356672d26053ddc4c1443491e9eee65ec03a2"
 requires "https://github.com/codex-storage/nim-datastore#042173085fe6ec035c8159e6c7cbcc149bab5213"
 requires "questionable"
 
-include "build.nims"
- 
+task testAll, "Run all test suites":
+  exec "nimble install -d -y"
+  withDir "testmodule":
+    exec "nimble testAll"
+
+task test, "Run the test suite":
+  exec "nimble install -d -y"
+  withDir "testmodule":
+    exec "nimble test"
+
+task testPart1, "Run the test suite part 1":
+  exec "nimble install -d -y"
+  withDir "testmodule":
+    exec "nimble testPart1"
+
+task testPart2, "Run the test suite part 2":
+  exec "nimble install -d -y"
+  withDir "testmodule":
+    exec "nimble testPart2"
+
+task coverage, "Run the test coverage":
+  exec "nimble install -d -y"
+  withDir "testmodule":
+    exec "nimble coverage"
