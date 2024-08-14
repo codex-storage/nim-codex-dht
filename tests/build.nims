@@ -1,13 +1,13 @@
 import std / [os, strutils, sequtils]
 
 task testAll, "Run DHT tests":
-  exec "nim c -r testAll.nim"
-  rmFile "./testAll"
+  exec "nim c -r test.nim"
+  rmFile "./test"
 
 task test, "Run DHT tests":
   # compile with trace logging to make sure it doesn't crash
-  exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE testAll.nim"
-  rmFile "./testAll"
+  exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE test.nim"
+  rmFile "./test"
   exec "nim c -r -d:testsAll --verbosity:0 testAllParallel.nim"
   rmFile "./testAllParallel"
 
