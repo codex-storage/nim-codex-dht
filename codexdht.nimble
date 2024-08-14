@@ -18,7 +18,7 @@ requires "libp2p#cde5ed7e8ccc3b452878db4c82c6f2f2e70d28f4"
 requires "metrics"
 requires "stew#head"
 requires "stint"
-requires "https://github.com/codex-storage/nim-datastore#042173085fe6ec035c8159e6c7cbcc149bab5213"
+requires "https://github.com/codex-storage/nim-datastore#86e15cb6a99cc205ad4f575d2ce04ff510ae5fc5"
 requires "questionable"
 
 task testAll, "Run all test suites":

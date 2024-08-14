@@ -154,7 +154,7 @@
     },
     "datastore": {
       "version": "0.0.1",
-      "vcsRevision": "042173085fe6ec035c8159e6c7cbcc149bab5213",
+      "vcsRevision": "86e15cb6a99cc205ad4f575d2ce04ff510ae5fc5",
       "url": "https://github.com/codex-storage/nim-datastore",
       "downloadMethod": "git",
       "dependencies": [
