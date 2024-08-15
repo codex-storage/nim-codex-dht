@@ -1,134 +1,22 @@
 name: CI
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-  workflow_dispatch:
+
+on: [push, pull_request]
 
 jobs:
-  build:
-    timeout-minutes: 90
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        target:
-          - os: linux
-            cpu: amd64
-            tests: all
-          - os: macos
-            cpu: amd64
-            tests: all
-          - os: windows
-            cpu: amd64
-            tests: part1
-          - os: windows
-            cpu: amd64
-            tests: part2
-        branch: [version-1-6]
-        include:
-          - target:
-              os: linux
-            builder: ubuntu-20.04
-            shell: bash
-          - target:
-              os: macos
-            builder: macos-12
-            shell: bash
-          - target:
-              os: windows
-            builder: windows-latest
-            shell: msys2 {0}
-
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
-
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
-    runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
+        nim: [1.6.18, stable]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: MSYS2 (Windows amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          install: >-
-            base-devel
-            git
-            mingw-w64-x86_64-toolchain
-      - name: Restore Nim DLLs dependencies (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-dlls-cache
-        uses: actions/cache@v2
-        with:
-          path: external/dlls
-          key: 'dlls'
-
-      - name: Install DLL dependencies (Windows)
-        if: >
-          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir external
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x external/windeps.zip -oexternal/dlls
-      - name: Path to cached dependencies (Windows)
-        if: >
-          runner.os == 'Windows'
-        run: |
-          echo '${{ github.workspace }}'"/external/dlls" >> $GITHUB_PATH
-
-      ## Restore nimble deps
-      - name: Restore nimble dependencies from cache
-        id: nimble_deps
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.nimble
-            ${{ github.workspace }}/.nimble
-          key: ${{ matrix.builder }}-${{ matrix.target.cpu }}-dotnimble-${{ hashFiles('nimble.lock') }}
-
-      - name: Setup Nimble
-        uses: "./.github/actions/install_nimble"
-        with:
-          os: ${{ matrix.target.os }}
-          cpu: ${{ matrix.target.cpu }}
-
-      - name: Setup Env
-        run: |
-          nimble -v
-
-      - name: Setup Deps
-        run: |
-          nimble install -d
-          nimble setup
-
-      - name: Run tests
-        if: runner.os != 'Windows'
-        run: |
-          nimble test -y
-
-      - name: Run windows tests part1
-        if: runner.os == 'Windows' && matrix.target.tests == 'part1'
-        run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
-
-          nimble testPart1 -y
-
-      - name: Run windows tests part2
-        if: runner.os == 'Windows' && matrix.target.tests == 'part2'
-        run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
-
-          nimble testPart2 -y
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install Nim
+      uses: iffy/install-nim@v5
+      with:
+        version: ${{ matrix.nim }}
+    - name: Build
+      run: nimble install -y
+    - name: Test
+      run: nimble test -y
