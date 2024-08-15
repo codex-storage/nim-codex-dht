@@ -39,8 +39,3 @@ task testPart2, "Run the test suite part 2":
   exec "nimble install -d -y"
   withDir "tests":
     exec "nimble testPart2"
-
-task coverage, "Run the test coverage":
-  exec "nimble install -d -y"
-  withDir "tests":
-    exec "nimble coverage"

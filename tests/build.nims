@@ -4,18 +4,27 @@ task testAll, "Run DHT tests":
   exec "nim c -r test.nim"
   rmFile "./test"
 
+task compileParallelTests, "Compile parallel tests":
+  exec "nim c --hints:off --verbosity:0 dht/test_providers.nim"
+  exec "nim c --hints:off --verbosity:0 dht/test_providermngr.nim"
+  exec "nim c --hints:off --verbosity:0 discv5/test_discoveryv5.nim"
+  exec "nim c --hints:off --verbosity:0 discv5/test_discoveryv5_encoding.nim"
+
 task test, "Run DHT tests":
   # compile with trace logging to make sure it doesn't crash
   exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE test.nim"
   rmFile "./test"
+  compileParallelTestsTask()
   exec "nim c -r -d:testsAll --verbosity:0 testAllParallel.nim"
   rmFile "./testAllParallel"
 
 task testPart1, "Run DHT tests A":
+  compileParallelTestsTask()
   exec "nim c -r -d:testsPart1 testAllParallel.nim"
   rmFile "./testAllParallel"
 
 task testPart2, "Run DHT tests B":
+  compileParallelTestsTask()
   exec "nim c -r -d:testsPart2 testAllParallel.nim"
   rmFile "./testAllParallel"
 
