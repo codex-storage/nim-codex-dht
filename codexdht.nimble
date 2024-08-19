@@ -10,7 +10,7 @@ skipDirs      = @["tests"]
 requires "secp256k1#2acbbdcc0e63002a013fff49f015708522875832" # >= 0.5.2 & < 0.6.0
 requires "protobuf_serialization" # >= 0.2.0 & < 0.3.0
 requires "nimcrypto >= 0.5.4"
-requires "bearssl#667b40440a53a58e9f922e29e20818720c62d9ac"
+requires "bearssl == 0.2.5"
 requires "chronicles >= 0.10.2 & < 0.11.0"
 requires "chronos#dc3847e4d6733dfc3811454c2a9c384b87343e26"
 requires "libp2p#cde5ed7e8ccc3b452878db4c82c6f2f2e70d28f4"
