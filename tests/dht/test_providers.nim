@@ -11,7 +11,7 @@
 
 import
   std/[options, sequtils],
-  asynctest,
+  asynctest/chronos/unittest2,
   bearssl/rand,
   chronicles,
   chronos,

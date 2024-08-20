@@ -2,7 +2,7 @@
 
 import
   std/[options, sequtils, tables],
-  asynctest/unittest2,
+  asynctest/chronos/unittest2,
   bearssl/rand,
   chronos,
   libp2p/crypto/secp,
