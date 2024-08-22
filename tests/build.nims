@@ -1,23 +1,32 @@
 import std / [os, strutils, sequtils]
 
 task testAll, "Run DHT tests":
-  exec "nim c -r tests/testAll.nim"
-  rmFile "./tests/testAll"
+  exec "nim c -r test.nim"
+  rmFile "./test"
+
+task compileParallelTests, "Compile parallel tests":
+  exec "nim c --hints:off --verbosity:0 dht/test_providers.nim"
+  exec "nim c --hints:off --verbosity:0 dht/test_providermngr.nim"
+  exec "nim c --hints:off --verbosity:0 discv5/test_discoveryv5.nim"
+  exec "nim c --hints:off --verbosity:0 discv5/test_discoveryv5_encoding.nim"
 
 task test, "Run DHT tests":
   # compile with trace logging to make sure it doesn't crash
-  exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE tests/testAll.nim"
-  rmFile "./tests/testAll"
-  exec "nim c -r -d:testsAll --verbosity:0 tests/testAllParallel.nim"
-  rmFile "./tests/testAllParallel"
+  exec "nim c -d:testsAll -d:chronicles_enabled=on -d:chronicles_log_level=TRACE test.nim"
+  rmFile "./test"
+  compileParallelTestsTask()
+  exec "nim c -r -d:testsAll --verbosity:0 testAllParallel.nim"
+  rmFile "./testAllParallel"
 
 task testPart1, "Run DHT tests A":
-  exec "nim c -r -d:testsPart1 tests/testAllParallel.nim"
-  rmFile "./tests/testAllParallel"
+  compileParallelTestsTask()
+  exec "nim c -r -d:testsPart1 testAllParallel.nim"
+  rmFile "./testAllParallel"
 
 task testPart2, "Run DHT tests B":
-  exec "nim c -r -d:testsPart2 tests/testAllParallel.nim"
-  rmFile "./tests/testAllParallel"
+  compileParallelTestsTask()
+  exec "nim c -r -d:testsPart2 testAllParallel.nim"
+  rmFile "./testAllParallel"
 
 task coverage, "generates code coverage report":
   var (output, exitCode) = gorgeEx("which lcov")
@@ -50,7 +59,7 @@ task coverage, "generates code coverage report":
     if f.endswith(".nim"): nimSrcs.add " " & f.absolutePath.quoteShell()
 
   echo "======== Running Tests ======== "
-  exec("nim c -r tests/coverage.nim")
+  exec("nim c -r coverage.nim")
   exec("rm nimcache/*.c")
   rmDir("coverage"); mkDir("coverage")
   echo " ======== Running LCOV ======== "
