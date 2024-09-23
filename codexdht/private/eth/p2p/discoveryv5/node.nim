@@ -135,7 +135,7 @@ func shortLog*(id: NodeId): string =
     result = sid
   else:
     result = newStringOfCap(10)
-    for i in 0..<2:
+    for i in 0..<3:
       result.add(sid[i])
     result.add("*")
     for i in (len(sid) - 6)..sid.high:

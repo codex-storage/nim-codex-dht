@@ -12,12 +12,12 @@ requires "protobuf_serialization" # >= 0.2.0 & < 0.3.0
 requires "nimcrypto >= 0.5.4"
 requires "bearssl == 0.2.5"
 requires "chronicles >= 0.10.2 & < 0.11.0"
-requires "chronos#dc3847e4d6733dfc3811454c2a9c384b87343e26"
+requires "chronos >= 4.0.3 & < 4.1.0"
 requires "libp2p == 1.5.0"
 requires "metrics"
 requires "stew#head"
 requires "stint"
-requires "https://github.com/codex-storage/nim-datastore >= 0.1.0 & < 0.2.0"
+requires "https://github.com/codex-storage/nim-datastore >= 0.1.1 & < 0.2.0"
 requires "questionable"
 
 task testAll, "Run all test suites":
