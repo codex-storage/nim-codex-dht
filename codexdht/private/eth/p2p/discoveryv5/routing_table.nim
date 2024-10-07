@@ -431,27 +431,31 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
 
 proc removeNode*(r: var RoutingTable, n: Node) =
   ## Remove the node `n` from the routing table.
+  ## No replemennt added, even if there is in replacement cache.
   let b = r.bucketForNode(n.id)
   if b.remove(n):
     ipLimitDec(r, b, n)
 
-proc replaceNode*(r: var RoutingTable, n: Node) =
+proc replaceNode*(r: var RoutingTable, n: Node, removeIfNoReplacement = true) =
   ## Replace node `n` with last entry in the replacement cache. If there are
-  ## no entries in the replacement cache, node `n` will simply be removed.
-  # TODO: Kademlia paper recommends here to not remove nodes if there are no
-  # replacements. However, that would require a bit more complexity in the
-  # revalidation as you don't want to try pinging that node all the time.
+  ## no entries in the replacement cache, node `n` will either be removed
+  ## or kept based on `removeIfNoReplacement`.
+  ## Note: Kademlia paper recommends here to not remove nodes if there are no
+  ## replacements. This might mean pinging nodes that are not reachable, but
+  ## also avoids being too agressive because UDP losses or temporary network
+  ## failures.
   let b = r.bucketForNode(n.id)
-  if b.remove(n):
-    debug "Node removed from routing table", n
-    ipLimitDec(r, b, n)
+  if (b.replacementCache.len > 0 or removeIfNoReplacement): 
+    if b.remove(n):
+      debug "Node removed from routing table", n
+      ipLimitDec(r, b, n)
 
-    if b.replacementCache.len > 0:
-      # Nodes in the replacement cache are already included in the ip limits.
-      let rn = b.replacementCache[high(b.replacementCache)]
-      b.add(rn)
-      b.replacementCache.delete(high(b.replacementCache))
-      debug "Node added to routing table from replacement cache", node=rn
+      if b.replacementCache.len > 0:
+        # Nodes in the replacement cache are already included in the ip limits.
+        let rn = b.replacementCache[high(b.replacementCache)]
+        b.add(rn)
+        b.replacementCache.delete(high(b.replacementCache))
+        debug "Node added to routing table from replacement cache", node=rn
 
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
