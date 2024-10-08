@@ -14,7 +14,7 @@ import
 
 export options
 
-declarePublicGauge routing_table_nodes,
+declarePublicGauge discovery_routing_table_nodes,
   "Discovery routing table nodes", labels = ["state"]
 
 logScope:
@@ -208,14 +208,14 @@ proc ipLimitDec(r: var RoutingTable, b: KBucket, n: Node) =
 
 proc add(k: KBucket, n: Node) =
   k.nodes.add(n)
-  routing_table_nodes.inc()
+  discovery_routing_table_nodes.inc()
 
 proc remove(k: KBucket, n: Node): bool =
   let i = k.nodes.find(n)
   if i != -1:
-    routing_table_nodes.dec()
+    discovery_routing_table_nodes.dec()
     if k.nodes[i].seen:
-      routing_table_nodes.dec(labelValues = ["seen"])
+      discovery_routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
     trace "removed node:", node = n
     true
@@ -527,7 +527,7 @@ proc setJustSeen*(r: RoutingTable, n: Node) =
 
     if not n.seen:
       b.nodes[0].seen = true
-      routing_table_nodes.inc(labelValues = ["seen"])
+      discovery_routing_table_nodes.inc(labelValues = ["seen"])
 
 proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
