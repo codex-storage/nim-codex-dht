@@ -25,7 +25,7 @@ type
     client: Client
     bindAddress: Address ## UDP binding address
     transp: DatagramTransport
-    pendingRequests: Table[AESGCMNonce, PendingRequest]
+    pendingRequests: Table[AESGCMNonce, (PendingRequest, Moment)]
     keyexchangeInProgress: HashSet[NodeId]
     pendingRequestsByNode: Table[NodeId, seq[seq[byte]]]
     codec*: Codec
@@ -70,7 +70,7 @@ proc sendMessage*(t: Transport, toId: NodeId, toAddr: Address, message: seq[byte
 proc registerRequest(t: Transport, n: Node, message: seq[byte],
     nonce: AESGCMNonce) =
   let request = PendingRequest(node: n, message: message)
-  if not t.pendingRequests.hasKeyOrPut(nonce, request):
+  if not t.pendingRequests.hasKeyOrPut(nonce, (request, Moment.now())):
     sleepAsync(responseTimeout).addCallback() do(data: pointer):
       t.pendingRequests.del(nonce)
 
@@ -165,9 +165,16 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
 
     of Flag.Whoareyou:
       trace "Received whoareyou packet", myport = t.bindAddress.port, address = a
-      var pr: PendingRequest
-      if t.pendingRequests.take(packet.whoareyou.requestNonce, pr):
-        let toNode = pr.node
+      var
+        prt: (PendingRequest, Moment)
+      if t.pendingRequests.take(packet.whoareyou.requestNonce, prt):
+        let
+          pr = prt[0]
+          startTime = prt[1]
+          toNode = pr.node
+          rtt = Moment.now() - startTime
+        # trace "whoareyou RTT:", rtt, node = toNode
+        toNode.registerRtt(rtt)
         # This is a node we previously contacted and thus must have an address.
         doAssert(toNode.address.isSome())
         let address = toNode.address.get()
