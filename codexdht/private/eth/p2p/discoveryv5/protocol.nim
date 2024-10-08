@@ -499,11 +499,17 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
   ## on that, more replies will be awaited.
   ## If one reply is lost here (timed out), others are ignored too.
   ## Same counts for out of order receival.
+  let startTime = Moment.now()
   var op = await d.waitMessage(fromNode, reqId)
   if op.isSome:
     if op.get.kind == MessageKind.nodes:
       var res = op.get.nodes.sprs
-      let total = op.get.nodes.total
+      let
+        total = op.get.nodes.total
+        firstTime = Moment.now()
+        rtt = firstTime - startTime
+      # trace "nodes RTT:", rtt, node = fromNode
+      fromNode.registerRtt(rtt)
       for i in 1 ..< total:
         op = await d.waitMessage(fromNode, reqId)
         if op.isSome and op.get.kind == MessageKind.nodes:
@@ -526,7 +532,11 @@ proc ping*(d: Protocol, toNode: Node):
   ## Returns the received pong message or an error.
   let
     msg = PingMessage(sprSeq: d.localNode.record.seqNum)
+    startTime = Moment.now()
     resp = await d.waitResponse(toNode, msg)
+    rtt = Moment.now() - startTime
+  # trace "ping RTT:", rtt, node = toNode
+  toNode.registerRtt(rtt)
 
   if resp.isSome():
     if resp.get().kind == pong:
@@ -586,7 +596,11 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
   ## Returns the received talkresp message or an error.
   let
     msg = TalkReqMessage(protocol: protocol, request: request)
+    startTime = Moment.now()
     resp = await d.waitResponse(toNode, msg)
+    rtt = Moment.now() - startTime
+  # trace "talk RTT:", rtt, node = toNode
+  toNode.registerRtt(rtt)
 
   if resp.isSome():
     if resp.get().kind == talkResp:
