@@ -276,7 +276,7 @@ proc updateRecord*(
       newSpr = spr.get()
       seqNo = d.localNode.record.seqNum
 
-    info "Updated discovery SPR", uri = newSpr.toURI()
+    info "Updated discovery SPR", uri = newSpr.toURI(), newSpr = newSpr.data
 
     d.localNode.record = newSpr
     d.localNode.record.data.seqNo = seqNo
