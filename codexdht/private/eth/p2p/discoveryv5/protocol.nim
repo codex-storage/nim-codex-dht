@@ -514,6 +514,18 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
         op = await d.waitMessage(fromNode, reqId)
         if op.isSome and op.get.kind == MessageKind.nodes:
           res.add(op.get.nodes.sprs)
+          # Estimate bandwidth based on UDP packet train received, assuming these were
+          # released fast and spaced in time by bandwidth bottleneck. This is just a rough
+          # packet-pair based estimate, far from being perfect.
+          # TODO: get message size from lower layer for better bandwidth estimate
+          # TODO: get better reception timestamp from lower layers
+          let
+            deltaT = Moment.now() - firstTime
+            bwBps = 500.0 * 8.0 / (deltaT.nanoseconds.float / i.float / 1e9)
+          debug "bw estimate:", deltaT = deltaT, i,
+                bw_mbps = bwBps / 1e6,
+                node = fromNode
+          fromNode.registerBw(bwBps)
         else:
           # No error on this as we received some nodes.
           break
@@ -941,6 +953,7 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
         discard d.addNode(nodes[][0])
 
     # Get IP and port from pong message and add it to the ip votes
+    trace "pong rx", n, myip = res.ip, myport = res.port
     let a = Address(ip: ValidIpAddress.init(res.ip), port: Port(res.port))
     d.ipVote.insert(n.id, a)
 
