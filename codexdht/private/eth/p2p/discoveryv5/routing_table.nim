@@ -16,6 +16,8 @@ export options
 
 declarePublicGauge discovery_routing_table_nodes,
   "Discovery routing table nodes", labels = ["state"]
+declarePublicGauge discovery_routing_table_buckets,
+  "Discovery routing table: number of buckets"
 
 logScope:
   topics = "discv5 routingtable"
@@ -286,6 +288,7 @@ proc init*(T: type RoutingTable, localNode: Node, bitsPerHop = DefaultBitsPerHop
     distanceCalculator = XorDistanceCalculator): T =
   ## Initialize the routing table for provided `Node` and bitsPerHop value.
   ## `bitsPerHop` is default set to 5 as recommended by original Kademlia paper.
+  discovery_routing_table_buckets.inc()
   RoutingTable(
     localNode: localNode,
     buckets: @[KBucket.new(0.u256, high(UInt256), ipLimits.bucketIpLimit)],
@@ -299,6 +302,7 @@ proc splitBucket(r: var RoutingTable, index: int) =
   let (a, b) = bucket.split()
   r.buckets[index] = a
   r.buckets.insert(b, index + 1)
+  discovery_routing_table_buckets.inc()
 
 proc bucketForNode(r: RoutingTable, id: NodeId): KBucket =
   result = binaryGetBucketForNode(r.buckets, id)
