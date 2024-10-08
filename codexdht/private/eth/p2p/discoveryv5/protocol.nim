@@ -126,6 +126,7 @@ const
   RevalidateMax = 10000 ## Revalidation of a peer is done between min and max milliseconds.
   ## value in milliseconds
   IpMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
+  DebugPrintInterval = 5.minutes ## Interval to print neighborhood with stats
   ## majority and updating this when SPR auto update is set.
   InitialLookups = 1 ## Amount of lookups done when populating the routing table
   ResponseTimeout* = 1.seconds ## timeout for the response of a request-response
@@ -167,6 +168,7 @@ type
     refreshLoop: Future[void]
     revalidateLoop: Future[void]
     ipMajorityLoop: Future[void]
+    debugPrintLoop: Future[void]
     lastLookup: chronos.Moment
     bootstrapRecords*: seq[SignedPeerRecord]
     ipVote: IpVote
@@ -1039,6 +1041,17 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
     trace "ipMajorityLoop canceled"
   trace "ipMajorityLoop exited!"
 
+proc debugPrintLoop(d: Protocol) {.async.} =
+  ## Loop which prints the neighborhood with stats
+  while true:
+    await sleepAsync(DebugPrintInterval)
+    for b in d.routingTable.buckets:
+      debug "bucket", depth = b.getDepth,
+            len = b.nodes.len, standby = b.replacementLen
+      for n in b.nodes:
+        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int,
+              bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
+
 func init*(
     T: type DiscoveryConfig,
     tableIpLimit: uint,
@@ -1176,6 +1189,7 @@ proc start*(d: Protocol) {.async.} =
   d.refreshLoop = refreshLoop(d)
   d.revalidateLoop = revalidateLoop(d)
   d.ipMajorityLoop = ipMajorityLoop(d)
+  d.debugPrintLoop = debugPrintLoop(d)
 
   await d.providers.start()
 
