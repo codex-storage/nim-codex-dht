@@ -10,6 +10,7 @@ import
   bearssl/rand,
   chronos,
   chronicles,
+  metrics,
   libp2p/crypto/crypto,
   stew/shims/net,
   "."/[node, encoding, sessions]
@@ -22,6 +23,11 @@ const
 
 logScope:
   topics = "discv5 transport"
+
+declarePublicCounter discovery_transport_tx,
+  "Discovery transport messages sent", labels = ["state"]
+declarePublicCounter discovery_transport_rx,
+  "Discovery transport messages received", labels = ["state"]
 
 type
   Transport* [Client] = ref object
@@ -56,7 +62,9 @@ proc sendToA(t: Transport, a: Address, msg: seq[byte]) =
         # nodes. Else the revalidation might end up clearing the routing tabl
         # because of ping failures due to own network connection failure.
         warn "Discovery send failed", msg = f.readError.msg
+        discovery_transport_tx.inc(labelValues = ["failed"])
   )
+  discovery_transport_tx.inc()
 
 proc send(t: Transport, n: Node, data: seq[byte]) =
   doAssert(n.address.isSome())
@@ -144,6 +152,7 @@ proc sendPending(t:Transport, toNode: Node):
     t.pendingRequestsByNode.del(toNode.id)
 
 proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
+  discovery_transport_rx.inc()
   let decoded = t.codec.decodePacket(a, packet)
   if decoded.isOk:
     let packet = decoded[]
@@ -215,6 +224,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         else:
           trace "address mismatch, not adding seen flag", node, address = a, nodeAddress = node.address.get()
   else:
+    discovery_transport_rx.inc(labelValues = ["failed_decode"])
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
 proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
