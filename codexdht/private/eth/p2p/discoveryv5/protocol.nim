@@ -100,13 +100,13 @@ import nimcrypto except toHex
 
 export options, results, node, spr, providers
 
-declareCounter discovery_message_requests_outgoing,
+declareCounter dht_message_requests_outgoing,
   "Discovery protocol outgoing message requests", labels = ["response"]
-declareCounter discovery_message_requests_incoming,
+declareCounter dht_message_requests_incoming,
   "Discovery protocol incoming message requests", labels = ["response"]
-declareCounter discovery_unsolicited_messages,
+declareCounter dht_unsolicited_messages,
   "Discovery protocol unsolicited or timed-out messages"
-declareCounter discovery_enr_auto_update,
+declareCounter dht_enr_auto_update,
   "Amount of discovery IP:port address SPR auto updates"
 
 logScope:
@@ -407,27 +407,27 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     message: Message) =
   case message.kind
   of ping:
-    discovery_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc()
     d.handlePing(srcId, fromAddr, message.ping, message.reqId)
   of findNode:
-    discovery_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc()
     d.handleFindNode(srcId, fromAddr, message.findNode, message.reqId)
   of findNodeFast:
-    discovery_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc()
     d.handleFindNodeFast(srcId, fromAddr, message.findNodeFast, message.reqId)
   of talkReq:
-    discovery_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc()
     d.handleTalkReq(srcId, fromAddr, message.talkReq, message.reqId)
   of addProvider:
-    discovery_message_requests_incoming.inc()
-    discovery_message_requests_incoming.inc(labelValues = ["no_response"])
+    dht_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc(labelValues = ["no_response"])
     d.handleAddProvider(srcId, fromAddr, message.addProvider, message.reqId)
   of getProviders:
-    discovery_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc()
     asyncSpawn d.handleGetProviders(srcId, fromAddr, message.getProviders, message.reqId)
   of regTopic, topicQuery:
-    discovery_message_requests_incoming.inc()
-    discovery_message_requests_incoming.inc(labelValues = ["no_response"])
+    dht_message_requests_incoming.inc()
+    dht_message_requests_incoming.inc(labelValues = ["no_response"])
     trace "Received unimplemented message kind", kind = message.kind,
       origin = fromAddr
   else:
@@ -435,7 +435,7 @@ proc handleMessage(d: Protocol, srcId: NodeId, fromAddr: Address,
     if d.awaitedMessages.take((srcId, message.reqId), waiter):
       waiter.complete(some(message))
     else:
-      discovery_unsolicited_messages.inc()
+      dht_unsolicited_messages.inc()
       trace "Timed out or unrequested message", kind = message.kind,
         origin = fromAddr
 
@@ -464,7 +464,7 @@ proc sendRequest*[T: SomeMessage](d: Protocol, toNode: Node, m: T,
 
   trace "Send message packet", dstId = toNode.id,
     address = toNode.address, kind = messageKind(T)
-  discovery_message_requests_outgoing.inc()
+  dht_message_requests_outgoing.inc()
 
   d.transport.sendMessage(toNode, message)
 
@@ -513,10 +513,10 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
           break
       return ok(res)
     else:
-      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to find node message")
   else:
-    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Nodes message not received in time")
 
 proc ping*(d: Protocol, toNode: Node):
@@ -534,11 +534,11 @@ proc ping*(d: Protocol, toNode: Node):
       return ok(resp.get().pong)
     else:
       d.replaceNode(toNode)
-      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to ping message")
   else:
     d.replaceNode(toNode)
-    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Pong message not received in time")
 
 proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
@@ -594,11 +594,11 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
       return ok(resp.get().talkResp.response)
     else:
       d.replaceNode(toNode)
-      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to talk request message")
   else:
     d.replaceNode(toNode)
-    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Talk response message not received in time")
 
 proc lookupDistances*(target, dest: NodeId): seq[uint16] =
@@ -723,12 +723,12 @@ proc sendGetProviders(d: Protocol, toNode: Node,
     else:
       # TODO: do we need to do something when there is an invalid response?
       d.replaceNode(toNode)
-      discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
+      dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to GetProviders message")
   else:
     # TODO: do we need to do something when there is no response?
     d.replaceNode(toNode)
-    discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
+    dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("GetProviders response message not received in time")
 
 proc getProvidersLocal*(
@@ -997,7 +997,7 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
               warn "Failed updating SPR with newly discovered external address",
                 majority, previous, error = res.error
             else:
-              discovery_enr_auto_update.inc()
+              dht_enr_auto_update.inc()
               info "Updated SPR with newly discovered external address",
                 majority, previous, uri = toURI(d.localNode.record)
           else:

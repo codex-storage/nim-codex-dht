@@ -33,9 +33,9 @@ from stew/objects import checkedEnumAssign
 
 export crypto
 
-declareCounter discovery_session_lru_cache_hits, "Session LRU cache hits"
-declareCounter discovery_session_lru_cache_misses, "Session LRU cache misses"
-declareCounter discovery_session_decrypt_failures, "Session decrypt failures"
+declareCounter dht_session_lru_cache_hits, "Session LRU cache hits"
+declareCounter dht_session_lru_cache_misses, "Session LRU cache misses"
+declareCounter dht_session_decrypt_failures, "Session decrypt failures"
 
 logScope:
   topics = "discv5"
@@ -234,7 +234,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
   if c.sessions.load(toId, toAddr, recipientKey1, recipientKey2, initiatorKey):
     haskey = true
     messageEncrypted = encryptGCM(initiatorKey, nonce, message, @iv & header)
-    discovery_session_lru_cache_hits.inc()
+    dht_session_lru_cache_hits.inc()
   else:
     # We might not have the node's keys if the handshake hasn't been performed
     # yet. That's fine, we send a random-packet and we will be responded with
@@ -247,7 +247,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
     var randomData: array[gcmTagSize + 4, byte]
     hmacDrbgGenerate(rng, randomData)
     messageEncrypted.add(randomData)
-    discovery_session_lru_cache_misses.inc()
+    dht_session_lru_cache_misses.inc()
 
   let maskedHeader = encryptHeader(toId, iv, header)
 
@@ -431,11 +431,11 @@ proc decodeMessagePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
     # Don't consider this an error, simply haven't done a handshake yet or
     # the session got removed.
     trace "Decrypting failed (no keys)"
-    discovery_session_lru_cache_misses.inc()
+    dht_session_lru_cache_misses.inc()
     return ok(Packet(flag: Flag.OrdinaryMessage, requestNonce: nonce,
       srcId: srcId))
 
-  discovery_session_lru_cache_hits.inc()
+  dht_session_lru_cache_hits.inc()
 
   var pt = decryptGCM(recipientKey2, nonce, ct, @iv & @header)
   if pt.isNone():
@@ -448,7 +448,7 @@ proc decodeMessagePacket(c: var Codec, fromAddr: Address, nonce: AESGCMNonce,
       # needed later, depending on message order.
       trace "Decrypting failed (invalid keys)", address = fromAddr
       #c.sessions.del(srcId, fromAddr)
-      discovery_session_decrypt_failures.inc()
+      dht_session_decrypt_failures.inc()
       return ok(Packet(flag: Flag.OrdinaryMessage, requestNonce: nonce,
         srcId: srcId))
 
