@@ -447,9 +447,9 @@ proc registerTalkProtocol*(d: Protocol, protocolId: seq[byte],
   else:
     ok()
 
-proc replaceNode(d: Protocol, n: Node) =
+proc replaceNode(d: Protocol, n: Node, removeIfNoReplacement = true) =
   if n.record notin d.bootstrapRecords:
-    d.routingTable.replaceNode(n)
+    d.routingTable.replaceNode(n, removeIfNoReplacement)
   else:
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
@@ -537,7 +537,11 @@ proc ping*(d: Protocol, toNode: Node):
       discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to ping message")
   else:
-    d.replaceNode(toNode)
+    # A ping (or the pong) was lost, what should we do? Previous implementation called 
+    # d.replaceNode(toNode) immediately, which removed the node. This is too aggressive,
+    # especially if we have a temporary network outage. Although bootstrap nodes are protected
+    # from being removed, everything else would slowly be removed.
+    d.replaceNode(toNode, removeIfNoReplacement = false)
     discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Pong message not received in time")
 
@@ -597,7 +601,8 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
       discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to talk request message")
   else:
-    d.replaceNode(toNode)
+    # remove on loss only if there is a replacement
+    d.replaceNode(toNode, removeIfNoReplacement = false)
     discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Talk response message not received in time")
 
@@ -726,8 +731,8 @@ proc sendGetProviders(d: Protocol, toNode: Node,
       discovery_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to GetProviders message")
   else:
-    # TODO: do we need to do something when there is no response?
-    d.replaceNode(toNode)
+    # remove on loss only if there is a replacement
+    d.replaceNode(toNode, removeIfNoReplacement = false)
     discovery_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("GetProviders response message not received in time")
 
