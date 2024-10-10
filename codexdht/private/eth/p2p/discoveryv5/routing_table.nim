@@ -14,8 +14,10 @@ import
 
 export options
 
-declarePublicGauge routing_table_nodes,
+declarePublicGauge dht_routing_table_nodes,
   "Discovery routing table nodes", labels = ["state"]
+declarePublicGauge dht_routing_table_buckets,
+  "Discovery routing table: number of buckets"
 
 logScope:
   topics = "discv5 routingtable"
@@ -208,14 +210,14 @@ proc ipLimitDec(r: var RoutingTable, b: KBucket, n: Node) =
 
 proc add(k: KBucket, n: Node) =
   k.nodes.add(n)
-  routing_table_nodes.inc()
+  dht_routing_table_nodes.inc()
 
 proc remove(k: KBucket, n: Node): bool =
   let i = k.nodes.find(n)
   if i != -1:
-    routing_table_nodes.dec()
+    dht_routing_table_nodes.dec()
     if k.nodes[i].seen:
-      routing_table_nodes.dec(labelValues = ["seen"])
+      dht_routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
     trace "removed node:", node = n
     true
@@ -286,6 +288,7 @@ proc init*(T: type RoutingTable, localNode: Node, bitsPerHop = DefaultBitsPerHop
     distanceCalculator = XorDistanceCalculator): T =
   ## Initialize the routing table for provided `Node` and bitsPerHop value.
   ## `bitsPerHop` is default set to 5 as recommended by original Kademlia paper.
+  dht_routing_table_buckets.inc()
   RoutingTable(
     localNode: localNode,
     buckets: @[KBucket.new(0.u256, high(UInt256), ipLimits.bucketIpLimit)],
@@ -299,6 +302,7 @@ proc splitBucket(r: var RoutingTable, index: int) =
   let (a, b) = bucket.split()
   r.buckets[index] = a
   r.buckets.insert(b, index + 1)
+  dht_routing_table_buckets.inc()
 
 proc bucketForNode(r: RoutingTable, id: NodeId): KBucket =
   result = binaryGetBucketForNode(r.buckets, id)
@@ -527,7 +531,7 @@ proc setJustSeen*(r: RoutingTable, n: Node) =
 
     if not n.seen:
       b.nodes[0].seen = true
-      routing_table_nodes.inc(labelValues = ["seen"])
+      dht_routing_table_nodes.inc(labelValues = ["seen"])
 
 proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
