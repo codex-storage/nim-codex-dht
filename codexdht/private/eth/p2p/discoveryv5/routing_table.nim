@@ -182,6 +182,8 @@ proc midpoint(k: KBucket): NodeId =
 
 proc len(k: KBucket): int = k.nodes.len
 
+proc replacementLen*(k: KBucket): int = k.replacementCache.len
+
 proc tail(k: KBucket): Node = k.nodes[high(k.nodes)]
 
 proc ipLimitInc(r: var RoutingTable, b: KBucket, n: Node): bool =
@@ -282,6 +284,9 @@ proc computeSharedPrefixBits(nodes: openArray[NodeId]): int =
 
   # Reaching this would mean that all node ids are equal.
   doAssert(false, "Unable to calculate number of shared prefix bits")
+
+proc getDepth*(b: KBucket) : int =
+  computeSharedPrefixBits(@[b.istart, b.iend])
 
 proc init*(T: type RoutingTable, localNode: Node, bitsPerHop = DefaultBitsPerHop,
     ipLimits = DefaultTableIpLimits, rng: ref HmacDrbgContext,
