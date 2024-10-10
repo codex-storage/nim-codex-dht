@@ -20,6 +20,9 @@ const
   responseTimeout* = 1.seconds ## timeout for the response of a request-response
   ## call
 
+logScope:
+  topics = "discv5 transport"
+
 type
   Transport* [Client] = ref object
     client: Client
@@ -209,6 +212,8 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
           discard t.sendPending(node)
+        else:
+          trace "address mismatch, not adding seen flag", node, address = a, nodeAddress = node.address.get()
   else:
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
