@@ -24,10 +24,14 @@ const
 logScope:
   topics = "discv5 transport"
 
-declarePublicCounter discovery_transport_tx,
-  "Discovery transport messages sent", labels = ["state"]
-declarePublicCounter discovery_transport_rx,
-  "Discovery transport messages received", labels = ["state"]
+declarePublicCounter discovery_transport_tx_packets,
+  "Discovery transport packets sent", labels = ["state"]
+declarePublicCounter discovery_transport_tx_bytes,
+  "Discovery transport bytes sent", labels = ["state"]
+declarePublicCounter discovery_transport_rx_packets,
+  "Discovery transport packets received", labels = ["state"]
+declarePublicCounter discovery_transport_rx_bytes,
+  "Discovery transport bytes received", labels = ["state"]
 
 type
   Transport* [Client] = ref object
@@ -62,9 +66,11 @@ proc sendToA(t: Transport, a: Address, msg: seq[byte]) =
         # nodes. Else the revalidation might end up clearing the routing tabl
         # because of ping failures due to own network connection failure.
         warn "Discovery send failed", msg = f.readError.msg
-        discovery_transport_tx.inc(labelValues = ["failed"])
+        discovery_transport_tx_packets.inc(labelValues = ["failed"])
+        discovery_transport_tx_bytes.inc(msg.len.int64, labelValues = ["failed"])
   )
-  discovery_transport_tx.inc()
+  discovery_transport_tx_packets.inc()
+  discovery_transport_tx_bytes.inc(msg.len.int64)
 
 proc send(t: Transport, n: Node, data: seq[byte]) =
   doAssert(n.address.isSome())
@@ -152,7 +158,8 @@ proc sendPending(t:Transport, toNode: Node):
     t.pendingRequestsByNode.del(toNode.id)
 
 proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
-  discovery_transport_rx.inc()
+  discovery_transport_rx_packets.inc()
+  discovery_transport_rx_bytes.inc(packet.len.int64)
   let decoded = t.codec.decodePacket(a, packet)
   if decoded.isOk:
     let packet = decoded[]
@@ -224,7 +231,8 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         else:
           trace "address mismatch, not adding seen flag", node, address = a, nodeAddress = node.address.get()
   else:
-    discovery_transport_rx.inc(labelValues = ["failed_decode"])
+    discovery_transport_rx_packets.inc(labelValues = ["failed_decode"])
+    discovery_transport_rx_bytes.inc(packet.len.int64, labelValues = ["failed_decode"])
     trace "Packet decoding error", myport = t.bindAddress.port, error = decoded.error, address = a
 
 proc processClient[T](transp: DatagramTransport, raddr: TransportAddress):
