@@ -136,7 +136,7 @@ const
   FindnodeSeenThreshold = 1.0 ## threshold used as findnode response filter
   LookupSeenThreshold = 0.0 ## threshold used for lookup nodeset selection
   QuerySeenThreshold = 0.0 ## threshold used for query nodeset selection
-  NoreplyRemoveThreshold = 0.0 ## remove node on no reply if 'seen' is below this value
+  NoreplyRemoveThreshold = 0.5 ## remove node on no reply if 'seen' is below this value
 
 func shortLog*(record: SignedPeerRecord): string =
   ## Returns compact string representation of ``SignedPeerRecord``.
