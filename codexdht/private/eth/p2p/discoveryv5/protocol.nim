@@ -1047,8 +1047,9 @@ proc debugPrintLoop(d: Protocol) {.async.} =
       debug "bucket", depth = b.getDepth,
             len = b.nodes.len, standby = b.replacementLen
       for n in b.nodes:
-        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int,
-              bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
+        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int
+        # bandwidth estimates are based on limited information, so not logging it yet to avoid confusion
+        # trace "node", n, bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
 
 func init*(
     T: type DiscoveryConfig,
