@@ -231,7 +231,8 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         if node.address.isSome() and a == node.address.get():
           # TODO: maybe here we could verify that the address matches what we were
           # sending the 'whoareyou' message to. In that case, we can set 'seen'
-          node.seen = true
+          # TODO: verify how this works with restrictive NAT and firewall scenarios.
+          node.registerSeen()
           if t.client.addNode(node):
             trace "Added new node to routing table after handshake", node, tablesize=t.client.nodesDiscovered()
           discard t.sendPending(node)

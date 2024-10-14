@@ -133,6 +133,9 @@ const
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
   ## call
+  FindnodeSeenThreshold = 1.0 ## threshold used as findnode response filter
+  LookupSeenThreshold = 0.0 ## threshold used for lookup nodeset selection
+  QuerySeenThreshold = 0.0 ## threshold used for query nodeset selection
 
 func shortLog*(record: SignedPeerRecord): string =
   ## Returns compact string representation of ``SignedPeerRecord``.
@@ -249,14 +252,14 @@ proc randomNodes*(d: Protocol, maxAmount: int,
   d.randomNodes(maxAmount, proc(x: Node): bool = x.record.contains(enrField))
 
 proc neighbours*(d: Protocol, id: NodeId, k: int = BUCKET_SIZE,
-    seenOnly = false): seq[Node] =
+    seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours (closest node ids) of the given node id.
-  d.routingTable.neighbours(id, k, seenOnly)
+  d.routingTable.neighbours(id, k, seenThreshold)
 
 proc neighboursAtDistances*(d: Protocol, distances: seq[uint16],
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours (closest node ids) at given distances.
-  d.routingTable.neighboursAtDistances(distances, k, seenOnly)
+  d.routingTable.neighboursAtDistances(distances, k, seenThreshold)
 
 proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 
@@ -344,7 +347,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
     # TODO: Still deduplicate also?
     if fn.distances.all(proc (x: uint16): bool = return x <= 256):
       d.sendNodes(fromId, fromAddr, reqId,
-        d.routingTable.neighboursAtDistances(fn.distances, seenOnly = true, k = FindNodeResultLimit))
+        d.routingTable.neighboursAtDistances(fn.distances, FindNodeResultLimit, FindnodeSeenThreshold))
     else:
       # At least one invalid distance, but the polite node we are, still respond
       # with empty nodes.
@@ -353,7 +356,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
 proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
     fnf: FindNodeFastMessage, reqId: RequestId) =
   d.sendNodes(fromId, fromAddr, reqId,
-    d.routingTable.neighbours(fnf.target, seenOnly = true, k = FindNodeFastResultLimit))
+    d.routingTable.neighbours(fnf.target, FindNodeFastResultLimit, FindnodeSeenThreshold))
   # TODO: if known, maybe we should add exact target even if not yet "seen"
 
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
@@ -669,7 +672,7 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
   # `closestNodes` holds the k closest nodes to target found, sorted by distance
   # Unvalidated nodes are used for requests as a form of validation.
   var closestNodes = d.routingTable.neighbours(target, BUCKET_SIZE,
-    seenOnly = false)
+    LookupSeenThreshold)
 
   var asked, seen = initHashSet[NodeId]()
   asked.incl(d.localNode.id) # No need to ask our own node
@@ -832,7 +835,7 @@ proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
   ## This will take k nodes from the routing table closest to target and
   ## query them for nodes closest to target. If there are less than k nodes in
   ## the routing table, nodes returned by the first queries will be used.
-  var queryBuffer = d.routingTable.neighbours(target, k, seenOnly = false)
+  var queryBuffer = d.routingTable.neighbours(target, k, QuerySeenThreshold)
 
   var asked, seen = initHashSet[NodeId]()
   asked.incl(d.localNode.id) # No need to ask our own node

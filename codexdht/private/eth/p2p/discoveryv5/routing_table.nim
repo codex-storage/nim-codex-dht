@@ -218,7 +218,7 @@ proc remove(k: KBucket, n: Node): bool =
   let i = k.nodes.find(n)
   if i != -1:
     dht_routing_table_nodes.dec()
-    if k.nodes[i].seen:
+    if alreadySeen(k.nodes[i]):
       dht_routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
     trace "removed node:", node = n
@@ -476,16 +476,16 @@ proc nodesByDistanceTo(r: RoutingTable, k: KBucket, id: NodeId): seq[Node] =
   sortedByIt(k.nodes, r.distance(it.id, id))
 
 proc neighbours*(r: RoutingTable, id: NodeId, k: int = BUCKET_SIZE,
-    seenOnly = false): seq[Node] =
+    seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours of the given node id.
-  ## When seenOnly is set to true, only nodes that have been contacted
-  ## previously successfully will be selected.
+  ## When seenThreshold is set, only nodes that have been contacted
+  ## previously successfully and were seen enough recently will be selected.
   result = newSeqOfCap[Node](k * 2)
   block addNodes:
     for bucket in r.bucketsByDistanceTo(id):
       for n in r.nodesByDistanceTo(bucket, id):
-        # Only provide actively seen nodes when `seenOnly` set.
-        if not seenOnly or n.seen:
+        # Avoid nodes with 'seen' value below threshold
+        if n.seen >= seenThreshold:
           result.add(n)
           if result.len == k * 2:
             break addNodes
@@ -497,22 +497,22 @@ proc neighbours*(r: RoutingTable, id: NodeId, k: int = BUCKET_SIZE,
     result.setLen(k)
 
 proc neighboursAtDistance*(r: RoutingTable, distance: uint16,
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours at given logarithmic distance.
-  result = r.neighbours(r.idAtDistance(r.localNode.id, distance), k, seenOnly)
+  result = r.neighbours(r.idAtDistance(r.localNode.id, distance), k, seenThreshold)
   # This is a bit silly, first getting closest nodes then to only keep the ones
   # that are exactly the requested distance.
   keepIf(result, proc(n: Node): bool = r.logDistance(n.id, r.localNode.id) == distance)
 
 proc neighboursAtDistances*(r: RoutingTable, distances: seq[uint16],
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours at given logarithmic distances.
   # TODO: This will currently return nodes with neighbouring distances on the
   # first one prioritize. It might end up not including all the node distances
   # requested. Need to rework the logic here and not use the neighbours call.
   if distances.len > 0:
     result = r.neighbours(r.idAtDistance(r.localNode.id, distances[0]), k,
-      seenOnly)
+      seenThreshold)
     # This is a bit silly, first getting closest nodes then to only keep the ones
     # that are exactly the requested distances.
     keepIf(result, proc(n: Node): bool =
@@ -529,18 +529,19 @@ proc moveRight[T](arr: var openArray[T], a, b: int) =
     shallowCopy(arr[i + 1], arr[i])
   shallowCopy(arr[a], t)
 
-proc setJustSeen*(r: RoutingTable, n: Node) =
-  ## Move `n` to the head (most recently seen) of its bucket.
+proc setJustSeen*(r: RoutingTable, n: Node, seen = true) =
+  ## If seen, move `n` to the head (most recently seen) of its bucket.
   ## If `n` is not in the routing table, do nothing.
   let b = r.bucketForNode(n.id)
-  let idx = b.nodes.find(n)
-  if idx >= 0:
-    if idx != 0:
-      b.nodes.moveRight(0, idx - 1)
+  if seen:
+    let idx = b.nodes.find(n)
+    if idx >= 0:
+      if idx != 0:
+        b.nodes.moveRight(0, idx - 1)
 
-    if not n.seen:
-      b.nodes[0].seen = true
-      dht_routing_table_nodes.inc(labelValues = ["seen"])
+      if not alreadySeen(n): # first time seeing the node
+        dht_routing_table_nodes.inc(labelValues = ["seen"])
+  n.registerSeen(seen)
 
 proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
