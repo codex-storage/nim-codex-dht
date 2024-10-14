@@ -136,6 +136,7 @@ const
   FindnodeSeenThreshold = 1.0 ## threshold used as findnode response filter
   LookupSeenThreshold = 0.0 ## threshold used for lookup nodeset selection
   QuerySeenThreshold = 0.0 ## threshold used for query nodeset selection
+  NoreplyRemoveThreshold = 0.0 ## remove node on no reply if 'seen' is below this value
 
 func shortLog*(record: SignedPeerRecord): string =
   ## Returns compact string representation of ``SignedPeerRecord``.
@@ -452,9 +453,9 @@ proc registerTalkProtocol*(d: Protocol, protocolId: seq[byte],
   else:
     ok()
 
-proc replaceNode(d: Protocol, n: Node, removeIfNoReplacement = true) =
+proc replaceNode(d: Protocol, n: Node, forceRemoveBelow = 1.0) =
   if n.record notin d.bootstrapRecords:
-    d.routingTable.replaceNode(n, removeIfNoReplacement)
+    d.routingTable.replaceNode(n, forceRemoveBelow)
   else:
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
@@ -566,7 +567,7 @@ proc ping*(d: Protocol, toNode: Node):
     # d.replaceNode(toNode) immediately, which removed the node. This is too aggressive,
     # especially if we have a temporary network outage. Although bootstrap nodes are protected
     # from being removed, everything else would slowly be removed.
-    d.replaceNode(toNode, removeIfNoReplacement = false)
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Pong message not received in time")
 
@@ -631,7 +632,7 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
       return err("Invalid response to talk request message")
   else:
     # remove on loss only if there is a replacement
-    d.replaceNode(toNode, removeIfNoReplacement = false)
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Talk response message not received in time")
 
@@ -761,7 +762,7 @@ proc sendGetProviders(d: Protocol, toNode: Node,
       return err("Invalid response to GetProviders message")
   else:
     # remove on loss only if there is a replacement
-    d.replaceNode(toNode, removeIfNoReplacement = false)
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("GetProviders response message not received in time")
 

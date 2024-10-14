@@ -436,16 +436,16 @@ proc removeNode*(r: var RoutingTable, n: Node) =
   if b.remove(n):
     ipLimitDec(r, b, n)
 
-proc replaceNode*(r: var RoutingTable, n: Node, removeIfNoReplacement = true) =
+proc replaceNode*(r: var RoutingTable, n: Node, forceRemoveBelow = 1.0) =
   ## Replace node `n` with last entry in the replacement cache. If there are
   ## no entries in the replacement cache, node `n` will either be removed
-  ## or kept based on `removeIfNoReplacement`.
+  ## or kept based on `forceRemoveBelow`. Default: remove.
   ## Note: Kademlia paper recommends here to not remove nodes if there are no
   ## replacements. This might mean pinging nodes that are not reachable, but
   ## also avoids being too agressive because UDP losses or temporary network
   ## failures.
   let b = r.bucketForNode(n.id)
-  if (b.replacementCache.len > 0 or removeIfNoReplacement): 
+  if (b.replacementCache.len > 0 or n.seen <= forceRemoveBelow):
     if b.remove(n):
       debug "Node removed from routing table", n
       ipLimitDec(r, b, n)
