@@ -126,6 +126,7 @@ const
   RevalidateMax = 10000 ## Revalidation of a peer is done between min and max milliseconds.
   ## value in milliseconds
   IpMajorityInterval = 5.minutes ## Interval for checking the latest IP:Port
+  DebugPrintInterval = 5.minutes ## Interval to print neighborhood with stats
   ## majority and updating this when SPR auto update is set.
   InitialLookups = 1 ## Amount of lookups done when populating the routing table
   ResponseTimeout* = 1.seconds ## timeout for the response of a request-response
@@ -167,6 +168,7 @@ type
     refreshLoop: Future[void]
     revalidateLoop: Future[void]
     ipMajorityLoop: Future[void]
+    debugPrintLoop: Future[void]
     lastLookup: chronos.Moment
     bootstrapRecords*: seq[SignedPeerRecord]
     ipVote: IpVote
@@ -499,15 +501,31 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
   ## on that, more replies will be awaited.
   ## If one reply is lost here (timed out), others are ignored too.
   ## Same counts for out of order receival.
+  let startTime = Moment.now()
   var op = await d.waitMessage(fromNode, reqId)
   if op.isSome:
     if op.get.kind == MessageKind.nodes:
       var res = op.get.nodes.sprs
-      let total = op.get.nodes.total
+      let
+        total = op.get.nodes.total
+        firstTime = Moment.now()
+        rtt = firstTime - startTime
+      # trace "nodes RTT:", rtt, node = fromNode
+      fromNode.registerRtt(rtt)
       for i in 1 ..< total:
         op = await d.waitMessage(fromNode, reqId)
         if op.isSome and op.get.kind == MessageKind.nodes:
           res.add(op.get.nodes.sprs)
+          # Estimate bandwidth based on UDP packet train received, assuming these were
+          # released fast and spaced in time by bandwidth bottleneck. This is just a rough
+          # packet-pair based estimate, far from being perfect.
+          # TODO: get message size from lower layer for better bandwidth estimate
+          # TODO: get better reception timestamp from lower layers
+          let
+            deltaT = Moment.now() - firstTime
+            bwBps = 500.0 * 8.0 / (deltaT.nanoseconds.float / i.float / 1e9)
+          # trace "bw estimate:", deltaT = deltaT, i, bw_mbps = bwBps / 1e6, node = fromNode
+          fromNode.registerBw(bwBps)
         else:
           # No error on this as we received some nodes.
           break
@@ -526,7 +544,11 @@ proc ping*(d: Protocol, toNode: Node):
   ## Returns the received pong message or an error.
   let
     msg = PingMessage(sprSeq: d.localNode.record.seqNum)
+    startTime = Moment.now()
     resp = await d.waitResponse(toNode, msg)
+    rtt = Moment.now() - startTime
+  # trace "ping RTT:", rtt, node = toNode
+  toNode.registerRtt(rtt)
 
   if resp.isSome():
     if resp.get().kind == pong:
@@ -586,7 +608,11 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
   ## Returns the received talkresp message or an error.
   let
     msg = TalkReqMessage(protocol: protocol, request: request)
+    startTime = Moment.now()
     resp = await d.waitResponse(toNode, msg)
+    rtt = Moment.now() - startTime
+  # trace "talk RTT:", rtt, node = toNode
+  toNode.registerRtt(rtt)
 
   if resp.isSome():
     if resp.get().kind == talkResp:
@@ -927,6 +953,7 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
         discard d.addNode(nodes[][0])
 
     # Get IP and port from pong message and add it to the ip votes
+    trace "pong rx", n, myip = res.ip, myport = res.port
     let a = Address(ip: ValidIpAddress.init(res.ip), port: Port(res.port))
     d.ipVote.insert(n.id, a)
 
@@ -1011,6 +1038,18 @@ proc ipMajorityLoop(d: Protocol) {.async.} =
   except CancelledError:
     trace "ipMajorityLoop canceled"
   trace "ipMajorityLoop exited!"
+
+proc debugPrintLoop(d: Protocol) {.async.} =
+  ## Loop which prints the neighborhood with stats
+  while true:
+    await sleepAsync(DebugPrintInterval)
+    for b in d.routingTable.buckets:
+      debug "bucket", depth = b.getDepth,
+            len = b.nodes.len, standby = b.replacementLen
+      for n in b.nodes:
+        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int
+        # bandwidth estimates are based on limited information, so not logging it yet to avoid confusion
+        # trace "node", n, bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
 
 func init*(
     T: type DiscoveryConfig,
@@ -1149,6 +1188,7 @@ proc start*(d: Protocol) {.async.} =
   d.refreshLoop = refreshLoop(d)
   d.revalidateLoop = revalidateLoop(d)
   d.ipMajorityLoop = ipMajorityLoop(d)
+  d.debugPrintLoop = debugPrintLoop(d)
 
   await d.providers.start()
 
