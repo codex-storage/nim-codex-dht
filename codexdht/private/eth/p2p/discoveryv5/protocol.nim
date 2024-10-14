@@ -524,9 +524,7 @@ proc waitNodes(d: Protocol, fromNode: Node, reqId: RequestId):
           let
             deltaT = Moment.now() - firstTime
             bwBps = 500.0 * 8.0 / (deltaT.nanoseconds.float / i.float / 1e9)
-          debug "bw estimate:", deltaT = deltaT, i,
-                bw_mbps = bwBps / 1e6,
-                node = fromNode
+          # trace "bw estimate:", deltaT = deltaT, i, bw_mbps = bwBps / 1e6, node = fromNode
           fromNode.registerBw(bwBps)
         else:
           # No error on this as we received some nodes.
