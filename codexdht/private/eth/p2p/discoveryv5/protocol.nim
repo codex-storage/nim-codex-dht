@@ -553,9 +553,9 @@ proc ping*(d: Protocol, toNode: Node):
   # trace "ping RTT:", rtt, node = toNode
   toNode.registerRtt(rtt)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == pong:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().pong)
     else:
       d.replaceNode(toNode)
@@ -580,9 +580,9 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
     msg = FindNodeMessage(distances: distances)
     nodes = await d.waitNodeResponses(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, nodes.isOk)
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
-    d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
     trace "findNode nodes not OK."
@@ -599,9 +599,9 @@ proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
     msg = FindNodeFastMessage(target: target)
     nodes = await d.waitNodeResponses(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, nodes.isOk)
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeFastResultLimit)
-    d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
     d.replaceNode(toNode)
@@ -621,9 +621,9 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
   # trace "talk RTT:", rtt, node = toNode
   toNode.registerRtt(rtt)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == talkResp:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().talkResp.response)
     else:
       d.replaceNode(toNode)
@@ -750,9 +750,9 @@ proc sendGetProviders(d: Protocol, toNode: Node,
   let
     resp = await d.waitResponse(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == MessageKind.providers:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().provs)
     else:
       # TODO: do we need to do something when there is an invalid response?
