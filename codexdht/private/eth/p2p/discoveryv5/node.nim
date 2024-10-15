@@ -22,6 +22,7 @@ export stint
 
 const
   avgSmoothingFactor = 0.9
+  seenSmoothingFactor = 0.9
 
 type
   NodeId* = UInt256
@@ -41,9 +42,10 @@ type
     pubkey*: PublicKey
     address*: Option[Address]
     record*: SignedPeerRecord
-    seen*: bool ## Indicates if there was at least one successful
+    seen*: float ## Indicates if there was at least one successful
     ## request-response with this node, or if the nde was verified
-    ## through the underlying transport mechanisms.
+    ## through the underlying transport mechanisms. After first contact
+    ## it tracks how reliable is the communication with the node.
     stats*: Stats # traffic measurements and statistics
 
 func toNodeId*(pid: PeerId): NodeId =
@@ -192,6 +194,18 @@ func shortLog*(address: Address): string =
   $address
 
 chronicles.formatIt(Address): shortLog(it)
+
+func registerSeen*(n:Node, seen = true) =
+  ## Register event of seeing (getting message from) or not seeing (missing message) node
+  ## Note: interpretation might depend on NAT type
+  if n.seen == 0: # first time seeing the node
+    n.seen = 1
+  else:
+    n.seen = seenSmoothingFactor * n.seen + (1.0 - seenSmoothingFactor) * seen.float
+
+func alreadySeen*(n:Node) : bool =
+  ## Was the node seen at least once?
+  n.seen > 0
 
 # collecting performane metrics
 func registerRtt*(n: Node, rtt: Duration) =

@@ -133,6 +133,10 @@ const
   MaxProvidersEntries* = 1_000_000 # one million records
   MaxProvidersPerEntry* = 20 # providers per entry
   ## call
+  FindnodeSeenThreshold = 1.0 ## threshold used as findnode response filter
+  LookupSeenThreshold = 0.0 ## threshold used for lookup nodeset selection
+  QuerySeenThreshold = 0.0 ## threshold used for query nodeset selection
+  NoreplyRemoveThreshold = 0.5 ## remove node on no reply if 'seen' is below this value
 
 func shortLog*(record: SignedPeerRecord): string =
   ## Returns compact string representation of ``SignedPeerRecord``.
@@ -249,14 +253,14 @@ proc randomNodes*(d: Protocol, maxAmount: int,
   d.randomNodes(maxAmount, proc(x: Node): bool = x.record.contains(enrField))
 
 proc neighbours*(d: Protocol, id: NodeId, k: int = BUCKET_SIZE,
-    seenOnly = false): seq[Node] =
+    seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours (closest node ids) of the given node id.
-  d.routingTable.neighbours(id, k, seenOnly)
+  d.routingTable.neighbours(id, k, seenThreshold)
 
 proc neighboursAtDistances*(d: Protocol, distances: seq[uint16],
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours (closest node ids) at given distances.
-  d.routingTable.neighboursAtDistances(distances, k, seenOnly)
+  d.routingTable.neighboursAtDistances(distances, k, seenThreshold)
 
 proc nodesDiscovered*(d: Protocol): int = d.routingTable.len
 
@@ -344,7 +348,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
     # TODO: Still deduplicate also?
     if fn.distances.all(proc (x: uint16): bool = return x <= 256):
       d.sendNodes(fromId, fromAddr, reqId,
-        d.routingTable.neighboursAtDistances(fn.distances, seenOnly = true, k = FindNodeResultLimit))
+        d.routingTable.neighboursAtDistances(fn.distances, FindNodeResultLimit, FindnodeSeenThreshold))
     else:
       # At least one invalid distance, but the polite node we are, still respond
       # with empty nodes.
@@ -353,7 +357,7 @@ proc handleFindNode(d: Protocol, fromId: NodeId, fromAddr: Address,
 proc handleFindNodeFast(d: Protocol, fromId: NodeId, fromAddr: Address,
     fnf: FindNodeFastMessage, reqId: RequestId) =
   d.sendNodes(fromId, fromAddr, reqId,
-    d.routingTable.neighbours(fnf.target, seenOnly = true, k = FindNodeFastResultLimit))
+    d.routingTable.neighbours(fnf.target, FindNodeFastResultLimit, FindnodeSeenThreshold))
   # TODO: if known, maybe we should add exact target even if not yet "seen"
 
 proc handleTalkReq(d: Protocol, fromId: NodeId, fromAddr: Address,
@@ -449,9 +453,9 @@ proc registerTalkProtocol*(d: Protocol, protocolId: seq[byte],
   else:
     ok()
 
-proc replaceNode(d: Protocol, n: Node) =
+proc replaceNode(d: Protocol, n: Node, forceRemoveBelow = 1.0) =
   if n.record notin d.bootstrapRecords:
-    d.routingTable.replaceNode(n)
+    d.routingTable.replaceNode(n, forceRemoveBelow)
   else:
     # For now we never remove bootstrap nodes. It might make sense to actually
     # do so and to retry them only in case we drop to a really low amount of
@@ -550,16 +554,20 @@ proc ping*(d: Protocol, toNode: Node):
   # trace "ping RTT:", rtt, node = toNode
   toNode.registerRtt(rtt)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == pong:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().pong)
     else:
       d.replaceNode(toNode)
       dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to ping message")
   else:
-    d.replaceNode(toNode)
+    # A ping (or the pong) was lost, what should we do? Previous implementation called 
+    # d.replaceNode(toNode) immediately, which removed the node. This is too aggressive,
+    # especially if we have a temporary network outage. Although bootstrap nodes are protected
+    # from being removed, everything else would slowly be removed.
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Pong message not received in time")
 
@@ -573,9 +581,9 @@ proc findNode*(d: Protocol, toNode: Node, distances: seq[uint16]):
     msg = FindNodeMessage(distances: distances)
     nodes = await d.waitNodeResponses(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, nodes.isOk)
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeResultLimit, distances)
-    d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
     trace "findNode nodes not OK."
@@ -592,9 +600,9 @@ proc findNodeFast*(d: Protocol, toNode: Node, target: NodeId):
     msg = FindNodeFastMessage(target: target)
     nodes = await d.waitNodeResponses(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, nodes.isOk)
   if nodes.isOk:
     let res = verifyNodesRecords(nodes.get(), toNode, FindNodeFastResultLimit)
-    d.routingTable.setJustSeen(toNode)
     return ok(res)
   else:
     d.replaceNode(toNode)
@@ -614,16 +622,17 @@ proc talkReq*(d: Protocol, toNode: Node, protocol, request: seq[byte]):
   # trace "talk RTT:", rtt, node = toNode
   toNode.registerRtt(rtt)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == talkResp:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().talkResp.response)
     else:
       d.replaceNode(toNode)
       dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to talk request message")
   else:
-    d.replaceNode(toNode)
+    # remove on loss only if there is a replacement
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("Talk response message not received in time")
 
@@ -664,7 +673,7 @@ proc lookup*(d: Protocol, target: NodeId, fast: bool = false): Future[seq[Node]]
   # `closestNodes` holds the k closest nodes to target found, sorted by distance
   # Unvalidated nodes are used for requests as a form of validation.
   var closestNodes = d.routingTable.neighbours(target, BUCKET_SIZE,
-    seenOnly = false)
+    LookupSeenThreshold)
 
   var asked, seen = initHashSet[NodeId]()
   asked.incl(d.localNode.id) # No need to ask our own node
@@ -742,9 +751,9 @@ proc sendGetProviders(d: Protocol, toNode: Node,
   let
     resp = await d.waitResponse(toNode, msg)
 
+  d.routingTable.setJustSeen(toNode, resp.isSome())
   if resp.isSome():
     if resp.get().kind == MessageKind.providers:
-      d.routingTable.setJustSeen(toNode)
       return ok(resp.get().provs)
     else:
       # TODO: do we need to do something when there is an invalid response?
@@ -752,8 +761,8 @@ proc sendGetProviders(d: Protocol, toNode: Node,
       dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to GetProviders message")
   else:
-    # TODO: do we need to do something when there is no response?
-    d.replaceNode(toNode)
+    # remove on loss only if there is a replacement
+    d.replaceNode(toNode, NoreplyRemoveThreshold)
     dht_message_requests_outgoing.inc(labelValues = ["no_response"])
     return err("GetProviders response message not received in time")
 
@@ -827,7 +836,7 @@ proc query*(d: Protocol, target: NodeId, k = BUCKET_SIZE): Future[seq[Node]]
   ## This will take k nodes from the routing table closest to target and
   ## query them for nodes closest to target. If there are less than k nodes in
   ## the routing table, nodes returned by the first queries will be used.
-  var queryBuffer = d.routingTable.neighbours(target, k, seenOnly = false)
+  var queryBuffer = d.routingTable.neighbours(target, k, QuerySeenThreshold)
 
   var asked, seen = initHashSet[NodeId]()
   asked.incl(d.localNode.id) # No need to ask our own node
@@ -1047,7 +1056,8 @@ proc debugPrintLoop(d: Protocol) {.async.} =
       debug "bucket", depth = b.getDepth,
             len = b.nodes.len, standby = b.replacementLen
       for n in b.nodes:
-        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int
+        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int,
+          reliability = n.seen.round(3)
         # bandwidth estimates are based on limited information, so not logging it yet to avoid confusion
         # trace "node", n, bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
 

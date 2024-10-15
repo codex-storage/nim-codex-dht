@@ -101,7 +101,7 @@ proc nodesAtDistanceUniqueIp*(
 
 proc addSeenNode*(d: discv5_protocol.Protocol, n: Node): bool =
   # Add it as a seen node, warning: for testing convenience only!
-  n.seen = true
+  n.registerSeen()
   d.addNode(n)
 
 func udpExample*(_: type MultiAddress): MultiAddress =
