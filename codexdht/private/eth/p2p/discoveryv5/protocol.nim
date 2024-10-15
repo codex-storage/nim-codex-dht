@@ -1056,7 +1056,8 @@ proc debugPrintLoop(d: Protocol) {.async.} =
       debug "bucket", depth = b.getDepth,
             len = b.nodes.len, standby = b.replacementLen
       for n in b.nodes:
-        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int
+        debug "node", n, rttMin = n.stats.rttMin.int, rttAvg = n.stats.rttAvg.int,
+          reliability = n.seen.round(3)
         # bandwidth estimates are based on limited information, so not logging it yet to avoid confusion
         # trace "node", n, bwMaxMbps = (n.stats.bwMax / 1e6).round(3), bwAvgMbps = (n.stats.bwAvg / 1e6).round(3)
 
