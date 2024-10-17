@@ -412,26 +412,32 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await lookupNode.closeWait()
 
-  # We no longer support field filtering
-  # test "Random nodes with spr field filter":
-  #   let
-  #     lookupNode = initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20301))
-  #     targetNode = generateNode(PrivateKey.example(rng))
-  #     otherNode = generateNode(PrivateKey.example(rng))
-  #     anotherNode = generateNode(PrivateKey.example(rng))
+  test "Random nodes, also with filter":
+    let
+      lookupNode = initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20301))
+      targetNode = initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20302))
+      otherNode = initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20303))
+      anotherNode = initDiscoveryNode(rng, PrivateKey.example(rng), localAddress(20304))
 
-  #   check:
-  #     lookupNode.addNode(targetNode)
-  #     lookupNode.addNode(otherNode)
-  #     lookupNode.addNode(anotherNode)
+    check:
+      lookupNode.addNode(targetNode.localNode.record)
+      lookupNode.addNode(otherNode.localNode.record)
+      lookupNode.addNode(anotherNode.localNode.record)
 
-  #   let discovered = lookupNode.randomNodes(10)
-  #   check discovered.len == 3
-  #   let discoveredFiltered = lookupNode.randomNodes(10,
-  #     ("test", @[byte 1,2,3,4]))
-  #   check discoveredFiltered.len == 1 and discoveredFiltered.contains(targetNode)
+    let discovered = lookupNode.randomNodes(10)
+    check discovered.len == 3
+    let discoveredFiltered = lookupNode.randomNodes(10,
+      proc(n: Node) : bool = n.address.get.port == Port(20302))
+    check discoveredFiltered.len == 1 and discoveredFiltered.contains(targetNode.localNode)
+    let discoveredEmpty = lookupNode.randomNodes(10,
+      proc(n: Node) : bool = n.address.get.port == Port(20305))
+    check discoveredEmpty.len == 0
 
-  #   await lookupNode.closeWait()
+    await lookupNode.closeWait()
+    await targetNode.closeWait()
+    await otherNode.closeWait()
+    await anotherNode.closeWait()
+
 
   test "New protocol with spr":
     let
