@@ -218,7 +218,7 @@ proc remove(k: KBucket, n: Node): bool =
   let i = k.nodes.find(n)
   if i != -1:
     dht_routing_table_nodes.dec()
-    if k.nodes[i].seen:
+    if alreadySeen(k.nodes[i]):
       dht_routing_table_nodes.dec(labelValues = ["seen"])
     k.nodes.delete(i)
     trace "removed node:", node = n
@@ -431,27 +431,31 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
 
 proc removeNode*(r: var RoutingTable, n: Node) =
   ## Remove the node `n` from the routing table.
+  ## No replemennt added, even if there is in replacement cache.
   let b = r.bucketForNode(n.id)
   if b.remove(n):
     ipLimitDec(r, b, n)
 
-proc replaceNode*(r: var RoutingTable, n: Node) =
+proc replaceNode*(r: var RoutingTable, n: Node, forceRemoveBelow = 1.0) =
   ## Replace node `n` with last entry in the replacement cache. If there are
-  ## no entries in the replacement cache, node `n` will simply be removed.
-  # TODO: Kademlia paper recommends here to not remove nodes if there are no
-  # replacements. However, that would require a bit more complexity in the
-  # revalidation as you don't want to try pinging that node all the time.
+  ## no entries in the replacement cache, node `n` will either be removed
+  ## or kept based on `forceRemoveBelow`. Default: remove.
+  ## Note: Kademlia paper recommends here to not remove nodes if there are no
+  ## replacements. This might mean pinging nodes that are not reachable, but
+  ## also avoids being too agressive because UDP losses or temporary network
+  ## failures.
   let b = r.bucketForNode(n.id)
-  if b.remove(n):
-    debug "Node removed from routing table", n
-    ipLimitDec(r, b, n)
+  if (b.replacementCache.len > 0 or n.seen <= forceRemoveBelow):
+    if b.remove(n):
+      debug "Node removed from routing table", n
+      ipLimitDec(r, b, n)
 
-    if b.replacementCache.len > 0:
-      # Nodes in the replacement cache are already included in the ip limits.
-      let rn = b.replacementCache[high(b.replacementCache)]
-      b.add(rn)
-      b.replacementCache.delete(high(b.replacementCache))
-      debug "Node added to routing table from replacement cache", node=rn
+      if b.replacementCache.len > 0:
+        # Nodes in the replacement cache are already included in the ip limits.
+        let rn = b.replacementCache[high(b.replacementCache)]
+        b.add(rn)
+        b.replacementCache.delete(high(b.replacementCache))
+        debug "Node added to routing table from replacement cache", node=rn
 
 proc getNode*(r: RoutingTable, id: NodeId): Option[Node] =
   ## Get the `Node` with `id` as `NodeId` from the routing table.
@@ -472,16 +476,16 @@ proc nodesByDistanceTo(r: RoutingTable, k: KBucket, id: NodeId): seq[Node] =
   sortedByIt(k.nodes, r.distance(it.id, id))
 
 proc neighbours*(r: RoutingTable, id: NodeId, k: int = BUCKET_SIZE,
-    seenOnly = false): seq[Node] =
+    seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours of the given node id.
-  ## When seenOnly is set to true, only nodes that have been contacted
-  ## previously successfully will be selected.
+  ## When seenThreshold is set, only nodes that have been contacted
+  ## previously successfully and were seen enough recently will be selected.
   result = newSeqOfCap[Node](k * 2)
   block addNodes:
     for bucket in r.bucketsByDistanceTo(id):
       for n in r.nodesByDistanceTo(bucket, id):
-        # Only provide actively seen nodes when `seenOnly` set.
-        if not seenOnly or n.seen:
+        # Avoid nodes with 'seen' value below threshold
+        if n.seen >= seenThreshold:
           result.add(n)
           if result.len == k * 2:
             break addNodes
@@ -493,22 +497,22 @@ proc neighbours*(r: RoutingTable, id: NodeId, k: int = BUCKET_SIZE,
     result.setLen(k)
 
 proc neighboursAtDistance*(r: RoutingTable, distance: uint16,
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours at given logarithmic distance.
-  result = r.neighbours(r.idAtDistance(r.localNode.id, distance), k, seenOnly)
+  result = r.neighbours(r.idAtDistance(r.localNode.id, distance), k, seenThreshold)
   # This is a bit silly, first getting closest nodes then to only keep the ones
   # that are exactly the requested distance.
   keepIf(result, proc(n: Node): bool = r.logDistance(n.id, r.localNode.id) == distance)
 
 proc neighboursAtDistances*(r: RoutingTable, distances: seq[uint16],
-    k: int = BUCKET_SIZE, seenOnly = false): seq[Node] =
+    k: int = BUCKET_SIZE, seenThreshold = 0.0): seq[Node] =
   ## Return up to k neighbours at given logarithmic distances.
   # TODO: This will currently return nodes with neighbouring distances on the
   # first one prioritize. It might end up not including all the node distances
   # requested. Need to rework the logic here and not use the neighbours call.
   if distances.len > 0:
     result = r.neighbours(r.idAtDistance(r.localNode.id, distances[0]), k,
-      seenOnly)
+      seenThreshold)
     # This is a bit silly, first getting closest nodes then to only keep the ones
     # that are exactly the requested distances.
     keepIf(result, proc(n: Node): bool =
@@ -525,18 +529,19 @@ proc moveRight[T](arr: var openArray[T], a, b: int) =
     shallowCopy(arr[i + 1], arr[i])
   shallowCopy(arr[a], t)
 
-proc setJustSeen*(r: RoutingTable, n: Node) =
-  ## Move `n` to the head (most recently seen) of its bucket.
+proc setJustSeen*(r: RoutingTable, n: Node, seen = true) =
+  ## If seen, move `n` to the head (most recently seen) of its bucket.
   ## If `n` is not in the routing table, do nothing.
   let b = r.bucketForNode(n.id)
-  let idx = b.nodes.find(n)
-  if idx >= 0:
-    if idx != 0:
-      b.nodes.moveRight(0, idx - 1)
+  if seen:
+    let idx = b.nodes.find(n)
+    if idx >= 0:
+      if idx != 0:
+        b.nodes.moveRight(0, idx - 1)
 
-    if not n.seen:
-      b.nodes[0].seen = true
-      dht_routing_table_nodes.inc(labelValues = ["seen"])
+      if not alreadySeen(n): # first time seeing the node
+        dht_routing_table_nodes.inc(labelValues = ["seen"])
+  n.registerSeen(seen)
 
 proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
