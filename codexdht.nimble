@@ -16,8 +16,9 @@ requires "chronos >= 4.0.3 & < 4.1.0"
 requires "libp2p == 1.5.0"
 requires "metrics"
 requires "stew#head"
-requires "stint"
-requires "https://github.com/codex-storage/nim-datastore >= 0.1.1 & < 0.2.0"
+requires "stint#3236fa68394f1e3a06e2bc34218aacdd2d675923"
+requires "results == 0.5.1"
+requires "https://github.com/codex-storage/nim-datastore#27ca95a52805cd2bd85906e8d687f998b0db9799"
 requires "questionable"
 
 task testAll, "Run all test suites":
