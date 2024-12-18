@@ -98,9 +98,7 @@ proc update*(
       return err "No existing address in SignedPeerRecord with no port provided"
 
     let ipAddr = ip.get
-    # try: ip.get
-    #              except ValueError as e:
-    #                return err ("Existing address contains invalid address: " & $e.msg).cstring
+   
     if tcpPort.isSome:
       transProto = IpTransportProtocol.tcpProtocol
       transProtoPort = tcpPort.get
