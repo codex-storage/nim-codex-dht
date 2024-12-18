@@ -963,7 +963,7 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
 
     # Get IP and port from pong message and add it to the ip votes
     trace "pong rx", n, myip = res.ip, myport = res.port
-    let a = Address(ip: ValidIpAddress.init(res.ip), port: Port(res.port))
+    let a = Address(ip: res.ip, port: Port(res.port))
     d.ipVote.insert(n.id, a)
 
 proc revalidateLoop(d: Protocol) {.async.} =
@@ -1076,7 +1076,7 @@ func init*(
 
 proc newProtocol*(
     privKey: PrivateKey,
-    enrIp: Option[ValidIpAddress],
+    enrIp: Option[IpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
     bootstrapRecords: openArray[SignedPeerRecord] = [],

@@ -34,7 +34,7 @@ type
 
   IpLimits* = object
     limit*: uint
-    ips: Table[ValidIpAddress, uint]
+    ips: Table[IpAddress, uint]
 
 
   RoutingTable* = object
@@ -101,7 +101,7 @@ type
     ReplacementExisting
     NoAddress
 
-func inc*(ipLimits: var IpLimits, ip: ValidIpAddress): bool =
+func inc*(ipLimits: var IpLimits, ip: IpAddress): bool =
   let val = ipLimits.ips.getOrDefault(ip, 0)
   if val < ipLimits.limit:
     ipLimits.ips[ip] = val + 1
@@ -109,7 +109,7 @@ func inc*(ipLimits: var IpLimits, ip: ValidIpAddress): bool =
   else:
     false
 
-func dec*(ipLimits: var IpLimits, ip: ValidIpAddress) =
+func dec*(ipLimits: var IpLimits, ip: IpAddress) =
   let val = ipLimits.ips.getOrDefault(ip, 0)
   if val == 1:
     ipLimits.ips.del(ip)
