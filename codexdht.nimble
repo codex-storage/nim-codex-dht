@@ -17,7 +17,7 @@ requires "libp2p == 1.5.0"
 requires "metrics#cacfdc12454a0804c65112b9f4f50d1375208dcd"
 requires "stew >= 0.2.0"
 requires "stint#3236fa68394f1e3a06e2bc34218aacdd2d675923"
-requires "https://github.com/codex-storage/nim-datastore#b5635ef82f50255bc5ff2fe411722d870bcb587c"
+requires "https://github.com/codex-storage/nim-datastore#a969b9799cb7fd2c2511b6820ded00bced141dea"
 requires "questionable >= 0.10.15 & < 0.11.0"
 
 task testAll, "Run all test suites":
