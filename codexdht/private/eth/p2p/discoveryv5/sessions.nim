@@ -16,7 +16,7 @@
 ## - the one derived in the key-exchange started by the other node.
 ## To alleviate this issue, we store two decryption keys in each session.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/options,

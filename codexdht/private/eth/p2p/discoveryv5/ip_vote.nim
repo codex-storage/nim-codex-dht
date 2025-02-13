@@ -15,7 +15,7 @@
 ## To select the right address, a majority count is done. This is done over a
 ## sort of moving window as votes expire after `IpVoteTimeout`.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[tables, options],

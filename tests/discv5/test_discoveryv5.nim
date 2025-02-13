@@ -287,7 +287,7 @@ suite "Discovery v5 Tests":
     await mainNode.closeWait()
     await testNode.closeWait()
 
-  proc testLookupTargets(fast: bool = false) {.async: (raises: [Exception]).} =
+  proc testLookupTargets(fast: bool = false): Future[bool] {.async.} =
     const
       nodeCount = 17
 
@@ -306,9 +306,9 @@ suite "Discovery v5 Tests":
       for t in nodes:
         if n != t:
           let pong = await n.ping(t.localNode)
-          check pong.isOk()
           if pong.isErr():
             echo pong.error
+            return false
           # check (await n.ping(t.localNode)).isOk()
 
     for i in 1 ..< nodeCount:
@@ -318,16 +318,19 @@ suite "Discovery v5 Tests":
       let target = nodes[i]
       let discovered = await nodes[nodeCount-1].lookup(target.localNode.id, fast = fast)
       debug "Lookup result", target = target.localNode, discovered
-      check discovered[0] == target.localNode
+      if discovered[0] != target.localNode:
+        return false
 
     for node in nodes:
       await node.closeWait()
 
+    return true
+
   test "Lookup targets":
-    await testLookupTargets()
+    check await testLookupTargets()
 
   test "Lookup targets using traditional findNode":
-    await testLookupTargets(fast = true)
+    check await testLookupTargets(fast = true)
 
   test "Resolve target":
     let
