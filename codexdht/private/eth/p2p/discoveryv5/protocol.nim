@@ -71,7 +71,7 @@
 ## more requests will be needed for a lookup (adding bandwidth and latency).
 ## This might be a concern for mobile devices.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[tables, sets, options, math, sequtils, algorithm, strutils],
@@ -236,18 +236,18 @@ proc getNode*(d: Protocol, id: NodeId): Option[Node] =
   ## Get the node with id from the routing table.
   d.routingTable.getNode(id)
 
-proc randomNodes*(d: Protocol, maxAmount: int): seq[Node] {.raises: Exception.} =
+proc randomNodes*(d: Protocol, maxAmount: int): seq[Node] =
   ## Get a `maxAmount` of random nodes from the local routing table.
   d.routingTable.randomNodes(maxAmount)
 
 proc randomNodes*(d: Protocol, maxAmount: int,
-    pred: proc(x: Node): bool {.gcsafe, noSideEffect.}): seq[Node] {.raises: Exception.} =
+    pred: proc(x: Node): bool {.gcsafe, noSideEffect, raises: [].}): seq[Node] =
   ## Get a `maxAmount` of random nodes from the local routing table with the
   ## `pred` predicate function applied as filter on the nodes selected.
   d.routingTable.randomNodes(maxAmount, pred)
 
 proc randomNodes*(d: Protocol, maxAmount: int,
-  enrField: (string, seq[byte])): seq[Node]  {.raises: Exception.} =
+  enrField: (string, seq[byte])): seq[Node] =
   ## Get a `maxAmount` of random nodes from the local routing table. The
   ## the nodes selected are filtered by provided `enrField`.
   d.randomNodes(maxAmount, proc(x: Node): bool = x.record.contains(enrField))
@@ -563,7 +563,7 @@ proc ping*(d: Protocol, toNode: Node):
       dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to ping message")
   else:
-    # A ping (or the pong) was lost, what should we do? Previous implementation called 
+    # A ping (or the pong) was lost, what should we do? Previous implementation called
     # d.replaceNode(toNode) immediately, which removed the node. This is too aggressive,
     # especially if we have a temporary network outage. Although bootstrap nodes are protected
     # from being removed, everything else would slowly be removed.

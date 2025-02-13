@@ -19,7 +19,7 @@ import pkg/stew/byteutils
 import pkg/questionable
 import pkg/questionable/results
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import ./maintenance
 import ./cache

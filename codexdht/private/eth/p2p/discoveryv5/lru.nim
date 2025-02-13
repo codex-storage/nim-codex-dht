@@ -1,6 +1,6 @@
 import std/[tables, lists, options]
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 export tables, lists, options
 

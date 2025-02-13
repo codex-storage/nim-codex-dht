@@ -10,7 +10,7 @@
 ## These messages get protobuf encoded, while in the spec they get RLP encoded.
 ##
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[hashes, net],
