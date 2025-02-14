@@ -11,7 +11,7 @@
 ## https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md#sessions
 ##
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[hashes, net, options, sugar, tables],

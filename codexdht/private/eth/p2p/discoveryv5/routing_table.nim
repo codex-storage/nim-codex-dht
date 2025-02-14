@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[algorithm, times, sequtils, bitops, sets, options, tables],
@@ -21,7 +21,7 @@ declarePublicGauge dht_routing_table_buckets,
 
 logScope:
   topics = "discv5 routingtable"
-  
+
 type
   DistanceProc* = proc(a, b: NodeId): NodeId {.raises: [Defect], gcsafe, noSideEffect.}
   LogDistanceProc* = proc(a, b: NodeId): uint16 {.raises: [Defect], gcsafe, noSideEffect.}
@@ -34,7 +34,7 @@ type
 
   IpLimits* = object
     limit*: uint
-    ips: Table[ValidIpAddress, uint]
+    ips: Table[IpAddress, uint]
 
 
   RoutingTable* = object
@@ -101,7 +101,7 @@ type
     ReplacementExisting
     NoAddress
 
-func inc*(ipLimits: var IpLimits, ip: ValidIpAddress): bool =
+func inc*(ipLimits: var IpLimits, ip: IpAddress): bool =
   let val = ipLimits.ips.getOrDefault(ip, 0)
   if val < ipLimits.limit:
     ipLimits.ips[ip] = val + 1
@@ -109,7 +109,7 @@ func inc*(ipLimits: var IpLimits, ip: ValidIpAddress): bool =
   else:
     false
 
-func dec*(ipLimits: var IpLimits, ip: ValidIpAddress) =
+func dec*(ipLimits: var IpLimits, ip: IpAddress) =
   let val = ipLimits.ips.getOrDefault(ip, 0)
   if val == 1:
     ipLimits.ips.del(ip)
@@ -425,7 +425,7 @@ proc addNode*(r: var RoutingTable, n: Node): NodeStatus =
       (depth mod r.bitsPerHop != 0 and depth != ID_SIZE):
     r.splitBucket(r.buckets.find(bucket))
     return r.addNode(n) # retry adding
-  
+
   # When bucket doesn't get split the node is added to the replacement cache
   return r.addReplacement(bucket, n)
 
@@ -555,7 +555,7 @@ proc nodeToRevalidate*(r: RoutingTable): Node =
       return b.nodes[^1]
 
 proc randomNodes*(r: RoutingTable, maxAmount: int,
-    pred: proc(x: Node): bool {.gcsafe, noSideEffect.} = nil): seq[Node] =
+    pred: proc(x: Node): bool {.gcsafe, noSideEffect, raises: [].} = nil): seq[Node] =
   ## Get a `maxAmount` of random nodes from the routing table with the `pred`
   ## predicate function applied as filter on the nodes selected.
   var maxAmount = maxAmount

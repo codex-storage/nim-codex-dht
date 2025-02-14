@@ -14,6 +14,7 @@ import
   stew/endians2,
   libp2p/routing_record,
   libp2p/signed_envelope,
+  libp2p/protobuf/minprotobuf,
   "."/[messages, spr, node],
   ../../../../dht/providers_encoding
 

@@ -71,7 +71,7 @@
 ## more requests will be needed for a lookup (adding bandwidth and latency).
 ## This might be a concern for mobile devices.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[tables, sets, options, math, sequtils, algorithm, strutils],
@@ -241,7 +241,7 @@ proc randomNodes*(d: Protocol, maxAmount: int): seq[Node] =
   d.routingTable.randomNodes(maxAmount)
 
 proc randomNodes*(d: Protocol, maxAmount: int,
-    pred: proc(x: Node): bool {.gcsafe, noSideEffect.}): seq[Node] =
+    pred: proc(x: Node): bool {.gcsafe, noSideEffect, raises: [].}): seq[Node] =
   ## Get a `maxAmount` of random nodes from the local routing table with the
   ## `pred` predicate function applied as filter on the nodes selected.
   d.routingTable.randomNodes(maxAmount, pred)
@@ -563,7 +563,7 @@ proc ping*(d: Protocol, toNode: Node):
       dht_message_requests_outgoing.inc(labelValues = ["invalid_response"])
       return err("Invalid response to ping message")
   else:
-    # A ping (or the pong) was lost, what should we do? Previous implementation called 
+    # A ping (or the pong) was lost, what should we do? Previous implementation called
     # d.replaceNode(toNode) immediately, which removed the node. This is too aggressive,
     # especially if we have a temporary network outage. Although bootstrap nodes are protected
     # from being removed, everything else would slowly be removed.
@@ -963,7 +963,7 @@ proc revalidateNode*(d: Protocol, n: Node) {.async.} =
 
     # Get IP and port from pong message and add it to the ip votes
     trace "pong rx", n, myip = res.ip, myport = res.port
-    let a = Address(ip: ValidIpAddress.init(res.ip), port: Port(res.port))
+    let a = Address(ip: res.ip, port: Port(res.port))
     d.ipVote.insert(n.id, a)
 
 proc revalidateLoop(d: Protocol) {.async.} =
@@ -1076,7 +1076,7 @@ func init*(
 
 proc newProtocol*(
     privKey: PrivateKey,
-    enrIp: Option[ValidIpAddress],
+    enrIp: Option[IpAddress],
     enrTcpPort, enrUdpPort: Option[Port],
     localEnrFields: openArray[(string, seq[byte])] = [],
     bootstrapRecords: openArray[SignedPeerRecord] = [],
