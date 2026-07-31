@@ -87,10 +87,7 @@ proc add*(
         trace "Provider with same seqNo already exist", seqNo = $provider.data.seqNo
         @[]
       else:
-        without bytes =? provider.envelope.encode:
-          trace "Enable to encode provider"
-          return failure "Unable to encode provider"
-        bytes
+        provider.envelope.encode
 
   if bytes.len > 0:
     trace "Adding or updating provider record", id, peerId

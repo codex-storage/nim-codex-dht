@@ -343,9 +343,7 @@ proc encodeHandshakePacket*(rng: Rng, c: var Codec,
 
   # Add SPR of sequence number is newer
   if whoareyouData.recordSeq < c.localNode.record.seqNum:
-    let encoded = ? c.localNode.record.encode.mapErr((e: CryptoError) =>
-                    ("Failed to encode local node's SignedPeerRecord: " & $e).cstring)
-    authdata.add(encoded)
+    authdata.add(c.localNode.record.encode)
 
   let secrets = ? deriveKeys(
                     c.localNode.id,

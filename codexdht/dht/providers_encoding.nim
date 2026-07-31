@@ -37,11 +37,10 @@ func getField*(pb: ProtoBuffer, field: int,
 func write*[T: SignedPeerRecord | PeerRecord | Envelope](
     pb: var ProtoBuffer,
     field: int,
-    env: T) {.raises: [Defect, ResultError[CryptoError]].} =
+    env: T) {.raises: [Defect].} =
 
   ## Write Envelope value ``env`` to object ``pb`` using ProtoBuf's encoding.
-  let encoded = env.encode().tryGet()
-  write(pb, field, encoded)
+  write(pb, field, env.encode())
 
 proc getRepeatedField*(pb: ProtoBuffer, field: int,
                        value: var seq[SignedPeerRecord]): ProtoResult[bool] {.
