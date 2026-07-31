@@ -12,7 +12,7 @@ import
   stint, chronicles, metrics, bearssl/rand, chronos,
   "."/[node, random2, spr]
 
-from libp2p/crypto/crypto import Rng, shuffle
+from libp2p/crypto/crypto import Rng
 
 export options
 

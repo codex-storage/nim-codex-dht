@@ -15,3 +15,8 @@ proc rand*(rng: Rng, max: Natural): int =
 
 proc sample*[T](rng: Rng, a: openArray[T]): T =
   result = a[rng.rand(a.high)]
+
+proc shuffle*[T](rng: Rng, a: var openArray[T]) =
+  for i in countdown(a.high, 1):
+    let j = rng.rand(i)
+    swap(a[i], a[j])
