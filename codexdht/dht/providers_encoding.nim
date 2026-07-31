@@ -34,6 +34,21 @@ func getField*(pb: ProtoBuffer, field: int,
     else:
       err(ProtoError.IncorrectBlob)
 
+proc getField*(pb: ProtoBuffer, field: int,
+               spr: var SignedPeerRecord): ProtoResult[bool] {.inline.} =
+  ## Read ``SignedPeerRecord`` from ProtoBuf's message and validate it
+  var buffer: seq[byte]
+  let res = ? pb.getField(field, buffer)
+  if not(res):
+    ok(false)
+  else:
+    let res2 = SignedPeerRecord.decode(buffer)
+    if res2.isOk():
+      spr = res2.get()
+      ok(true)
+    else:
+      err(ProtoError.IncorrectBlob)
+
 func write*[T: SignedPeerRecord | PeerRecord | Envelope](
     pb: var ProtoBuffer,
     field: int,
