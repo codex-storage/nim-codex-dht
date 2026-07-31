@@ -80,7 +80,6 @@ import
   pkg/[chronicles, chronicles/chronos_tools],
   pkg/chronos,
   pkg/stint,
-  pkg/bearssl/rand,
   pkg/metrics,
   pkg/results
 

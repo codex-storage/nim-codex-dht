@@ -16,7 +16,6 @@
 import
   std/[hashes, net, options, sugar, tables],
   stew/endians2,
-  bearssl/rand,
   chronicles,
   stew/[byteutils],
   stint,

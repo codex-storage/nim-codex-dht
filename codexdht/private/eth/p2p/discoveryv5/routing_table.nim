@@ -9,7 +9,7 @@
 
 import
   std/[algorithm, net, times, sequtils, bitops, sets, options, tables],
-  stint, chronicles, metrics, bearssl/rand, chronos,
+  stint, chronicles, metrics, chronos,
   "."/[node, random2, spr]
 
 from libp2p/crypto/crypto import Rng

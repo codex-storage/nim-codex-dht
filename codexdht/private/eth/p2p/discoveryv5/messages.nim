@@ -14,7 +14,6 @@
 
 import
   std/[hashes, net],
-  bearssl/rand,
   ./spr,
   ./node,
   ../../../../dht/providers_messages

@@ -7,7 +7,6 @@
 # Everything below the handling of ordinary messages
 import
   std/[net, tables, options, sets],
-  bearssl/rand,
   chronos,
   chronicles,
   metrics,

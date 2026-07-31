@@ -9,7 +9,6 @@
 
 import
   std/[hashes, net],
-  bearssl/rand,
   chronicles,
   chronos,
   nimcrypto,
