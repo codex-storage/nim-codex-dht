@@ -555,7 +555,7 @@ proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
   ## bucket is selected.
   var buckets = r.buckets
-  r.rng.shuffle(buckets)
+  random2.shuffle(r.rng, buckets)
   # TODO: Should we prioritize less-recently-updated buckets instead? Could
   # store a `now` Moment at setJustSeen or at revalidate per bucket.
   for b in buckets:
