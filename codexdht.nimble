@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.6.3"
+version       = "0.6.4"
 author        = "Status Research & Development GmbH"
 description   = "DHT based on Eth discv5 implementation"
 license       = "MIT"
