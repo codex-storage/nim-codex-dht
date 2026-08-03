@@ -7,7 +7,6 @@
 # Everything below the handling of ordinary messages
 import
   std/[net, tables, options, sets],
-  bearssl/rand,
   chronos,
   chronicles,
   metrics,
@@ -41,7 +40,7 @@ type
     keyexchangeInProgress: HashSet[NodeId]
     pendingRequestsByNode: Table[NodeId, seq[seq[byte]]]
     codec*: Codec
-    rng: ref HmacDrbgContext
+    rng: Rng
 
   PendingRequest = object
     node: Node
@@ -76,7 +75,7 @@ proc send(t: Transport, n: Node, data: seq[byte]) =
   t.sendToA(n.address.get(), data)
 
 proc sendMessage*(t: Transport, toId: NodeId, toAddr: Address, message: seq[byte]) =
-  let (data, _, _) = encodeMessagePacket(t.rng[], t.codec, toId, toAddr,
+  let (data, _, _) = encodeMessagePacket(t.rng, t.codec, toId, toAddr,
     message)
   t.sendToA(toAddr, data)
 
@@ -94,7 +93,7 @@ proc registerRequest(t: Transport, n: Node, message: seq[byte],
 proc sendMessage*(t: Transport, toNode: Node, message: seq[byte]) =
   doAssert(toNode.address.isSome())
   let address = toNode.address.get()
-  let (data, nonce, haskey) = encodeMessagePacket(t.rng[], t.codec,
+  let (data, nonce, haskey) = encodeMessagePacket(t.rng, t.codec,
     toNode.id, address, message)
 
   if haskey:
@@ -129,7 +128,7 @@ proc sendWhoareyou(t: Transport, toId: NodeId, a: Address,
       pubkey = if node.isSome(): some(node.get().pubkey)
               else: none(PublicKey)
 
-    let data = encodeWhoareyouPacket(t.rng[], t.codec, toId, a, requestNonce,
+    let data = encodeWhoareyouPacket(t.rng, t.codec, toId, a, requestNonce,
       recordSeq, pubkey)
     sleepAsync(handshakeTimeout).addCallback() do(data: pointer):
       # handshake key is popped in decodeHandshakePacket. if not yet popped by timeout:
@@ -151,7 +150,7 @@ proc sendPending(t:Transport, toNode: Node):
     for message in t.pendingRequestsByNode[toNode.id]:
       trace "Sending pending packet", myport = t.bindAddress.port, dstId = toNode.id
       let address = toNode.address.get()
-      let (data, nonce, haskey) = encodeMessagePacket(t.rng[], t.codec, toNode.id, address, message)
+      let (data, nonce, haskey) = encodeMessagePacket(t.rng, t.codec, toNode.id, address, message)
       t.registerRequest(toNode, message, nonce)
       t.send(toNode, data)
     t.pendingRequestsByNode.del(toNode.id)
@@ -197,7 +196,7 @@ proc receive*(t: Transport, a: Address, packet: openArray[byte]) =
         doAssert(toNode.address.isSome())
         let address = toNode.address.get()
         let data = encodeHandshakePacket(
-                    t.rng[],
+                    t.rng,
                     t.codec,
                     toNode.id,
                     address,

@@ -3,7 +3,7 @@
 import
   std/tables,
   chronos, chronicles, stint, asynctest/chronos/unittest, 
-  stew/byteutils, bearssl/rand,
+  stew/byteutils,
   libp2p/crypto/crypto,
   codexdht/discv5/[transport, spr, node, routing_table, encoding, sessions, nodes_verification],
   codexdht/discv5/crypto as dhtcrypto,
@@ -11,7 +11,7 @@ import
   ../dht/test_helper
 
 suite "Discovery v5 Tests":
-  var rng: ref HmacDrbgContext
+  var rng: Rng
 
   setup:
     rng = newRng()
@@ -38,7 +38,6 @@ suite "Discovery v5 Tests":
 
   test "Node deletion":
     let
-      pkBootnode = PrivateKey.example(rng)
       bootnode = initDiscoveryNode(
         rng, PrivateKey.example(rng), localAddress(20301))
       node1 = initDiscoveryNode(
@@ -201,7 +200,7 @@ suite "Discovery v5 Tests":
       testNode = initDiscoveryNode(rng, testNodeKey, localAddress(20302))
       # logarithmic distance between mainNode and testNode is 256
 
-    let nodes = nodesAtDistance(mainNode.localNode, rng[], dist, 10)
+    let nodes = nodesAtDistance(mainNode.localNode, rng, dist, 10)
     for n in nodes:
       discard mainNode.addSeenNode(n) # for testing only!
 
@@ -245,7 +244,7 @@ suite "Discovery v5 Tests":
     check discovered.isOk
     check discovered[].len == 0
 
-    let moreNodes = nodesAtDistance(mainNode.localNode, rng[], dist, 10)
+    let moreNodes = nodesAtDistance(mainNode.localNode, rng, dist, 10)
     for n in moreNodes:
       discard mainNode.addSeenNode(n) # for testing only!
 
@@ -465,7 +464,7 @@ suite "Discovery v5 Tests":
 
     # Defect (for now?) on incorrect key use
     expect ResultDefect:
-      let incorrectKeyUpdates = newProtocol(PrivateKey.example(rng),
+      discard newProtocol(PrivateKey.example(rng),
         ip, some(port), some(port), bindPort = port, rng = rng,
         previousRecord = some(updatesNode.getRecord()))
 
@@ -638,7 +637,7 @@ suite "Discovery v5 Tests":
         sendNode = newNode(enrRec).expect("Properly initialized record")
       var codec = Codec(localNode: sendNode, privKey: privKey, sessions: Sessions.init(5))
 
-      let (packet, _, _) = encodeMessagePacket(rng[], codec,
+      let (packet, _, _) = encodeMessagePacket(rng, codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
 
@@ -668,7 +667,7 @@ suite "Discovery v5 Tests":
     var codec = Codec(localNode: sendNode, privKey: privKey, sessions: Sessions.init(5))
     for i in 0 ..< 5:
       let a = localAddress(20303 + i)
-      let (packet, _, _) = encodeMessagePacket(rng[], codec,
+      let (packet, _, _) = encodeMessagePacket(rng, codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
 
@@ -700,7 +699,7 @@ suite "Discovery v5 Tests":
 
     var firstRequestNonce: AESGCMNonce
     for i in 0 ..< 5:
-      let (packet, requestNonce, _) = encodeMessagePacket(rng[], codec,
+      let (packet, requestNonce, _) = encodeMessagePacket(rng, codec,
         receiveNode.localNode.id, receiveNode.localNode.address.get(), @[])
       receiveNode.transport.receive(a, packet)
       if i == 0:
@@ -740,7 +739,7 @@ suite "Discovery v5 Tests":
       talkProtocol = "echo".toBytes()
 
     proc handler(protocol: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
-        {.gcsafe, raises: [Defect].} =
+        {.gcsafe, raises: [].} =
       request
 
     let echoProtocol = TalkProtocol(protocolHandler: handler)
@@ -765,7 +764,7 @@ suite "Discovery v5 Tests":
       talkProtocol = "echo".toBytes()
 
     proc handler(protocol: TalkProtocol, request: seq[byte], fromId: NodeId, fromUdpAddress: Address): seq[byte]
-        {.gcsafe, raises: [Defect].} =
+        {.gcsafe, raises: [].} =
       request
 
     let echoProtocol = TalkProtocol(protocolHandler: handler)

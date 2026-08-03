@@ -316,11 +316,7 @@ proc encodeMessage*[T: SomeMessage](p: T, reqId: RequestId, clientMode: bool = f
   result = newSeqOfCap[byte](64)
   result.add(messageKind(T).ord)
 
-  let encoded =
-    try: p.encode()
-    except ResultError[CryptoError] as e:
-      error "Failed to encode protobuf message", typ = $T, msg = e.msg
-      @[]
+  let encoded = p.encode()
   var pb = initProtoBuffer()
   pb.write(1, reqId)
   pb.write(2, encoded)

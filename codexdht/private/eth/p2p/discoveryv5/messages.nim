@@ -14,10 +14,11 @@
 
 import
   std/[hashes, net],
-  bearssl/rand,
   ./spr,
   ./node,
   ../../../../dht/providers_messages
+
+from libp2p/crypto/crypto import Rng, generate
 
 export providers_messages
 
@@ -131,7 +132,7 @@ template messageKind*(T: typedesc[SomeMessage]): MessageKind =
 proc hash*(reqId: RequestId): Hash =
   hash(reqId.id)
 
-proc init*(T: type RequestId, rng: var HmacDrbgContext): T =
+proc init*(T: type RequestId, rng: Rng): T =
   var reqId = RequestId(id: newSeq[byte](8)) # RequestId must be <= 8 bytes
-  hmacDrbgGenerate(rng, reqId.id)
+  rng.generate(reqId.id)
   reqId

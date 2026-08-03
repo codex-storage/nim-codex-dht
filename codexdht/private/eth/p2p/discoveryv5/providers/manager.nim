@@ -12,9 +12,8 @@ from std/times import now, utc, toTime, toUnix
 import pkg/stew/endians2
 import pkg/datastore
 import pkg/chronos
-import pkg/libp2p
+import pkg/libp2p/[peerid, routing_record]
 import pkg/chronicles
-import pkg/stew/byteutils
 import pkg/questionable
 import pkg/questionable/results
 
@@ -88,10 +87,7 @@ proc add*(
         trace "Provider with same seqNo already exist", seqNo = $provider.data.seqNo
         @[]
       else:
-        without bytes =? provider.envelope.encode:
-          trace "Enable to encode provider"
-          return failure "Unable to encode provider"
-        bytes
+        provider.envelope.encode
 
   if bytes.len > 0:
     trace "Adding or updating provider record", id, peerId

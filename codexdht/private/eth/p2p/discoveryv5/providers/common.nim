@@ -11,7 +11,7 @@ import std/sequtils
 import std/strutils
 
 import pkg/chronos
-import pkg/libp2p
+import pkg/libp2p/[peerid, routing_record]
 import pkg/datastore
 import pkg/questionable
 import pkg/questionable/results

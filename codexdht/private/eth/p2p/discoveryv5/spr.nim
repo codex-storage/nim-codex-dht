@@ -14,7 +14,8 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/routing_record,
-  libp2p/multicodec
+  libp2p/multicodec,
+  pkg/protobuf_serialization
 
 export routing_record
 
@@ -98,7 +99,7 @@ proc update*(
       return err "No existing address in SignedPeerRecord with no port provided"
 
     let ipAddr = ip.get
-   
+
     if tcpPort.isSome:
       transProto = IpTransportProtocol.tcpProtocol
       transProtoPort = tcpPort.get
@@ -215,10 +216,7 @@ template fromURI*(r: var SignedPeerRecord, url: SprUri): bool =
   fromURI(r, string(url))
 
 proc toBase64*(r: SignedPeerRecord): string =
-  let encoded = r.encode
-  if encoded.isErr:
-    error "Failed to encode SignedPeerRecord", error = encoded.error
-  result = Base64Url.encode(encoded.get(@[]))
+  Base64Url.encode(r.encode)
 
 proc toURI*(r: SignedPeerRecord): string = "spr:" & r.toBase64
 

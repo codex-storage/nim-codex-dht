@@ -16,7 +16,6 @@
 import
   std/[hashes, net, options, sugar, tables],
   stew/endians2,
-  bearssl/rand,
   chronicles,
   stew/[byteutils],
   stint,
@@ -211,14 +210,14 @@ proc encodeStaticHeader*(flag: Flag, nonce: AESGCMNonce, authSize: int):
   # TODO: assert on authSize of > 2^16?
   result.add((uint16(authSize)).toBytesBE())
 
-proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
+proc encodeMessagePacket*(rng: Rng, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte]):
     (seq[byte], AESGCMNonce, bool) =
   var nonce: AESGCMNonce
   var haskey: bool
-  hmacDrbgGenerate(rng, nonce) # Random AESGCM nonce
+  rng.generate(nonce) # Random AESGCM nonce
   var iv: array[ivSize, byte]
-  hmacDrbgGenerate(rng, iv) # Random IV
+  rng.generate(iv) # Random IV
 
   # static-header
   let authdata = c.localNode.id.toByteArrayBE()
@@ -246,7 +245,7 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
     # case this must not look like a random packet.
     haskey = false
     var randomData: array[gcmTagSize + 4, byte]
-    hmacDrbgGenerate(rng, randomData)
+    rng.generate(randomData)
     messageEncrypted.add(randomData)
     dht_session_lru_cache_misses.inc()
 
@@ -259,11 +258,11 @@ proc encodeMessagePacket*(rng: var HmacDrbgContext, c: var Codec,
 
   return (packet, nonce, haskey)
 
-proc encodeWhoareyouPacket*(rng: var HmacDrbgContext, c: var Codec,
+proc encodeWhoareyouPacket*(rng: Rng, c: var Codec,
     toId: NodeId, toAddr: Address, requestNonce: AESGCMNonce, recordSeq: uint64,
     pubkey: Option[PublicKey]): seq[byte] =
   var idNonce: IdNonce
-  hmacDrbgGenerate(rng, idNonce)
+  rng.generate(idNonce)
 
   # authdata
   var authdata: seq[byte]
@@ -280,7 +279,7 @@ proc encodeWhoareyouPacket*(rng: var HmacDrbgContext, c: var Codec,
   header.add(authdata)
 
   var iv: array[ivSize, byte]
-  hmacDrbgGenerate(rng, iv) # Random IV
+  rng.generate(iv) # Random IV
 
   let maskedHeader = encryptHeader(toId, iv, header)
 
@@ -301,14 +300,14 @@ proc encodeWhoareyouPacket*(rng: var HmacDrbgContext, c: var Codec,
 
   return packet
 
-proc encodeHandshakePacket*(rng: var HmacDrbgContext, c: var Codec,
+proc encodeHandshakePacket*(rng: Rng, c: var Codec,
     toId: NodeId, toAddr: Address, message: openArray[byte],
     whoareyouData: WhoareyouData, pubkey: PublicKey): EncodeResult[seq[byte]] =
   var header: seq[byte]
   var nonce: AESGCMNonce
-  hmacDrbgGenerate(rng, nonce)
+  rng.generate(nonce)
   var iv: array[ivSize, byte]
-  hmacDrbgGenerate(rng, iv) # Random IV
+  rng.generate(iv) # Random IV
 
   var authdata: seq[byte]
   var authdataHead: seq[byte]
@@ -343,9 +342,7 @@ proc encodeHandshakePacket*(rng: var HmacDrbgContext, c: var Codec,
 
   # Add SPR of sequence number is newer
   if whoareyouData.recordSeq < c.localNode.record.seqNum:
-    let encoded = ? c.localNode.record.encode.mapErr((e: CryptoError) =>
-                    ("Failed to encode local node's SignedPeerRecord: " & $e).cstring)
-    authdata.add(encoded)
+    authdata.add(c.localNode.record.encode)
 
   let secrets = ? deriveKeys(
                     c.localNode.id,

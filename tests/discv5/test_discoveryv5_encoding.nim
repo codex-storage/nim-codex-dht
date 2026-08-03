@@ -3,7 +3,6 @@
 import
   std/[options, sequtils, tables],
   asynctest/chronos/unittest2,
-  bearssl/rand,
   chronos,
   libp2p/crypto/secp,
   codexdht/discv5/[messages, messages_encoding, encoding, spr, node, sessions],
@@ -500,7 +499,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encrypt / Decrypt header":
     var nonce: AESGCMNonce
-    hmacDrbgGenerate(rng[], nonce)
+    rng.generate(nonce)
     let
       nodeId = NodeId.example(rng)
       authdata = newSeq[byte](32)
@@ -509,7 +508,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
       header = staticHeader & authdata
 
     var iv: array[128 div 8, byte]
-    hmacDrbgGenerate(rng[], iv)
+    rng.generate(iv)
 
     let
       encrypted = encryptHeader(nodeId, iv, header)
@@ -543,10 +542,10 @@ suite "Discovery v5.1 Additional Encode/Decode":
   test "Encode / Decode Ordinary Random Message Packet":
     let
       m = PingMessage(sprSeq: 0)
-      reqId = RequestId.init(rng[])
+      reqId = RequestId.init(rng)
       message = encodeMessage(m, reqId)
 
-    let (data, nonce, _) = encodeMessagePacket(rng[], codecA, nodeB.id,
+    let (data, nonce, _) = encodeMessagePacket(rng, codecA, nodeB.id,
       nodeB.address.get(), message)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
@@ -558,10 +557,10 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Whoareyou Packet":
     var requestNonce: AESGCMNonce
-    hmacDrbgGenerate(rng[], requestNonce)
+    rng.generate(requestNonce)
     let recordSeq = 0'u64
 
-    let data = encodeWhoareyouPacket(rng[], codecA, nodeB.id,
+    let data = encodeWhoareyouPacket(rng, codecA, nodeB.id,
       nodeB.address.get(), requestNonce, recordSeq, none(PublicKey))
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)
@@ -579,11 +578,11 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Handshake Message Packet":
     var requestNonce: AESGCMNonce
-    hmacDrbgGenerate(rng[], requestNonce)
+    rng.generate(requestNonce)
     let
       recordSeq = 1'u64
       m = PingMessage(sprSeq: 0)
-      reqId = RequestId.init(rng[])
+      reqId = RequestId.init(rng)
       message = encodeMessage(m, reqId)
       pubkey = privKeyA.getPublicKey
                  .expect("Valid private key for public key")
@@ -593,13 +592,13 @@ suite "Discovery v5.1 Additional Encode/Decode":
     # whoareyou data returned. It's either that or construct the header for the
     # whoareyouData manually.
     let
-      encodedDummy = encodeWhoareyouPacket(rng[], codecB, nodeA.id,
+      encodedDummy = encodeWhoareyouPacket(rng, codecB, nodeA.id,
         nodeA.address.get(), requestNonce, recordSeq, pubkey)
       decodedDummy = codecA.decodePacket(nodeB.address.get(), encodedDummy)
 
     let
       pubKeyB = privKeyB.getPublicKey.expect("Valid private key for public key")
-      data = encodeHandshakePacket(rng[], codecA, nodeB.id,
+      data = encodeHandshakePacket(rng, codecA, nodeB.id,
                nodeB.address.get(), message, decodedDummy[].whoareyou,
                pubKeyB
              ).expect("Valid handshake packet data")
@@ -615,11 +614,11 @@ suite "Discovery v5.1 Additional Encode/Decode":
 
   test "Encode / Decode Handshake Message Packet with SPR":
     var requestNonce: AESGCMNonce
-    hmacDrbgGenerate(rng[], requestNonce)
+    rng.generate(requestNonce)
     let
       recordSeq = 0'u64
       m = PingMessage(sprSeq: 0)
-      reqId = RequestId.init(rng[])
+      reqId = RequestId.init(rng)
       message = encodeMessage(m, reqId)
       pubkey = none(PublicKey)
 
@@ -627,13 +626,13 @@ suite "Discovery v5.1 Additional Encode/Decode":
     # whoareyou data returned. It's either that or construct the header for the
     # whoareyouData manually.
     let
-      encodedDummy = encodeWhoareyouPacket(rng[], codecB, nodeA.id,
+      encodedDummy = encodeWhoareyouPacket(rng, codecB, nodeA.id,
         nodeA.address.get(), requestNonce, recordSeq, pubkey)
       decodedDummy = codecA.decodePacket(nodeB.address.get(), encodedDummy)
 
     let
       pubKeyB = privKeyB.getPublicKey.expect("Valid private key for public key")
-      encoded = encodeHandshakePacket(rng[], codecA, nodeB.id,
+      encoded = encodeHandshakePacket(rng, codecA, nodeB.id,
                   nodeB.address.get(), message, decodedDummy[].whoareyou,
                   pubKeyB
                 ).expect("Valid handshake packet data")
@@ -651,7 +650,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
   test "Encode / Decode Ordinary Message Packet":
     let
       m = PingMessage(sprSeq: 0)
-      reqId = RequestId.init(rng[])
+      reqId = RequestId.init(rng)
       message = encodeMessage(m, reqId)
 
     # Need to manually add the secrets that normally get negotiated in the
@@ -662,7 +661,7 @@ suite "Discovery v5.1 Additional Encode/Decode":
     codecB.sessions.store(nodeA.id, nodeA.address.get(), secrets.initiatorKey,
       secrets.recipientKey)
 
-    let (data, nonce, _) = encodeMessagePacket(rng[], codecA, nodeB.id,
+    let (data, nonce, _) = encodeMessagePacket(rng, codecA, nodeB.id,
       nodeB.address.get(), message)
 
     let decoded = codecB.decodePacket(nodeA.address.get(), data)

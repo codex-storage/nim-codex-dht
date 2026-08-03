@@ -1,6 +1,5 @@
 import
   std/net,
-  bearssl/rand,
   chronos,
   libp2p/crypto/[crypto, secp],
   libp2p/multiaddress,
@@ -10,17 +9,17 @@ import
 proc localAddress*(port: int): Address =
   Address(ip: IPv4_loopback(), port: Port(port))
 
-proc example*(T: type PrivateKey, rng: ref HmacDrbgContext): PrivateKey =
-  PrivateKey.random(PKScheme.Secp256k1, rng[]).expect("Valid rng for private key")
+proc example*(T: type PrivateKey, rng: Rng): PrivateKey =
+  PrivateKey.random(PKScheme.Secp256k1, rng).expect("Valid rng for private key")
 
-proc example*(T: type NodeId, rng: ref HmacDrbgContext): NodeId =
+proc example*(T: type NodeId, rng: Rng): NodeId =
   let
     privKey = PrivateKey.example(rng)
     pubKey = privKey.getPublicKey.expect("Valid private key for public key")
   pubKey.toNodeId().expect("Public key valid for node id")
 
 proc initDiscoveryNode*(
-    rng: ref HmacDrbgContext,
+    rng: Rng,
     privKey: PrivateKey,
     address: Address,
     bootstrapRecords: openArray[SignedPeerRecord] = [],
@@ -59,7 +58,7 @@ proc generateNode*(privKey: PrivateKey, port: int,
               .expect("Properly intialized private key")
   result = newNode(spr).expect("Properly initialized node")
 
-proc generateNRandomNodes*(rng: ref HmacDrbgContext, n: int): seq[Node] =
+proc generateNRandomNodes*(rng: Rng, n: int): seq[Node] =
   var res = newSeq[Node]()
   for i in 1..n:
     let
@@ -68,7 +67,7 @@ proc generateNRandomNodes*(rng: ref HmacDrbgContext, n: int): seq[Node] =
     res.add(node)
   res
 
-proc nodeAndPrivKeyAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
+proc nodeAndPrivKeyAtDistance*(n: Node, rng: Rng, d: uint32,
     ip: IpAddress = parseIpAddress("127.0.0.1")): (Node, PrivateKey) =
   while true:
     let
@@ -77,19 +76,19 @@ proc nodeAndPrivKeyAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
     if logDistance(n.id, node.id) == d:
       return (node, privKey)
 
-proc nodeAtDistance*(n: Node, rng: var HmacDrbgContext, d: uint32,
+proc nodeAtDistance*(n: Node, rng: Rng, d: uint32,
     ip: IpAddress = parseIpAddress("127.0.0.1")): Node =
   let (node, _) = n.nodeAndPrivKeyAtDistance(rng, d, ip)
   node
 
 proc nodesAtDistance*(
-    n: Node, rng: var HmacDrbgContext, d: uint32, amount: int,
+    n: Node, rng: Rng, d: uint32, amount: int,
     ip: IpAddress = parseIpAddress("127.0.0.1")): seq[Node] =
   for i in 0..<amount:
     result.add(nodeAtDistance(n, rng, d, ip))
 
 proc nodesAtDistanceUniqueIp*(
-    n: Node, rng: var HmacDrbgContext, d: uint32, amount: int,
+    n: Node, rng: Rng, d: uint32, amount: int,
     ip: IpAddress = parseIpAddress("127.0.0.1")): seq[Node] =
   var ta = initTAddress(ip, Port(0))
   for i in 0..<amount:

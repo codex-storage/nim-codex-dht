@@ -4,7 +4,7 @@ import std/sequtils
 import pkg/chronos
 import pkg/asynctest/chronos/unittest
 import pkg/datastore
-from pkg/libp2p import PeerId
+from pkg/libp2p/peerid import PeerId
 
 import codexdht/private/eth/p2p/discoveryv5/spr
 import codexdht/private/eth/p2p/discoveryv5/providers

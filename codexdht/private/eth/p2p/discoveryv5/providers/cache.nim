@@ -10,7 +10,7 @@
 import std/sequtils
 
 import pkg/chronicles
-import pkg/libp2p
+import pkg/libp2p/[peerid, routing_record]
 import pkg/questionable
 
 import ../node

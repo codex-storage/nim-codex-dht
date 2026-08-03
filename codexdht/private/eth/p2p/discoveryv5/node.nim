@@ -9,13 +9,14 @@
 
 import
   std/[hashes, net],
-  bearssl/rand,
   chronicles,
   chronos,
   nimcrypto,
   stint,
   ./crypto,
   ./spr
+
+from libp2p/crypto/crypto import Rng, generate
 
 export stint
 
@@ -132,9 +133,9 @@ func `==`*(a, b: Node): bool =
 func hash*(id: NodeId): Hash =
   hash(id.toByteArrayBE)
 
-proc random*(T: type NodeId, rng: var HmacDrbgContext): T =
+proc random*(T: type NodeId, rng: Rng): T =
   var id: NodeId
-  hmacDrbgGenerate(rng, addr id, csize_t(sizeof(id)))
+  rng.generate(id)
 
   id
 

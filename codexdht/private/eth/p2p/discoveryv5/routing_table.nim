@@ -9,8 +9,10 @@
 
 import
   std/[algorithm, net, times, sequtils, bitops, sets, options, tables],
-  stint, chronicles, metrics, bearssl/rand, chronos,
+  stint, chronicles, metrics, chronos,
   "."/[node, random2, spr]
+
+from libp2p/crypto/crypto import Rng
 
 export options
 
@@ -51,7 +53,7 @@ type
     ipLimits: IpLimits ## IP limits for total routing table: all buckets and
     ## replacement caches.
     distanceCalculator: DistanceCalculator
-    rng: ref HmacDrbgContext
+    rng: Rng
 
   KBucket = ref object
     istart, iend: NodeId ## Range of NodeIds this KBucket covers. This is not a
@@ -289,7 +291,7 @@ proc getDepth*(b: KBucket) : int =
   computeSharedPrefixBits(@[b.istart, b.iend])
 
 proc init*(T: type RoutingTable, localNode: Node, bitsPerHop = DefaultBitsPerHop,
-    ipLimits = DefaultTableIpLimits, rng: ref HmacDrbgContext,
+    ipLimits = DefaultTableIpLimits, rng: Rng,
     distanceCalculator = XorDistanceCalculator): T =
   ## Initialize the routing table for provided `Node` and bitsPerHop value.
   ## `bitsPerHop` is default set to 5 as recommended by original Kademlia paper.
@@ -553,7 +555,7 @@ proc nodeToRevalidate*(r: RoutingTable): Node =
   ## Return a node to revalidate. The least recently seen node from a random
   ## bucket is selected.
   var buckets = r.buckets
-  r.rng[].shuffle(buckets)
+  random2.shuffle(r.rng, buckets)
   # TODO: Should we prioritize less-recently-updated buckets instead? Could
   # store a `now` Moment at setJustSeen or at revalidate per bucket.
   for b in buckets:
@@ -586,9 +588,9 @@ proc randomNodes*(r: RoutingTable, maxAmount: int,
   # already.
   # We check against the number of nodes to avoid an infinite loop in case of a filter.
   while len(result) < maxAmount and len(seen) < sz:
-    let bucket = r.rng[].sample(r.buckets)
+    let bucket = r.rng.sample(r.buckets)
     if bucket.nodes.len != 0:
-      let node = r.rng[].sample(bucket.nodes)
+      let node = r.rng.sample(bucket.nodes)
       if node notin seen:
         seen.incl(node)
         if pred.isNil() or node.pred:
