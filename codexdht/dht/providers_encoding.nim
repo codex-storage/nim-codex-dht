@@ -12,6 +12,8 @@ func getField*(pb: ProtoBuffer, field: int,
   if not(res):
     ok(false)
   else:
+    if buffer.len != 32:
+      return err(ProtoError.IncorrectBlob)
     nid = readUintBE[256](buffer)
     ok(true)
 
@@ -21,7 +23,7 @@ func write*(pb: var ProtoBuffer, field: int, nid: NodeId) =
 
 func getField*(pb: ProtoBuffer, field: int,
                pr: var PeerRecord): ProtoResult[bool] {.inline.} =
-  ## Read ``NodeId`` from ProtoBuf's message and validate it
+  ## Read ``PeerRecord`` from ProtoBuf's message and validate it
   var buffer: seq[byte]
   let res = ? pb.getField(field, buffer)
   if not(res):
